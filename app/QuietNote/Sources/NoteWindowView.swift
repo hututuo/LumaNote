@@ -592,7 +592,7 @@ private struct ExtractionIslandButtonModifier: ViewModifier {
                             colors: [
                                 .white.opacity((isExpanded ? 0.18 : 0.22) + opacity * (isExpanded ? 0.56 : 0.6)),
                                 .white.opacity(0.08 + opacity * 0.14),
-                                .black.opacity(0.03 + opacity * 0.05)
+                                .white.opacity(0.02 + opacity * 0.04)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -600,12 +600,6 @@ private struct ExtractionIslandButtonModifier: ViewModifier {
                         lineWidth: 1
                     )
             )
-            .overlay(alignment: .topLeading) {
-                islandShape
-                    .trim(from: 0.06, to: isExpanded ? 0.24 : 0.34)
-                    .stroke(.white.opacity((isExpanded ? 0.12 : 0.16) + opacity * (isExpanded ? 0.33 : 0.39)), lineWidth: 1.2)
-                    .padding(isExpanded ? 2 : 3)
-            }
             .shadow(color: .white.opacity(0.04 + opacity * 0.12), radius: 3, x: -1, y: -1)
             .shadow(color: .black.opacity(0.04 + opacity * 0.12), radius: isExpanded ? 12 : 8, y: 4)
     }
