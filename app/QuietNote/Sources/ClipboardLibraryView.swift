@@ -76,12 +76,9 @@ private struct ClipboardRow: View {
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(item.detections) { detection in
-                                DetectionChip(detection: detection, settings: settings, store: store)
-                                    .fixedSize()
-                            }
+                    WrappingChipLayout(horizontalSpacing: 6, verticalSpacing: 6) {
+                        ForEach(item.detections) { detection in
+                            DetectionChip(detection: detection, settings: settings, store: store)
                         }
                     }
                 }
@@ -148,18 +145,106 @@ private struct DetectionChip: View {
             HStack(spacing: 5) {
                 Image(systemName: detection.symbol)
                     .font(.system(size: 10, weight: .semibold))
+                    .frame(width: 12)
                 Text(detection.value)
                     .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
+                    .truncationMode(.middle)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(.white.opacity(0.32), lineWidth: 1)
+            .frame(maxWidth: 210, alignment: .leading)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5.5)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .background(
+                Color.white.opacity(0.08),
+                in: RoundedRectangle(cornerRadius: 9, style: .continuous)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(.white.opacity(0.36), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.06), radius: 4, y: 1)
         }
         .menuStyle(.borderlessButton)
+    }
+}
+
+private struct WrappingChipLayout: Layout {
+    let horizontalSpacing: CGFloat
+    let verticalSpacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? 260
+        let rows = rows(for: subviews, maxWidth: maxWidth)
+        let height = rows.reduce(CGFloat.zero) { partialResult, row in
+            partialResult + row.height
+        } + verticalSpacing * CGFloat(max(rows.count - 1, 0))
+
+        return CGSize(width: maxWidth, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let rows = rows(for: subviews, maxWidth: bounds.width)
+        var y = bounds.minY
+
+        for row in rows {
+            var x = bounds.minX
+
+            for item in row.items {
+                subviews[item.index].place(
+                    at: CGPoint(x: x, y: y + (row.height - item.size.height) / 2),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(item.size)
+                )
+                x += item.size.width + horizontalSpacing
+            }
+
+            y += row.height + verticalSpacing
+        }
+    }
+
+    private func rows(for subviews: Subviews, maxWidth: CGFloat) -> [Row] {
+        let availableWidth = max(1, maxWidth)
+        var rows: [Row] = []
+        var currentItems: [RowItem] = []
+        var currentWidth: CGFloat = 0
+        var currentHeight: CGFloat = 0
+
+        for index in subviews.indices {
+            let proposedChipWidth = min(availableWidth, 232)
+            var size = subviews[index].sizeThatFits(ProposedViewSize(width: proposedChipWidth, height: nil))
+            size.width = min(size.width, availableWidth)
+
+            let nextWidth = currentItems.isEmpty
+                ? size.width
+                : currentWidth + horizontalSpacing + size.width
+
+            if !currentItems.isEmpty, nextWidth > availableWidth {
+                rows.append(Row(items: currentItems, height: currentHeight))
+                currentItems = [RowItem(index: index, size: size)]
+                currentWidth = size.width
+                currentHeight = size.height
+            } else {
+                currentItems.append(RowItem(index: index, size: size))
+                currentWidth = nextWidth
+                currentHeight = max(currentHeight, size.height)
+            }
+        }
+
+        if !currentItems.isEmpty {
+            rows.append(Row(items: currentItems, height: currentHeight))
+        }
+
+        return rows
+    }
+
+    private struct Row {
+        let items: [RowItem]
+        let height: CGFloat
+    }
+
+    private struct RowItem {
+        let index: Int
+        let size: CGSize
     }
 }

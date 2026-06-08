@@ -124,7 +124,7 @@ struct NoteWindowView: View {
                                 )
                         )
                         .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
-                        .padding(.top, 34)
+                        .padding(.top, 40)
                         .transition(.asymmetric(
                             insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity),
                             removal: .scale(scale: 0.985, anchor: .top).combined(with: .opacity)
