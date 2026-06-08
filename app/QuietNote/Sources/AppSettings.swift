@@ -38,6 +38,15 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(alwaysOnTop, forKey: Keys.alwaysOnTop) }
     }
 
+    @Published var launchAtLogin: Bool {
+        didSet {
+            guard !isSyncingLaunchAtLogin, launchAtLogin != oldValue else { return }
+            applyLaunchAtLogin(launchAtLogin, fallback: oldValue)
+        }
+    }
+
+    @Published private(set) var launchAtLoginError: String?
+
     @Published var monitorClipboard: Bool {
         didSet { defaults.set(monitorClipboard, forKey: Keys.monitorClipboard) }
     }
@@ -51,14 +60,35 @@ final class AppSettings: ObservableObject {
     }
 
     private let defaults = UserDefaults.standard
+    private var isSyncingLaunchAtLogin = false
 
     init() {
         noteOpacity = max(Self.minimumNoteOpacity, defaults.object(forKey: Keys.noteOpacity) as? Double ?? Self.defaultNoteOpacity)
         glassStrength = defaults.object(forKey: Keys.glassStrength) as? Double ?? Self.defaultGlassStrength
         alwaysOnTop = defaults.object(forKey: Keys.alwaysOnTop) as? Bool ?? true
+        launchAtLogin = LaunchAtLoginController.isEnabled
+        launchAtLoginError = nil
         monitorClipboard = defaults.object(forKey: Keys.monitorClipboard) as? Bool ?? true
         clipboardLimit = defaults.object(forKey: Keys.clipboardLimit) as? Int ?? 200
         language = AppLanguage(rawValue: defaults.string(forKey: Keys.language) ?? "") ?? .chinese
+    }
+
+    func refreshLaunchAtLoginStatus() {
+        isSyncingLaunchAtLogin = true
+        launchAtLogin = LaunchAtLoginController.isEnabled
+        isSyncingLaunchAtLogin = false
+    }
+
+    private func applyLaunchAtLogin(_ enabled: Bool, fallback: Bool) {
+        switch LaunchAtLoginController.setEnabled(enabled) {
+        case .success:
+            launchAtLoginError = nil
+        case .failure(let error):
+            isSyncingLaunchAtLogin = true
+            launchAtLogin = fallback
+            isSyncingLaunchAtLogin = false
+            launchAtLoginError = error.localizedDescription
+        }
     }
 
     private enum Keys {

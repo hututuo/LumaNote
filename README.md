@@ -70,6 +70,7 @@ open build/LumaNote.app
 | Clipboard extraction | Detects URLs, email addresses, phone numbers, address-like text, and labeled codes from each clipboard item. |
 | Top island suggestions | Extracted clipboard values can appear in a compact top island for quick copy, paste, open URL, email, call, or map actions. |
 | Global shortcuts | Configurable shortcuts for showing the note, hiding the note, and opening the clipboard library. |
+| Launch at login | Optional macOS Login Items integration so LumaNote can open automatically after sign-in. |
 | Chinese / English UI | Built-in app chrome language switch. Markdown content is not translated or changed. |
 
 ## Markdown Compatibility
