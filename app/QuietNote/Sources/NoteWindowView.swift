@@ -520,8 +520,8 @@ struct NoteWindowView: View {
             WindowClickDragView {}
 
             Text(noteStore.displayTitle)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.primary.opacity(0.2))
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .multilineTextAlignment(.center)
@@ -551,13 +551,13 @@ struct NoteWindowView: View {
             ZStack {
                 HStack(spacing: 7) {
                     Image(systemName: first.symbol)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.primary.opacity(0.35))
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundStyle(.primary)
                         .frame(width: 14, height: 22)
 
                     Text(first.value)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.2))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .frame(maxWidth: 122, alignment: .leading)
@@ -565,7 +565,7 @@ struct NoteWindowView: View {
                     if item.detections.count > 1 {
                         Text("+\(item.detections.count - 1)")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.primary.opacity(0.2))
+                            .foregroundStyle(.primary.opacity(0.9))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(.white.opacity(0.16), in: Capsule())
@@ -612,7 +612,7 @@ struct NoteWindowView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.primary.opacity(0.35))
+        .foregroundStyle(.primary)
         .background(.white.opacity(0.03 + islandOpacity * 0.08), in: Circle())
         .help("Clipboard")
     }
