@@ -22,7 +22,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Customizable global shortcuts for showing the note, hiding the note, and opening the clipboard library.
 - App-level Chinese/English UI language switch in Settings. This changes app chrome text, not the user's Markdown content.
 - Clipboard history saved locally after explicit app setting enables monitoring.
-- Clipboard detection suggestions for URL, email, phone, address-like text, and labeled codes such as verification codes or order/tracking numbers.
+- Clipboard detection suggestions for URL, email, phone, address-like text, labeled codes such as verification codes or order/tracking numbers, and labeled free text after a colon.
 - Polished SwiftUI/macOS visual style with frosted glass and subtle slide/fade behavior.
 
 ## Current Build Entry
@@ -91,13 +91,16 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Clipboard monitoring timer starts/stops with the setting and runs in the common run loop so UI interaction is less likely to pause polling.
 - Clipboard library v2 supports local search, per-item delete, copy/paste actions, and Copy/Paste menus on detected values.
 - Extracted clipboard values are shown under the source clipboard record as contextual chips. Do not reintroduce a top-level type grouping unless the user explicitly asks.
+- Label/colon values such as `地址：...`, `电话：...`, `邮箱：...`, or `备注：...` are processed before generic detection. Known labels are typed when the value validates; unknown or invalid labeled values fall back to copyable Text chips instead of being dropped.
 - Do not extract arbitrary numeric values. `Number` is now reserved for labeled codes/identifiers, such as 验证码, 取件码, 订单号, 快递单号, invoice, tracking, ticket, or similar labels. Plain years, dates, counts, prices, decimals, or standalone numbers should not create chips or top-island suggestions.
 - Phone extraction is restricted to 10-15 digits and excludes simple date-like formats such as `2026-06-07`.
+- Address extraction must not hand the whole clipboard body to Maps when only a labeled address segment exists. Prefer the value after the address label/colon, and use generic address matching only for standalone address-like snippets.
 - The top island normally shows the current note title. `NoteStore.displayTitle` uses the first Markdown heading when present, otherwise the actual saved filename.
 - In title mode, the title text is centered inside the island. The right-side clipboard icon is the only title-mode hit target that opens the clipboard library; clicking the rest of the capsule should not open the library.
 - The clipboard library should not use SwiftUI/macOS `.popover`; it now uses `clipboardInlineOverlay`, an in-window glass panel centered under the top island. This avoids system popover misplacement and uses a faster 0.16s snappy transition.
 - The compact settings/more menu should also avoid SwiftUI/macOS `.popover`. It uses an in-window glass overlay anchored to the bottom-right settings button, then clamps its panel position to the note bounds so it stays usable near screen edges.
 - The island's glass shell, border, highlights, icon button background, and shadows follow `settings.noteOpacity` through `islandOpacity = max(0.05, settings.noteOpacity)`. Do not apply global opacity to the island content: the title text and icons must remain readable and should not fade with note transparency.
+- The island's title/detected value text is intentionally very light at about 20% primary opacity, while the adjacent symbols are about 35% primary opacity. Keep these separate from the glass shell opacity.
 - When the latest clipboard entry has extracted values, the top island temporarily switches from title mode to detection mode. Its popover supports Copy/Paste, plus Open URL, Send Email, Call, or Open in Maps where appropriate.
 - Detection-mode hit zones are separated: the left grip area should only drag and must not open popovers, the middle detection content area opens extraction actions, and the right clipboard icon opens the clipboard library. Keep the detection island narrower than the note's rounded top edge; do not let it span into the window corner radius.
 - The left grip area must use `islandDragGrip`, which overlays a transparent `WindowDragView` on the three-line visual grip. Do not leave the three bars as a visual-only view, or three-finger dragging on the bars will stop working.

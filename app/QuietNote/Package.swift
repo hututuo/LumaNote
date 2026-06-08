@@ -20,6 +20,11 @@ let package = Package(
                 "KeyboardShortcuts"
             ],
             path: "Sources"
+        ),
+        .testTarget(
+            name: "QuietNoteTests",
+            dependencies: ["QuietNote"],
+            path: "Tests"
         )
     ]
 )

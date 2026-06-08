@@ -521,6 +521,7 @@ struct NoteWindowView: View {
 
             Text(noteStore.displayTitle)
                 .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.primary.opacity(0.2))
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .multilineTextAlignment(.center)
@@ -551,22 +552,20 @@ struct NoteWindowView: View {
                 HStack(spacing: 7) {
                     Image(systemName: first.symbol)
                         .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.primary.opacity(0.35))
                         .frame(width: 14, height: 22)
-
-                    Text(first.kind.rawValue)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.secondary)
 
                     Text(first.value)
                         .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.primary.opacity(0.2))
                         .lineLimit(1)
                         .truncationMode(.middle)
-                        .frame(maxWidth: 92, alignment: .leading)
+                        .frame(maxWidth: 122, alignment: .leading)
 
                     if item.detections.count > 1 {
                         Text("+\(item.detections.count - 1)")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary.opacity(0.2))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(.white.opacity(0.16), in: Capsule())
@@ -613,7 +612,7 @@ struct NoteWindowView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.primary.opacity(0.72))
+        .foregroundStyle(.primary.opacity(0.35))
         .background(.white.opacity(0.03 + islandOpacity * 0.08), in: Circle())
         .help("Clipboard")
     }
