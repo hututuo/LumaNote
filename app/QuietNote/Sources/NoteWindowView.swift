@@ -100,7 +100,7 @@ struct NoteWindowView: View {
     private var clipboardInlineOverlay: some View {
         GeometryReader { proxy in
             if showClipboard {
-                let panelWidth = min(360, max(286, proxy.size.width - 28))
+                let panelWidth = min(360, max(238, proxy.size.width - 20))
                 let panelHeight = min(390, max(260, proxy.size.height - 92))
 
                 ZStack(alignment: .top) {
@@ -351,64 +351,76 @@ struct NoteWindowView: View {
     private var bottomRail: some View {
         let copy = AppText(language: settings.language)
 
-        return HStack(spacing: 8) {
-            Text("1")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
+        return GeometryReader { proxy in
+            let progress = railCompactProgress(for: proxy.size.width)
+            let spacing = 8 - progress * 3
+            let horizontalPadding = 14 - progress * 6
+            let sliderMinWidth = 96 - progress * 54
+            let buttonSize = 24 - progress * 2
+            let labelFontSize = 12 - progress
+            let percentWidth = 36 - progress * 4
 
-            Slider(value: $settings.noteOpacity, in: AppSettings.minimumNoteOpacity...1)
-                .tint(.cyan)
-                .frame(minWidth: 96)
+            HStack(spacing: spacing) {
+                Text("1")
+                    .font(.system(size: labelFontSize, weight: .medium))
+                    .foregroundStyle(.secondary)
 
-            Text("100")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
+                Slider(value: $settings.noteOpacity, in: AppSettings.minimumNoteOpacity...1)
+                    .tint(.cyan)
+                    .frame(minWidth: sliderMinWidth)
+                    .layoutPriority(1)
 
-            Text("\(Int(settings.noteOpacity * 100))%")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .frame(width: 36, alignment: .trailing)
+                Text("100")
+                    .font(.system(size: labelFontSize, weight: .medium))
+                    .foregroundStyle(.secondary)
 
-            railButton(symbol: "arrow.left.arrow.right", help: copy.switchNoteFile) {
-                withAnimation(.snappy(duration: 0.14)) {
-                    showClipboard = false
-                    showMore = false
-                    showExtractionActions = false
-                    showFileSwitcher.toggle()
+                Text("\(Int(settings.noteOpacity * 100))%")
+                    .font(.system(size: labelFontSize, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .frame(width: percentWidth, alignment: .trailing)
+
+                railButton(symbol: "arrow.left.arrow.right", help: copy.switchNoteFile, size: buttonSize) {
+                    withAnimation(.snappy(duration: 0.14)) {
+                        showClipboard = false
+                        showMore = false
+                        showExtractionActions = false
+                        showFileSwitcher.toggle()
+                    }
                 }
-            }
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: FileSwitchButtonFramePreferenceKey.self,
-                        value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
-                    )
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: FileSwitchButtonFramePreferenceKey.self,
+                            value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                        )
+                    }
+                )
+                railButton(symbol: "square.and.arrow.down", help: copy.saveAsNoteFile, size: buttonSize) {
+                    saveNoteFileAs()
                 }
-            )
-            railButton(symbol: "square.and.arrow.down", help: copy.saveAsNoteFile) {
-                saveNoteFileAs()
-            }
-            railButton(symbol: settings.alwaysOnTop ? "pin.fill" : "pin", help: "Pin") {
-                settings.alwaysOnTop.toggle()
-            }
-            railButton(symbol: "ellipsis", help: "More") {
-                withAnimation(.snappy(duration: 0.14)) {
-                    showClipboard = false
-                    showExtractionActions = false
-                    showFileSwitcher = false
-                    showMore.toggle()
+                railButton(symbol: settings.alwaysOnTop ? "pin.fill" : "pin", help: "Pin", size: buttonSize) {
+                    settings.alwaysOnTop.toggle()
                 }
-            }
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: MoreButtonFramePreferenceKey.self,
-                        value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
-                    )
+                railButton(symbol: "ellipsis", help: "More", size: buttonSize) {
+                    withAnimation(.snappy(duration: 0.14)) {
+                        showClipboard = false
+                        showExtractionActions = false
+                        showFileSwitcher = false
+                        showMore.toggle()
+                    }
                 }
-            )
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: MoreButtonFramePreferenceKey.self,
+                            value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                        )
+                    }
+                )
+            }
+            .padding(.horizontal, horizontalPadding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(.horizontal, 14)
         .frame(height: 36)
         .background {
             Rectangle()
@@ -422,14 +434,28 @@ struct NoteWindowView: View {
         }
     }
 
-    private func railButton(symbol: String, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func railCompactProgress(for width: CGFloat) -> CGFloat {
+        let fullWidth = NoteWindowLayout.initialSize.width
+        let compactWidth = NoteWindowLayout.minimumSize.width
+        guard width < fullWidth, fullWidth > compactWidth else {
+            return 0
+        }
+        return min(max((fullWidth - width) / (fullWidth - compactWidth), 0), 1)
+    }
+
+    private func railButton(symbol: String, help: String, size: CGFloat = 24, action: @escaping () -> Void) -> some View {
+        let cornerRadius = max(6, size * 0.29)
+
+        return Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 24, height: 24)
+                .font(.system(size: size * 0.54, weight: .semibold))
+                .frame(width: size, height: size)
         }
         .buttonStyle(.plain)
-        .background(.white.opacity(0.12 + settings.noteOpacity * 0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background(
+            .white.opacity(0.12 + settings.noteOpacity * 0.08),
+            in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        )
         .help(help)
     }
 
