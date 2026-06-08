@@ -42,6 +42,15 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
 
                 Toggle(copy.alwaysOnTop, isOn: $settings.alwaysOnTop)
+                Toggle(copy.launchAtLogin, isOn: $settings.launchAtLogin)
+                Text(copy.launchAtLoginHint)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                if let error = settings.launchAtLoginError {
+                    Text(copy.launchAtLoginFailed + error)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
             }
 
             Section(copy.shortcuts) {
@@ -60,5 +69,8 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(18)
+        .onAppear {
+            settings.refreshLaunchAtLoginStatus()
+        }
     }
 }

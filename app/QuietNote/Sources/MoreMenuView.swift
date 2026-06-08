@@ -32,6 +32,12 @@ struct MoreMenuView: View {
                     .tint(.cyan)
 
                 Toggle(copy.alwaysOnTop, isOn: $settings.alwaysOnTop)
+                Toggle(copy.launchAtLogin, isOn: $settings.launchAtLogin)
+                if let error = settings.launchAtLoginError {
+                    Text(copy.launchAtLoginFailed + error)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.red)
+                }
 
                 Divider()
 

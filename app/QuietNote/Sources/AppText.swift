@@ -23,6 +23,9 @@ struct AppText {
     var appearance: String { text("玻璃质感", "Glass feel") }
     var glassHintCompact: String { text("模糊 / 泛白 / 质感", "Blur / haze / texture") }
     var hideNote: String { text("隐藏便签", "Hide Note") }
+    var launchAtLogin: String { text("开机自启", "Launch at login") }
+    var launchAtLoginHint: String { text("使用 macOS 登录项服务；可能需要系统确认。", "Uses macOS Login Items; macOS may ask for confirmation.") }
+    var launchAtLoginFailed: String { text("开机自启设置失败：", "Launch at login failed:") }
     var extracted: String { text("已提取", "Extracted") }
     var copy: String { text("复制", "Copy") }
     var openNoteFile: String { text("打开 Markdown 文件", "Open Markdown file") }

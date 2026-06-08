@@ -107,6 +107,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Clipboard paste copies the selected text, hides QuietNote, then sends Cmd+V to the system. This may depend on macOS input-event permissions in stricter environments.
 - The compact more menu now includes clipboard monitoring, stored item count, retention limit, and clear-library action.
 - Settings now includes a Chinese/English segmented language control. `AppSettings.language` defaults to Chinese, and `AppText` provides app chrome strings for Settings, More, Clipboard Library, and extraction action menus.
+- Settings and the compact More menu include a Launch at Login toggle. It uses macOS `SMAppService.mainApp` rather than a custom LaunchAgent. If registration fails, the toggle reverts and shows the localized error message.
 - Global shortcuts are split: `showQuietNote` shows the note, `hideQuietNote` hides it, and `toggleClipboardLibrary` opens/toggles the clipboard library. `toggleQuietNote` remains only as an old-name migration source for the show shortcut and should not be shown as the primary setting.
 - If the app process is running but the window is not visible, `osascript -e 'tell application "QuietNote" to activate'` can bring the panel back.
 - `QuietNoteApp.swift` now handles macOS reopen events so opening an already-running `QuietNote.app` calls `panelController.show()`.
