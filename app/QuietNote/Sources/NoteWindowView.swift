@@ -1,6 +1,7 @@
 import AppKit
 @preconcurrency import KeyboardShortcuts
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct NoteWindowView: View {
     @ObservedObject var settings: AppSettings
@@ -13,8 +14,6 @@ struct NoteWindowView: View {
     @State private var showMore = false
     @State private var showShortcutSettings = false
     @State private var showExtractionActions = false
-    @State private var copiedNoteFeedback = false
-    @State private var copiedNoteResetTask: Task<Void, Never>?
     @State private var moreButtonFrame: CGRect = .zero
     @State private var hiddenSuggestionID: ClipboardItem.ID?
     @State private var suggestionResetTask: Task<Void, Never>?
@@ -75,7 +74,6 @@ struct NoteWindowView: View {
         }
         .onDisappear {
             suggestionResetTask?.cancel()
-            copiedNoteResetTask?.cancel()
         }
         .animation(.snappy(duration: 0.16), value: showClipboard)
         .animation(.snappy(duration: 0.16), value: showMore)
@@ -284,8 +282,11 @@ struct NoteWindowView: View {
                 .monospacedDigit()
                 .frame(width: 36, alignment: .trailing)
 
-            railButton(symbol: copiedNoteFeedback ? "checkmark" : "doc.on.doc", help: copiedNoteFeedback ? copy.copiedNote : copy.copyNote) {
-                copyCurrentNote()
+            railButton(symbol: "folder", help: copy.openNoteFile) {
+                openNoteFile()
+            }
+            railButton(symbol: "square.and.arrow.down", help: copy.saveAsNoteFile) {
+                saveNoteFileAs()
             }
             railButton(symbol: settings.alwaysOnTop ? "pin.fill" : "pin", help: "Pin") {
                 settings.alwaysOnTop.toggle()
@@ -331,21 +332,37 @@ struct NoteWindowView: View {
         .help(help)
     }
 
-    private func copyCurrentNote() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(noteStore.markdown, forType: .string)
+    private func openNoteFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = markdownContentTypes
+        panel.directoryURL = noteStore.currentFileURL.deletingLastPathComponent()
 
-        copiedNoteResetTask?.cancel()
-        withAnimation(.snappy(duration: 0.12)) {
-            copiedNoteFeedback = true
+        if panel.runModal() == .OK, let url = panel.url {
+            noteStore.openFile(at: url)
         }
-        copiedNoteResetTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1.1))
-            guard !Task.isCancelled else { return }
-            withAnimation(.snappy(duration: 0.16)) {
-                copiedNoteFeedback = false
-            }
+    }
+
+    private func saveNoteFileAs() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = markdownContentTypes
+        panel.directoryURL = noteStore.currentFileURL.deletingLastPathComponent()
+        panel.nameFieldStringValue = noteStore.currentFileName
+
+        if panel.runModal() == .OK, let url = panel.url {
+            noteStore.saveAs(to: url)
         }
+    }
+
+    private var markdownContentTypes: [UTType] {
+        [
+            UTType(filenameExtension: "md"),
+            UTType(filenameExtension: "markdown"),
+            .plainText,
+            .text
+        ].compactMap { $0 }
     }
 
     @ViewBuilder

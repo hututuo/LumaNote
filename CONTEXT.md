@@ -10,6 +10,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Content area takes priority.
 - A slim bottom rail holds the main controls.
 - The opacity slider runs from 0% to 100%.
+- The bottom rail includes compact file actions for opening a Markdown/text file and saving the current note as a Markdown file.
 - Extra controls stay behind compact icon buttons or popovers.
 - Clipboard suggestions appear as a compact top-bar island/popover, not a large permanent panel.
 
@@ -80,6 +81,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - `WindowDragView.swift` overrides `acceptsFirstMouse` so the drag strip can receive the first mouse/trackpad event even while QuietNote is inactive. This is intended to make three-finger dragging work without first focusing the app.
 - The top island must not be implemented as a normal SwiftUI `Button`; it blocks three-finger dragging. Use `WindowClickDragView` for the island hit target so short clicks open clipboard/actions and drag gestures call `window.performDrag`.
 - The app stores data locally under `~/Library/Application Support/QuietNote/`.
+- `NoteStore` tracks a current Markdown file URL. Opening a file loads it into the note and switches live save to that file; Save As writes the current content to the chosen file and then switches live save to the new path. The current path is remembered locally for the next launch.
 - Clipboard monitoring is on by default for new users, can be disabled from the compact more menu or Settings, and immediately captures the current clipboard when enabled.
 - Clipboard monitoring timer starts/stops with the setting and runs in the common run loop so UI interaction is less likely to pause polling.
 - Clipboard library v2 supports local search, per-item delete, copy/paste actions, and Copy/Paste menus on detected values.

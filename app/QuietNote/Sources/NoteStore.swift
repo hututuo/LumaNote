@@ -4,13 +4,20 @@ import Foundation
 @MainActor
 final class NoteStore: ObservableObject {
     @Published var markdown: String {
-        didSet { scheduleSave() }
+        didSet {
+            if !isReplacingText {
+                scheduleSave()
+            }
+        }
     }
 
     @Published private(set) var lastSavedText = "Saved"
+    @Published private(set) var currentFileURL: URL
 
-    private let fileURL: URL
+    private let defaultFileURL: URL
+    private let defaults = UserDefaults.standard
     private var saveTask: Task<Void, Never>?
+    private var isReplacingText = false
 
     var displayTitle: String {
         let lines = markdown.split(whereSeparator: \.isNewline)
@@ -25,16 +32,28 @@ final class NoteStore: ObservableObject {
             }
         }
 
-        return fileURL.lastPathComponent
+        return currentFileURL.lastPathComponent
+    }
+
+    var currentFileName: String {
+        currentFileURL.lastPathComponent
     }
 
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "QuietNote", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        fileURL = support.appending(path: "note.md")
+        defaultFileURL = support.appending(path: "note.md")
 
-        if let data = try? Data(contentsOf: fileURL),
+        let initialFileURL: URL
+        if let savedPath = defaults.string(forKey: Keys.currentFilePath), !savedPath.isEmpty {
+            initialFileURL = URL(fileURLWithPath: savedPath)
+        } else {
+            initialFileURL = defaultFileURL
+        }
+        currentFileURL = initialFileURL
+
+        if let data = try? Data(contentsOf: initialFileURL),
            let text = String(data: data, encoding: .utf8),
            !text.isEmpty {
             markdown = text
@@ -56,19 +75,44 @@ final class NoteStore: ObservableObject {
     }
 
     func saveNow() {
+        saveTask?.cancel()
         do {
-            try markdown.write(to: fileURL, atomically: true, encoding: .utf8)
+            try markdown.write(to: currentFileURL, atomically: true, encoding: .utf8)
             lastSavedText = "Saved just now"
         } catch {
             lastSavedText = "Save failed"
         }
     }
 
+    func openFile(at url: URL) {
+        saveNow()
+        saveTask?.cancel()
+
+        do {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            currentFileURL = url
+            defaults.set(url.path, forKey: Keys.currentFilePath)
+            isReplacingText = true
+            markdown = text
+            isReplacingText = false
+            lastSavedText = "Opened"
+        } catch {
+            lastSavedText = "Open failed"
+        }
+    }
+
+    func saveAs(to url: URL) {
+        saveTask?.cancel()
+        currentFileURL = url
+        defaults.set(url.path, forKey: Keys.currentFilePath)
+        saveNow()
+    }
+
     private func scheduleSave() {
         lastSavedText = "Saving..."
         saveTask?.cancel()
         let text = markdown
-        let url = fileURL
+        let url = currentFileURL
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(280))
             guard !Task.isCancelled else { return }
@@ -79,5 +123,9 @@ final class NoteStore: ObservableObject {
                 await MainActor.run { self?.lastSavedText = "Save failed" }
             }
         }
+    }
+
+    private enum Keys {
+        static let currentFilePath = "currentFilePath"
     }
 }
