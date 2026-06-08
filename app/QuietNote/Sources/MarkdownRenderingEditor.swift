@@ -25,13 +25,15 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
+        let verticalScroller = ThinOverlayScroller()
+        verticalScroller.controlSize = .mini
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.scrollerStyle = .overlay
         scrollView.borderType = .noBorder
-        scrollView.verticalScroller?.controlSize = .small
+        scrollView.verticalScroller = verticalScroller
 
         let textView = MarkdownTaskTextView()
         textView.delegate = context.coordinator
@@ -398,6 +400,18 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                 .strikethroughStyle: NSUnderlineStyle.thick.rawValue
             ]
         }
+    }
+}
+
+private final class ThinOverlayScroller: NSScroller {
+    override class func scrollerWidth(
+        for controlSize: NSControl.ControlSize,
+        scrollerStyle: NSScroller.Style
+    ) -> CGFloat {
+        if scrollerStyle == .overlay {
+            return 5
+        }
+        return super.scrollerWidth(for: controlSize, scrollerStyle: scrollerStyle)
     }
 }
 
