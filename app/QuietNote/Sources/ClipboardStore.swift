@@ -20,6 +20,7 @@ struct ClipboardDetection: Codable, Identifiable, Equatable {
         case phone = "Phone"
         case address = "Address"
         case number = "Number"
+        case text = "Text"
     }
 
     let id: UUID
@@ -204,6 +205,7 @@ extension ClipboardDetection {
         case .phone: "phone"
         case .address: "mappin.and.ellipse"
         case .number: "number"
+        case .text: "text.quote"
         }
     }
 
@@ -214,6 +216,7 @@ extension ClipboardDetection {
         case .phone: "Call"
         case .address: "Open in Maps"
         case .number: nil
+        case .text: nil
         }
     }
 
@@ -224,13 +227,17 @@ extension ClipboardDetection {
         case .phone: "phone.arrow.up.right"
         case .address: "map"
         case .number: "arrow.up.right"
+        case .text: "doc.on.doc"
         }
     }
 
     var openURL: URL? {
         switch kind {
         case .url:
-            return URL(string: value)
+            if value.range(of: #"^https?://"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                return URL(string: value)
+            }
+            return URL(string: "https://\(value)")
         case .email:
             return URL(string: "mailto:\(value)")
         case .phone:
@@ -240,6 +247,8 @@ extension ClipboardDetection {
             guard let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
             return URL(string: "http://maps.apple.com/?q=\(encoded)")
         case .number:
+            return nil
+        case .text:
             return nil
         }
     }

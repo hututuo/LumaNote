@@ -148,9 +148,6 @@ private struct DetectionChip: View {
             HStack(spacing: 5) {
                 Image(systemName: detection.symbol)
                     .font(.system(size: 10, weight: .semibold))
-                Text(detection.kind.rawValue)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
                 Text(detection.value)
                     .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
