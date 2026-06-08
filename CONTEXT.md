@@ -114,6 +114,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - `QuietNoteApp.swift` now handles macOS reopen events so opening an already-running `QuietNote.app` calls `panelController.show()`.
 - The app now runs as a regular macOS app (`LSUIElement=false`, activation policy `.regular`) so it appears in the Dock/任务栏.
 - `NotePanelController.swift` sets `panel.hidesOnDeactivate = false`; verified by switching to Finder while the note remained visible above other windows.
+- `NotePanelController.swift` lets the root `NSHostingView` autoresize with the panel content area. Keep this, otherwise narrowing the window can crop the old-width SwiftUI rounded shell and make the visible edges look square.
 
 ## Notes For Next Agent
 

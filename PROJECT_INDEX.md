@@ -30,7 +30,7 @@
 | `app/QuietNote/Sources/ClipboardDetector.swift` | 2026-06-07 10:05 | 2026-06-07 16:25 | 剪切板识别器 | 从剪切板文本中提取 URL、邮箱、电话、地址和带标签编号 | 不建议删除 | 每条记录下方提取信息 | 不再提取普通数字；Number 仅识别验证码/订单号/快递单号等带标签编号；电话限制为 10-15 位并排除日期格式 |
 | `app/QuietNote/Sources/ClipboardLibraryView.swift` | 2026-06-07 10:05 | 2026-06-07 17:32 | 剪切板库 UI | 搜索、每条记录下方提取信息、复制/粘贴/删除/打开操作 | 不建议删除 | 中英文切换 | 提取项固定显示在所属剪切板记录下方的小框里，支持 Copy/Paste/Open；库内标题、搜索、空状态和动作文案支持中英文 |
 | `app/QuietNote/Sources/MoreMenuView.swift` | 2026-06-07 10:05 | 2026-06-08 22:35 | 紧凑设置菜单 | 便签内更多菜单和快捷键设置 sheet | 不建议删除 | 开机自启设置 | 菜单内容保持紧凑，背景由主窗口内玻璃浮层容器提供；顶部显示“玻璃质感”和模糊/泛白/质感说明，小窗口内可滚动；快捷键拆成呼出/关闭/剪切板库；新增开机自启开关和失败提示 |
-| `app/QuietNote/Sources/NotePanelController.swift` | 2026-06-07 10:05 | 2026-06-07 10:35 | 窗口控制 | 设置 `hidesOnDeactivate=false`，防止切到其他应用时便签面板消失 | 不建议删除 | 失焦后保持悬浮 | 与 always-on-top 配合，便签可叠在其他窗口上 |
+| `app/QuietNote/Sources/NotePanelController.swift` | 2026-06-07 10:05 | 2026-06-09 00:31 | 窗口控制 | 设置 `hidesOnDeactivate=false`，防止切到其他应用时便签面板消失 | 不建议删除 | 窄窗口圆角修复 | 与 always-on-top 配合，便签可叠在其他窗口上；根 `NSHostingView` 使用宽高 autoresizing 跟随面板内容区，避免窗口变窄时裁到旧宽度 SwiftUI 圆角壳层而出现尖角 |
 | `app/QuietNote/Sources/QuietNoteApp.swift` | 2026-06-07 10:05 | 2026-06-08 22:35 | 应用入口 | 使用 `.regular` 应用模式并保留 reopen 显示窗口行为 | 不建议删除 | LumaNote 品牌 | 修复进程存在但窗口不见、以及不在 Dock/任务栏显示的问题；状态栏菜单残留 QuietNote 文案改为 LumaNote |
 | `app/QuietNote/Sources/HotKeyCenter.swift` | 2026-06-07 10:05 | 2026-06-07 17:30 | 全局快捷键 | 注册 QuietNote 全局快捷键 | 不建议删除 | 快捷键拆分 | 新增 `showQuietNote` 和 `hideQuietNote`，默认呼出 `Option+Space`，默认关闭 `Option+Esc`；旧 toggle 名仅用于迁移现有快捷键 |
 | `app/QuietNote/runs/20260607-100950_launch-check/` | 2026-06-07 10:09 | 2026-06-07 10:09 | 运行截图 | 首次启动截图，窗口显示不明显 | 可删除 | 启动验证 | 被 v2/v3 验证覆盖 |
@@ -82,6 +82,7 @@
 | `app/QuietNote/runs/20260607-234400_task-checkbox-text-padding-align-check/` | 2026-06-07 23:58 | 2026-06-07 23:58 | 运行截图 | Markdown task checkbox 按普通文字 padding 对齐后的可见性验证 | 可删除 | Markdown task 输入修复 | `swift build` 与打包通过；checkbox 左缘加入 `textContainer.lineFragmentPadding`，与普通正文真实左缘一致 |
 | `app/QuietNote/runs/20260608-000224_empty-task-enter-exit-check/` | 2026-06-08 00:04 | 2026-06-08 00:04 | 运行截图 | 空 Markdown task 行按 Return 退出 task list 后的可见性验证 | 可删除 | Markdown task 输入修复 | `swift build` 与打包通过；代码改为删除当前行内容 range，不再把空 task 行替换成额外 `\n` |
 | `app/QuietNote/runs/20260608-001000_disable-system-text-autocomplete-check/` | 2026-06-08 00:11 | 2026-06-08 00:11 | 运行截图 | 禁用系统文本自动补全后防止空 task 退出补横杠的可见性验证 | 可删除 | Markdown task 输入修复 | `swift build` 与打包通过；关闭 `isAutomaticTextCompletionEnabled`、text checking 和 smart insert/delete 等系统自动机制 |
+| `app/QuietNote/runs/20260609-002640_narrow-rounded-corner-check/` | 2026-06-09 00:26 | 2026-06-09 00:26 | 运行截图 | 验证窗口变窄时玻璃外壳仍跟随窗口缩放并保留圆角 | 可删除 | 窄窗口圆角修复 | `swift build` 与打包通过；自动打开并将窗口压到最小宽度附近，截图确认圆角未被旧宽度内容裁掉 |
 
 ## Current Status
 
