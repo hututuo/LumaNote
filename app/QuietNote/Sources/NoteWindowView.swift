@@ -294,10 +294,10 @@ struct NoteWindowView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             extractionIsland
-                .padding(.top, 2)
+                .padding(.top, 7)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 30)
+        .frame(height: 35)
         .contentShape(Rectangle())
     }
 
