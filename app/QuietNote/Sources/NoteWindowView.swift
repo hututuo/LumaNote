@@ -33,7 +33,8 @@ struct NoteWindowView: View {
                 topBar
 
                 content
-                    .padding(.horizontal, 18)
+                    .padding(.leading, 18)
+                    .padding(.trailing, 5)
                     .padding(.top, 10)
                     .padding(.bottom, 8)
 
@@ -163,11 +164,15 @@ struct NoteWindowView: View {
                     .background {
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
                             .fill(.regularMaterial)
-                            .opacity(0.1 + settings.noteOpacity * 0.78)
+                            .opacity(0.62 + settings.noteOpacity * 0.24)
                     }
                     .background {
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(Color.white.opacity(0.035 + settings.noteOpacity * 0.08))
+                            .fill(Color(nsColor: .windowBackgroundColor).opacity(0.12 + settings.noteOpacity * 0.18))
+                    }
+                    .background {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .fill(Color.white.opacity(0.055 + settings.noteOpacity * 0.08))
                             .blendMode(.plusLighter)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
@@ -360,7 +365,7 @@ struct NoteWindowView: View {
                 .monospacedDigit()
                 .frame(width: 36, alignment: .trailing)
 
-            railButton(symbol: "arrow.triangle.2.circlepath", help: copy.switchNoteFile) {
+            railButton(symbol: "arrow.left.arrow.right", help: copy.switchNoteFile) {
                 withAnimation(.snappy(duration: 0.14)) {
                     showClipboard = false
                     showMore = false
