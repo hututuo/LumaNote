@@ -1,0 +1,23 @@
+.DS_Store
+
+# Swift build outputs and generated app bundles
+.build/
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/
+*.xcodeproj/xcuserdata/
+*.app/
+/app/QuietNote/.build/
+/app/QuietNote/build/
+
+# Project run archives and scratch work
+/runs/
+/scratch/
+/backups/
+/app/QuietNote/runs/
+
+# Logs and temporary files
+*.log
+*.tmp
+
