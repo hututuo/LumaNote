@@ -120,7 +120,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         private func styleBlocks(in storage: NSTextStorage) -> [MarkdownTaskTextView.TaskItem] {
             let nsString = storage.string as NSString
             let fullRange = NSRange(location: 0, length: nsString.length)
-            var inCodeFence = false
+            var codeFenceMarker: String?
             var taskItems: [MarkdownTaskTextView.TaskItem] = []
 
             nsString.enumerateSubstrings(in: fullRange, options: [.byLines, .substringNotRequired]) { _, lineRange, _, _ in
@@ -128,14 +128,19 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard !trimmed.isEmpty else { return }
 
-                if trimmed.hasPrefix("```") {
-                    storage.addAttributes(Self.codeFenceAttributes(), range: lineRange)
-                    inCodeFence.toggle()
+                if let marker = codeFenceMarker {
+                    if trimmed.hasPrefix(marker) {
+                        storage.addAttributes(Self.codeFenceAttributes(), range: lineRange)
+                        codeFenceMarker = nil
+                    } else {
+                        storage.addAttributes(Self.codeBlockAttributes(), range: lineRange)
+                    }
                     return
                 }
 
-                if inCodeFence {
-                    storage.addAttributes(Self.codeBlockAttributes(), range: lineRange)
+                if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                    storage.addAttributes(Self.codeFenceAttributes(), range: lineRange)
+                    codeFenceMarker = trimmed.hasPrefix("~~~") ? "~~~" : "```"
                     return
                 }
 
@@ -150,8 +155,27 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                     return
                 }
 
-                if let marker = Self.prefixRange(pattern: #"^\s*>\s?"#, in: line, lineRange: lineRange) {
-                    storage.addAttributes(Self.quoteAttributes(), range: lineRange)
+                if let alert = Self.alertPrefix(in: line, lineRange: lineRange) {
+                    storage.addAttributes(Self.alertAttributes(kind: alert.kind, level: alert.level), range: lineRange)
+                    storage.addAttributes(Self.markerAttributes(), range: alert.markerRange)
+                    storage.addAttributes(Self.alertKindAttributes(kind: alert.kind), range: alert.kindRange)
+                    return
+                }
+
+                if let quote = Self.quotePrefix(in: line, lineRange: lineRange) {
+                    storage.addAttributes(Self.quoteAttributes(level: quote.level), range: lineRange)
+                    storage.addAttributes(Self.markerAttributes(), range: quote.markerRange)
+                    return
+                }
+
+                if let reference = Self.prefixRange(pattern: #"^\s*\[[^\]]+\]:\s+\S+"#, in: line, lineRange: lineRange) {
+                    storage.addAttributes(Self.referenceDefinitionAttributes(), range: lineRange)
+                    storage.addAttributes(Self.markerAttributes(), range: reference)
+                    return
+                }
+
+                if let marker = Self.prefixRange(pattern: #"^\s*!\[[^\]]*\]\([^)]+\)"#, in: line, lineRange: lineRange) {
+                    storage.addAttributes(Self.imageAttributes(), range: lineRange)
                     storage.addAttributes(Self.markerAttributes(), range: marker)
                     return
                 }
@@ -170,19 +194,13 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                     return
                 }
 
-                if let marker = Self.prefixRange(pattern: #"^\s*[-*+]\s+"#, in: line, lineRange: lineRange) {
-                    storage.addAttributes(Self.listAttributes(), range: lineRange)
-                    storage.addAttributes(Self.markerAttributes(), range: marker)
+                if let list = Self.listPrefix(in: line, lineRange: lineRange) {
+                    storage.addAttributes(Self.listAttributes(indentationWidth: list.indentationWidth), range: lineRange)
+                    storage.addAttributes(Self.markerAttributes(), range: list.markerRange)
                     return
                 }
 
-                if let marker = Self.prefixRange(pattern: #"^\s*\d+\.\s+"#, in: line, lineRange: lineRange) {
-                    storage.addAttributes(Self.listAttributes(), range: lineRange)
-                    storage.addAttributes(Self.markerAttributes(), range: marker)
-                    return
-                }
-
-                if line.contains("|") {
+                if Self.isTableLikeLine(line) {
                     storage.addAttributes(Self.tableAttributes(), range: lineRange)
                 }
             }
@@ -193,12 +211,23 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         private func styleInline(in storage: NSTextStorage) {
             let fullRange = NSRange(location: 0, length: storage.length)
             apply(pattern: #"`([^`]+)`"#, attributes: Self.inlineCodeAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"\*\*\*([^*\n]+)\*\*\*"#, attributes: Self.boldItalicAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"___([^_\n]+)___"#, attributes: Self.boldItalicAttributes(), in: storage, range: fullRange)
             apply(pattern: #"\*\*([^*]+)\*\*"#, attributes: [.font: NSFont.boldSystemFont(ofSize: 15.5)], in: storage, range: fullRange)
             apply(pattern: #"__([^_]+)__"#, attributes: [.font: NSFont.boldSystemFont(ofSize: 15.5)], in: storage, range: fullRange)
             apply(pattern: #"(?<!\*)\*([^*\n]+)\*(?!\*)"#, attributes: [.obliqueness: 0.12], in: storage, range: fullRange)
+            apply(pattern: #"(?<!_)_([^_\n]+)_(?!_)"#, attributes: [.obliqueness: 0.12], in: storage, range: fullRange)
             apply(pattern: #"~~([^~]+)~~"#, attributes: [.strikethroughStyle: NSUnderlineStyle.single.rawValue], in: storage, range: fullRange)
-            apply(pattern: #"\[([^\]]+)\]\(([^)]+)\)"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"==([^=\n]+)=="#, attributes: Self.highlightAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"!\[([^\]]*)\]\(([^)]+)\)"#, attributes: Self.imageAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"\[([^\]]+)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"\[[^\]]+\]\[[^\]]*\]"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"\[\[[^\]\n]+\]\]"#, attributes: Self.wikiLinkAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"<https?://[^>\s]+>"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"<[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}>"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
             apply(pattern: #"https?://[^\s<>"']+"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
+            apply(pattern: #"(?<![/\w.-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w.-])"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
+            apply(pattern: #":[a-zA-Z0-9_+-]+:"#, attributes: Self.shortcodeAttributes(), in: storage, range: fullRange)
         }
 
         private func apply(
@@ -219,6 +248,63 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                   line.dropFirst(markerLength).first == " "
             else { return nil }
             return (markerLength, markerLength + 1)
+        }
+
+        private static func alertPrefix(
+            in line: String,
+            lineRange: NSRange
+        ) -> (markerRange: NSRange, kindRange: NSRange, kind: String, level: Int)? {
+            let pattern = #"^(\s*(?:>\s*)+)\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]"#
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+                  let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
+            else { return nil }
+
+            let marker = match.range(at: 1)
+            let kind = match.range(at: 2)
+            let markerText = (line as NSString).substring(with: marker)
+            return (
+                NSRange(location: lineRange.location + marker.location, length: marker.length),
+                NSRange(location: lineRange.location + kind.location, length: kind.length),
+                (line as NSString).substring(with: kind).uppercased(),
+                markerText.filter { $0 == ">" }.count
+            )
+        }
+
+        private static func quotePrefix(
+            in line: String,
+            lineRange: NSRange
+        ) -> (markerRange: NSRange, level: Int)? {
+            guard let regex = try? NSRegularExpression(pattern: #"^\s*(?:>\s*)+"#),
+                  let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
+            else { return nil }
+
+            let markerText = (line as NSString).substring(with: match.range)
+            return (
+                NSRange(location: lineRange.location + match.range.location, length: match.range.length),
+                markerText.filter { $0 == ">" }.count
+            )
+        }
+
+        private static func listPrefix(
+            in line: String,
+            lineRange: NSRange
+        ) -> (markerRange: NSRange, indentationWidth: CGFloat)? {
+            let pattern = #"^([ \t]*)(?:[-*+]|\d+\.)\s+"#
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
+            else { return nil }
+
+            let indentation = match.range(at: 1)
+            let indentationText = (line as NSString).substring(with: indentation)
+            return (
+                NSRange(location: lineRange.location + match.range.location, length: match.range.length),
+                MarkdownTaskLayout.textWidth(indentationText)
+            )
+        }
+
+        private static func isTableLikeLine(_ line: String) -> Bool {
+            let pipeCount = line.filter { $0 == "|" }.count
+            return pipeCount >= 2
         }
 
         private static func prefixRange(pattern: String, in line: String, lineRange: NSRange) -> NSRange? {
@@ -301,16 +387,30 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             ]
         }
 
-        private static func quoteAttributes() -> [NSAttributedString.Key: Any] {
+        private static func quoteAttributes(level: Int) -> [NSAttributedString.Key: Any] {
             let paragraph = NSMutableParagraphStyle()
-            paragraph.headIndent = 12
-            paragraph.firstLineHeadIndent = 12
+            let indent = CGFloat(max(1, level)) * 12
+            paragraph.headIndent = indent
+            paragraph.firstLineHeadIndent = indent
             paragraph.lineSpacing = 4
             return [
                 .font: NSFont.systemFont(ofSize: 15.5),
                 .foregroundColor: NSColor.secondaryLabelColor,
                 .obliqueness: 0.12,
                 .paragraphStyle: paragraph
+            ]
+        }
+
+        private static func alertAttributes(kind: String, level: Int) -> [NSAttributedString.Key: Any] {
+            var attributes = quoteAttributes(level: level)
+            attributes[.backgroundColor] = alertColor(kind: kind).withAlphaComponent(0.08)
+            return attributes
+        }
+
+        private static func alertKindAttributes(kind: String) -> [NSAttributedString.Key: Any] {
+            [
+                .font: NSFont.boldSystemFont(ofSize: 13),
+                .foregroundColor: alertColor(kind: kind)
             ]
         }
 
@@ -339,10 +439,11 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             ]
         }
 
-        private static func listAttributes() -> [NSAttributedString.Key: Any] {
+        private static func listAttributes(indentationWidth: CGFloat) -> [NSAttributedString.Key: Any] {
             let paragraph = NSMutableParagraphStyle()
-            paragraph.headIndent = 18
-            paragraph.firstLineHeadIndent = 0
+            let contentIndent = indentationWidth + 18
+            paragraph.headIndent = contentIndent
+            paragraph.firstLineHeadIndent = indentationWidth
             paragraph.lineSpacing = 3
             return [.paragraphStyle: paragraph]
         }
@@ -380,10 +481,52 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             ]
         }
 
+        private static func boldItalicAttributes() -> [NSAttributedString.Key: Any] {
+            [
+                .font: NSFont.boldSystemFont(ofSize: 15.5),
+                .obliqueness: 0.12
+            ]
+        }
+
+        private static func highlightAttributes() -> [NSAttributedString.Key: Any] {
+            [
+                .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.24)
+            ]
+        }
+
         private static func linkAttributes() -> [NSAttributedString.Key: Any] {
             [
                 .foregroundColor: NSColor.systemBlue,
                 .underlineStyle: NSUnderlineStyle.single.rawValue
+            ]
+        }
+
+        private static func wikiLinkAttributes() -> [NSAttributedString.Key: Any] {
+            [
+                .foregroundColor: NSColor.systemPurple,
+                .underlineStyle: NSUnderlineStyle.single.rawValue
+            ]
+        }
+
+        private static func imageAttributes() -> [NSAttributedString.Key: Any] {
+            [
+                .foregroundColor: NSColor.systemTeal,
+                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .medium),
+                .backgroundColor: NSColor.systemTeal.withAlphaComponent(0.08)
+            ]
+        }
+
+        private static func referenceDefinitionAttributes() -> [NSAttributedString.Key: Any] {
+            [
+                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .regular),
+                .foregroundColor: NSColor.secondaryLabelColor
+            ]
+        }
+
+        private static func shortcodeAttributes() -> [NSAttributedString.Key: Any] {
+            [
+                .foregroundColor: NSColor.systemOrange,
+                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .regular)
             ]
         }
 
@@ -399,6 +542,16 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                 .foregroundColor: NSColor.tertiaryLabelColor,
                 .strikethroughStyle: NSUnderlineStyle.thick.rawValue
             ]
+        }
+
+        private static func alertColor(kind: String) -> NSColor {
+            switch kind.uppercased() {
+            case "TIP": return .systemGreen
+            case "IMPORTANT": return .systemPurple
+            case "WARNING": return .systemOrange
+            case "CAUTION": return .systemRed
+            default: return .systemBlue
+            }
         }
     }
 }
