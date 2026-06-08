@@ -85,16 +85,22 @@ struct ClipboardLibraryView: View {
             if filteredItems.isEmpty {
                 emptyState(copy: copy)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 10) {
-                        ForEach(filteredItems) { item in
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
                             ClipboardRow(item: item, settings: settings, store: store)
+
+                            if index < filteredItems.count - 1 {
+                                Divider()
+                                    .overlay(.white.opacity(0.12))
+                                    .padding(.leading, 3)
+                                    .padding(.trailing, 2)
+                            }
                         }
                     }
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 11)
                     .padding(.bottom, 12)
                 }
-                .scrollIndicators(.hidden)
             }
         }
         .foregroundStyle(.primary.opacity(0.92))
@@ -163,22 +169,7 @@ private struct ClipboardRow: View {
             }
 
             if !item.detections.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 9, weight: .bold))
-                        Text(copy.extracted)
-                            .font(.system(size: 9.5, weight: .bold))
-                    }
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-
-                    WrappingChipLayout(horizontalSpacing: 6, verticalSpacing: 6) {
-                        ForEach(item.detections) { detection in
-                            DetectionChip(detection: detection, settings: settings, store: store)
-                        }
-                    }
-                }
+                DetectionShelf(detections: item.detections, settings: settings, store: store)
             }
 
             HStack(spacing: 7) {
@@ -197,28 +188,8 @@ private struct ClipboardRow: View {
                 }
             }
         }
-        .padding(10)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-        .background(
-            LinearGradient(
-                colors: [.white.opacity(0.16), .white.opacity(0.05)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [.white.opacity(0.34), .white.opacity(0.1), .black.opacity(0.05)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+        .padding(.horizontal, 2)
+        .padding(.vertical, 10)
     }
 
     private func rowActionButton(
@@ -242,10 +213,62 @@ private struct ClipboardRow: View {
     }
 }
 
+private struct DetectionShelf: View {
+    let detections: [ClipboardDetection]
+    @ObservedObject var settings: AppSettings
+    @ObservedObject var store: ClipboardStore
+
+    var body: some View {
+        let copy = AppText(language: settings.language)
+
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 9, weight: .black))
+
+                Text(copy.extracted)
+                    .font(.system(size: 9.5, weight: .bold))
+                    .textCase(.uppercase)
+
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.white.opacity(0.84))
+
+            WrappingChipLayout(horizontalSpacing: 6, verticalSpacing: 6) {
+                ForEach(detections) { detection in
+                    DetectionChip(detection: detection, settings: settings, store: store)
+                }
+            }
+        }
+        .padding(8)
+        .background(
+            LinearGradient(
+                colors: [.cyan.opacity(0.08), .white.opacity(0.05), .purple.opacity(0.04)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.white.opacity(0.26), .cyan.opacity(0.14), .black.opacity(0.04)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: .cyan.opacity(0.05), radius: 6, y: 1)
+    }
+}
+
 private struct DetectionChip: View {
     let detection: ClipboardDetection
     @ObservedObject var settings: AppSettings
     @ObservedObject var store: ClipboardStore
+    @State private var showActions = false
 
     private var tint: Color {
         switch detection.kind {
@@ -261,63 +284,108 @@ private struct DetectionChip: View {
     var body: some View {
         let copy = AppText(language: settings.language)
 
-        Menu {
+        Button {
+            showActions.toggle()
+        } label: {
+            bubbleLabel
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showActions, arrowEdge: .top) {
+            actionsPopover(copy: copy)
+        }
+    }
+
+    private var bubbleLabel: some View {
+        HStack(spacing: 5) {
+            Image(systemName: detection.symbol)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.94))
+                .frame(width: 18, height: 18)
+                .background(
+                    LinearGradient(
+                        colors: [tint.opacity(0.76), .white.opacity(0.24)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: Circle()
+                )
+                .overlay(Circle().stroke(.white.opacity(0.28), lineWidth: 0.8))
+
+            Text(detection.value)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.94))
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Image(systemName: "chevron.down")
+                .font(.system(size: 7.5, weight: .black))
+                .foregroundStyle(.secondary.opacity(0.72))
+        }
+        .frame(maxWidth: 204, alignment: .leading)
+        .padding(.leading, 5)
+        .padding(.trailing, 8)
+        .padding(.vertical, 4.5)
+        .background(
+            LinearGradient(
+                colors: [tint.opacity(0.36), .white.opacity(0.2), tint.opacity(0.18)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: Capsule()
+        )
+        .background(.white.opacity(0.18), in: Capsule())
+        .overlay(
+            Capsule()
+                .stroke(
+                    LinearGradient(
+                        colors: [tint.opacity(0.82), .white.opacity(0.6), .black.opacity(0.03)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.15
+                )
+        )
+        .shadow(color: tint.opacity(0.2), radius: 8, y: 2)
+        .shadow(color: .black.opacity(0.16), radius: 5, y: 2)
+    }
+
+    private func actionsPopover(copy: AppText) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(detection.value)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .frame(maxWidth: 220, alignment: .leading)
+
+            Divider()
+
             Button {
+                showActions = false
                 store.copy(detection.value)
             } label: {
                 Label(copy.copyExtracted, systemImage: "doc.on.doc")
             }
+
             Button {
+                showActions = false
                 store.paste(detection.value)
             } label: {
                 Label(copy.pasteExtracted, systemImage: "arrow.turn.down.left")
             }
+
             if let openTitle = detection.openTitle {
                 Button {
+                    showActions = false
                     store.open(detection)
                 } label: {
                     Label(openTitle, systemImage: detection.openSymbol)
                 }
             }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: detection.symbol)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(tint.opacity(0.95))
-                    .frame(width: 12)
-                Text(detection.value)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.92))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            .frame(maxWidth: 198, alignment: .leading)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5.5)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .background(
-                LinearGradient(
-                    colors: [tint.opacity(0.24), .white.opacity(0.1)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [tint.opacity(0.58), .white.opacity(0.32), .black.opacity(0.05)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(color: tint.opacity(0.12), radius: 7, y: 2)
-            .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
         }
-        .menuStyle(.borderlessButton)
+        .font(.system(size: 12, weight: .medium))
+        .buttonStyle(.borderless)
+        .padding(12)
+        .background(.regularMaterial)
     }
 }
 
