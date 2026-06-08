@@ -115,6 +115,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - The app now runs as a regular macOS app (`LSUIElement=false`, activation policy `.regular`) so it appears in the Dock/任务栏.
 - `NotePanelController.swift` sets `panel.hidesOnDeactivate = false`; verified by switching to Finder while the note remained visible above other windows.
 - `NotePanelController.swift` lets the root `NSHostingView` autoresize with the panel content area. Keep this, otherwise narrowing the window can crop the old-width SwiftUI rounded shell and make the visible edges look square.
+- The panel and SwiftUI rounded shell share `NoteWindowLayout.minimumSize` at 360 x 360. Keep the window minimum width aligned with the bottom rail's fixed controls, or the content can exceed the glass shell and make the rounded corners appear clipped.
 
 ## Notes For Next Agent
 

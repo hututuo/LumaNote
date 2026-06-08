@@ -54,6 +54,10 @@ struct NoteWindowView: View {
         .overlay {
             fileSwitcherInlineOverlay
         }
+        .frame(
+            minWidth: NoteWindowLayout.minimumSize.width,
+            minHeight: NoteWindowLayout.minimumSize.height
+        )
         .coordinateSpace(name: NoteWindowCoordinateSpace.name)
         .onPreferenceChange(MoreButtonFramePreferenceKey.self) { frame in
             moreButtonFrame = frame

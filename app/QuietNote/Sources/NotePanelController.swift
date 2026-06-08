@@ -2,6 +2,12 @@ import AppKit
 import Combine
 import SwiftUI
 
+enum NoteWindowLayout {
+    static let initialSize = NSSize(width: 360, height: 660)
+    static let minimumSize = NSSize(width: 360, height: 360)
+    static let maximumSize = NSSize(width: 640, height: 980)
+}
+
 @MainActor
 final class NotePanelController {
     private let settings: AppSettings
@@ -16,7 +22,12 @@ final class NotePanelController {
         self.clipboardStore = clipboardStore
 
         panel = NSPanel(
-            contentRect: NSRect(x: 980, y: 180, width: 350, height: 660),
+            contentRect: NSRect(
+                x: 980,
+                y: 180,
+                width: NoteWindowLayout.initialSize.width,
+                height: NoteWindowLayout.initialSize.height
+            ),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -32,8 +43,9 @@ final class NotePanelController {
         panel.hasShadow = true
         panel.level = settings.alwaysOnTop ? .floating : .normal
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.minSize = NSSize(width: 280, height: 360)
-        panel.maxSize = NSSize(width: 640, height: 980)
+        panel.minSize = NoteWindowLayout.minimumSize
+        panel.contentMinSize = NoteWindowLayout.minimumSize
+        panel.maxSize = NoteWindowLayout.maximumSize
         panel.alphaValue = 1
         panel.standardWindowButton(.closeButton)?.isHidden = true
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
