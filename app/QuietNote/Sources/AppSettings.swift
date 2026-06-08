@@ -1,0 +1,70 @@
+import Foundation
+import SwiftUI
+
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case chinese = "zh"
+    case english = "en"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .chinese: "中文"
+        case .english: "English"
+        }
+    }
+}
+
+@MainActor
+final class AppSettings: ObservableObject {
+    nonisolated static let minimumNoteOpacity = 0.01
+
+    @Published var noteOpacity: Double {
+        didSet {
+            if noteOpacity < Self.minimumNoteOpacity {
+                noteOpacity = Self.minimumNoteOpacity
+            }
+            defaults.set(noteOpacity, forKey: Keys.noteOpacity)
+        }
+    }
+
+    @Published var glassStrength: Double {
+        didSet { defaults.set(glassStrength, forKey: Keys.glassStrength) }
+    }
+
+    @Published var alwaysOnTop: Bool {
+        didSet { defaults.set(alwaysOnTop, forKey: Keys.alwaysOnTop) }
+    }
+
+    @Published var monitorClipboard: Bool {
+        didSet { defaults.set(monitorClipboard, forKey: Keys.monitorClipboard) }
+    }
+
+    @Published var clipboardLimit: Int {
+        didSet { defaults.set(clipboardLimit, forKey: Keys.clipboardLimit) }
+    }
+
+    @Published var language: AppLanguage {
+        didSet { defaults.set(language.rawValue, forKey: Keys.language) }
+    }
+
+    private let defaults = UserDefaults.standard
+
+    init() {
+        noteOpacity = max(Self.minimumNoteOpacity, defaults.object(forKey: Keys.noteOpacity) as? Double ?? 0.68)
+        glassStrength = defaults.object(forKey: Keys.glassStrength) as? Double ?? 0.82
+        alwaysOnTop = defaults.object(forKey: Keys.alwaysOnTop) as? Bool ?? true
+        monitorClipboard = defaults.object(forKey: Keys.monitorClipboard) as? Bool ?? true
+        clipboardLimit = defaults.object(forKey: Keys.clipboardLimit) as? Int ?? 200
+        language = AppLanguage(rawValue: defaults.string(forKey: Keys.language) ?? "") ?? .chinese
+    }
+
+    private enum Keys {
+        static let noteOpacity = "noteOpacity"
+        static let glassStrength = "glassStrength"
+        static let alwaysOnTop = "alwaysOnTop"
+        static let monitorClipboard = "monitorClipboard"
+        static let clipboardLimit = "clipboardLimit"
+        static let language = "language"
+    }
+}
