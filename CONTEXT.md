@@ -81,7 +81,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - The top island must not be implemented as a normal SwiftUI `Button`; it blocks three-finger dragging. Use `WindowClickDragView` for the island hit target so short clicks open clipboard/actions and drag gestures call `window.performDrag`.
 - The app stores data locally under `~/Library/Application Support/QuietNote/`.
 - Clipboard monitoring is on by default for new users, can be disabled from the compact more menu or Settings, and immediately captures the current clipboard when enabled.
-- Clipboard monitoring timer starts/stops with the setting and runs in the common run loop so UI interaction is less likely to pause polling. Keep the pasteboard poll interval at 60Hz (`1.0 / 60.0`) so extracted clipboard suggestions appear in roughly tens of milliseconds instead of around 650ms.
+- Clipboard monitoring timer starts/stops with the setting and runs in the common run loop so UI interaction is less likely to pause polling.
 - Clipboard library v2 supports local search, per-item delete, copy/paste actions, and Copy/Paste menus on detected values.
 - Extracted clipboard values are shown under the source clipboard record as contextual chips. Do not reintroduce a top-level type grouping unless the user explicitly asks.
 - Do not extract arbitrary numeric values. `Number` is now reserved for labeled codes/identifiers, such as 验证码, 取件码, 订单号, 快递单号, invoice, tracking, ticket, or similar labels. Plain years, dates, counts, prices, decimals, or standalone numbers should not create chips or top-island suggestions.
