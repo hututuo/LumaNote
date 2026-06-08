@@ -103,6 +103,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - The left grip area must use `islandDragGrip`, which overlays a transparent `WindowDragView` on the three-line visual grip. Do not leave the three bars as a visual-only view, or three-finger dragging on the bars will stop working.
 - Detection mode automatically returns to title mode after 60 seconds using `hiddenSuggestionID` and a cancellable `Task`. Avoid leaving the island permanently stuck on a stale clipboard item.
 - The drag affordance is integrated into the island itself. Avoid returning to separate external bars plus a separate ball.
+- The top island is intentionally lowered by about 5 px inside the top bar so it has breathing room from the note's rounded top edge.
 - URL extraction excludes Chinese punctuation so values like `https://example.com，地址` are captured as `https://example.com`.
 - Clipboard paste copies the selected text, hides QuietNote, then sends Cmd+V to the system. This may depend on macOS input-event permissions in stricter environments.
 - The compact more menu now includes clipboard monitoring, stored item count, retention limit, and clear-library action.
