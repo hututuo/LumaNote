@@ -46,7 +46,8 @@ final class NotePanelController {
             onClose: { [weak panel] in panel?.orderOut(nil) }
         )
         let hosting = NSHostingView(rootView: root)
-        hosting.translatesAutoresizingMaskIntoConstraints = false
+        hosting.translatesAutoresizingMaskIntoConstraints = true
+        hosting.autoresizingMask = [.width, .height]
         panel.contentView = hosting
 
         settings.$alwaysOnTop
