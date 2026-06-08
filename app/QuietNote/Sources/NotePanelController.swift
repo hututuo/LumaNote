@@ -4,7 +4,7 @@ import SwiftUI
 
 enum NoteWindowLayout {
     static let initialSize = NSSize(width: 360, height: 660)
-    static let minimumSize = NSSize(width: 270, height: 360)
+    static let minimumSize = NSSize(width: 270, height: 270)
     static let maximumSize = NSSize(width: 640, height: 980)
 }
 
