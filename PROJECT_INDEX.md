@@ -6,10 +6,16 @@
 | `PROJECT_INDEX.md` | 2026-06-07 10:01 | 2026-06-07 10:01 | 项目索引 | 记录项目内方案、设计稿、源码、运行验证和归档状态 | 不建议删除 | 构建玻璃 Markdown 便签 | 持续维护 |
 | `.gitignore` | 2026-06-08 09:53 | 2026-06-08 09:53 | Git 忽略规则 | 排除 `.DS_Store`、Swift 构建产物、生成的 `QuietNote.app`、run/scratch/backups 和临时日志，避免可重建/临时材料进入功能 commit | 不建议删除 | Glass Markdown Note Git 初始化 v01 | 项目根目录已按独立 Git 仓库管理；首个提交为 `项目初始归档` |
 | `design/quiet-rail-note_reference_20260607-100100.png` | 2026-06-07 10:01 | 2026-06-07 10:01 | 视觉参考 | 融合 Bottom Rail Note 与 Slim Strip Note 的主视觉靶子 | 不建议删除 | Product Design 视觉方向 | 作为 SwiftUI 实现参考 |
-| `app/QuietNote/` | 2026-06-07 10:05 | 2026-06-07 10:16 | SwiftUI 应用源码 | 原生 macOS 玻璃 Markdown 便签应用 | 不建议删除 | 构建玻璃 Markdown 便签 | 已可 `swift build`，可打开 `build/QuietNote.app` |
-| `app/QuietNote/scripts/build-app.sh` | 2026-06-07 10:18 | 2026-06-07 10:18 | 构建脚本 | 编译并生成 `build/QuietNote.app` | 不建议删除 | 构建玻璃 Markdown 便签 | 用于本地重建调试版 app 包 |
-| `app/QuietNote/support/Info.plist` | 2026-06-07 10:19 | 2026-06-07 10:35 | app 配置模板 | `QuietNote.app` 的 bundle metadata 模板 | 不建议删除 | 构建玻璃 Markdown 便签 | `LSUIElement=false`，使 app 出现在 Dock/任务栏 |
-| `app/QuietNote/build/QuietNote.app` | 2026-06-07 10:09 | 2026-06-07 10:16 | macOS app 包 | 可双击运行的本地调试版 QuietNote | 可重建 | 构建玻璃 Markdown 便签 | 由 `.build/debug/QuietNote` 打包生成 |
+| `README.md` | 2026-06-08 22:15 | 2026-06-08 22:15 | 英文 README | GitHub 英文首页，含 LumaNote 品牌、一条命令安装、功能介绍、社区二维码和开发说明 | 不建议删除 | LumaNote README | 参考 PaperSpine / Paper2ZH README 风格，和中文 README 内容等价维护 |
+| `README.zh-CN.md` | 2026-06-08 22:15 | 2026-06-08 22:15 | 中文 README | GitHub 中文首页，含 LumaNote 品牌、一条命令安装、功能介绍、社区二维码和开发说明 | 不建议删除 | LumaNote README | 参考 PaperSpine / Paper2ZH README 风格，和英文 README 内容等价维护 |
+| `install.sh` | 2026-06-08 22:15 | 2026-06-08 22:15 | 一键安装脚本 | 从 GitHub 克隆/更新源码，构建并安装到 `~/Applications/LumaNote.app` | 不建议删除 | 一条命令安装 | 默认仓库 `https://github.com/hututuo/LumaNote.git`，可用 `LUMANOTE_REPO` 覆盖 |
+| `assets/lumanote-icon.png` | 2026-06-08 22:14 | 2026-06-08 22:14 | 品牌图标 | README 展示用 LumaNote 玻璃便签气泡图标 | 不建议删除 | LumaNote 品牌 | 来源为本轮 image generation 最终确认图 |
+| `assets/wechat-group-qr.jpeg` | 2026-06-08 22:14 | 2026-06-08 22:14 | 社区二维码 | README Community 区块微信群二维码 | 不建议删除 | LumaNote README | 复用 `paper2zh-chatgpt-web-skill` 的 HTT repositories 微信群二维码 |
+| `app/QuietNote/` | 2026-06-07 10:05 | 2026-06-08 22:15 | SwiftUI 应用源码 | 原生 macOS 玻璃 Markdown 便签应用，公开产品名为 LumaNote | 不建议删除 | 构建玻璃 Markdown 便签 | Swift target 仍沿用内部名 `QuietNote`，打包输出为 `build/LumaNote.app` |
+| `app/QuietNote/scripts/build-app.sh` | 2026-06-07 10:18 | 2026-06-08 22:15 | 构建脚本 | 编译并生成 `build/LumaNote.app` | 不建议删除 | LumaNote 品牌 | 会复制 `AppIcon.icns` 到 app bundle |
+| `app/QuietNote/support/Info.plist` | 2026-06-07 10:19 | 2026-06-08 22:15 | app 配置模板 | `LumaNote.app` 的 bundle metadata 模板 | 不建议删除 | LumaNote 品牌 | `CFBundleName`/`CFBundleDisplayName` 为 LumaNote，`LSUIElement=false`，使 app 出现在 Dock/任务栏 |
+| `app/QuietNote/support/AppIcon.icns` | 2026-06-08 22:14 | 2026-06-08 22:14 | macOS app 图标 | LumaNote bundle 使用的 `.icns` 图标 | 不建议删除 | LumaNote 品牌 | 由 `assets/lumanote-icon.png` 生成 |
+| `app/QuietNote/build/LumaNote.app` | 2026-06-08 22:15 | 2026-06-08 22:15 | macOS app 包 | 可双击运行的本地调试版 LumaNote | 可重建 | 构建玻璃 Markdown 便签 | 由 `.build/debug/QuietNote` 打包生成 |
 | `docs/markdown-compatibility.md` | 2026-06-08 21:58 | 2026-06-08 22:08 | GitHub 文档 | 说明 QuietNote 当前 Markdown 实时样式兼容性 | 不建议删除 | Markdown 兼容性说明 | 用表格区分 Supported / Partial / Not styled；已同步下划线斜体、粗斜体、邮箱/autolink、tilde code fence、嵌套引用/列表、GitHub Alert、wiki/reference link、图片引用、高亮和 shortcode token；强调保存层面保留原始 Markdown，编辑器不是完整 CommonMark/GFM 渲染器 |
 | `app/QuietNote/Sources/MarkdownRenderingEditor.swift` | 2026-06-07 10:20 | 2026-06-08 22:08 | 实时渲染编辑器 | 用原生 `NSTextView` 在编辑时实时渲染 Markdown 样式 | 不建议删除 | Markdown 常用语法补充 | task 布局已归一化：解析时按缩进宽度 + 固定 checkbox 槽位动态计算 hidden marker kern；checkbox x 使用 lineFragment 左缘 + textContainer padding + task 缩进；空 task 行按 Return 只删除 marker、不新增换行；关闭 NSTextView 自动补全/文本检查，避免系统根据上一行 `-` 自动补横杠；编辑器滚动容器使用 macOS overlay 小滚动条和 5pt 自定义 mini scroller，右侧细线式显示并自动隐藏；补充下划线斜体、粗斜体、邮箱/autolink、tilde code fence、嵌套引用/列表、GitHub Alert、wiki/reference link、图片引用、高亮和 shortcode token 视觉样式 |
 | `app/QuietNote/Sources/MarkdownPreviewView.swift` | 2026-06-07 10:07 | 2026-06-07 10:24 | 已删除旧组件 | 旧的单独预览模式组件，已被实时渲染编辑器替代 | 已删除 | 去除编辑/预览模式 | 防止后续误回到编辑/预览切换 |
@@ -89,7 +95,7 @@
 - 设置页提供中文/English 应用内语言切换；正文 Markdown 内容不随语言切换改动。
 - 透明度控制作用于玻璃便签本体，文字和控件保持清晰，避免长期使用时可读性下降。
 - 不采用“编辑/预览”模式切换；正文区域直接实时渲染 Markdown 样式并保持可编辑。
-- 顶部空白区域使用三个半透明横条提示可拖动；每次打包后应直接打开 `build/QuietNote.app` 方便试用。
+- 顶部空白区域使用三个半透明横条提示可拖动；每次打包后应直接打开 `build/LumaNote.app` 方便试用。
 - 顶部拖动层使用 `acceptsFirstMouse`，让失焦时第一下鼠标/触控板输入可直接触发拖动。
 - 应用采用普通 `.regular` 模式并设置 `LSUIElement=false`，应显示在 Dock/任务栏；便签面板设置 `hidesOnDeactivate=false`，切到其他窗口时不应自动消失。
 - 不再允许完全无框透明状态；透明度滑杆最低值为 1%，最低状态保留轻玻璃轮廓、细边框和可找回的底部控制条。

@@ -6,12 +6,14 @@ cd "$ROOT"
 
 swift build
 
-APP_DIR="$ROOT/build/QuietNote.app"
+APP_DIR="$ROOT/build/LumaNote.app"
+rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
 cp "$ROOT/.build/debug/QuietNote" "$APP_DIR/Contents/MacOS/QuietNote"
 chmod +x "$APP_DIR/Contents/MacOS/QuietNote"
 cp "$ROOT/support/Info.plist" "$APP_DIR/Contents/Info.plist"
+cp "$ROOT/support/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 
 plutil -lint "$APP_DIR/Contents/Info.plist"
 echo "$APP_DIR"
