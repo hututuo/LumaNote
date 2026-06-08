@@ -13,6 +13,8 @@ struct NoteWindowView: View {
     @State private var showMore = false
     @State private var showShortcutSettings = false
     @State private var showExtractionActions = false
+    @State private var copiedNoteFeedback = false
+    @State private var copiedNoteResetTask: Task<Void, Never>?
     @State private var moreButtonFrame: CGRect = .zero
     @State private var hiddenSuggestionID: ClipboardItem.ID?
     @State private var suggestionResetTask: Task<Void, Never>?
@@ -73,6 +75,7 @@ struct NoteWindowView: View {
         }
         .onDisappear {
             suggestionResetTask?.cancel()
+            copiedNoteResetTask?.cancel()
         }
         .animation(.snappy(duration: 0.16), value: showClipboard)
         .animation(.snappy(duration: 0.16), value: showMore)
@@ -261,7 +264,9 @@ struct NoteWindowView: View {
     }
 
     private var bottomRail: some View {
-        HStack(spacing: 8) {
+        let copy = AppText(language: settings.language)
+
+        return HStack(spacing: 8) {
             Text("1")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
@@ -279,8 +284,8 @@ struct NoteWindowView: View {
                 .monospacedDigit()
                 .frame(width: 36, alignment: .trailing)
 
-            railButton(symbol: "list.clipboard", help: "Clipboard") {
-                showClipboard.toggle()
+            railButton(symbol: copiedNoteFeedback ? "checkmark" : "doc.on.doc", help: copiedNoteFeedback ? copy.copiedNote : copy.copyNote) {
+                copyCurrentNote()
             }
             railButton(symbol: settings.alwaysOnTop ? "pin.fill" : "pin", help: "Pin") {
                 settings.alwaysOnTop.toggle()
@@ -324,6 +329,23 @@ struct NoteWindowView: View {
         .buttonStyle(.plain)
         .background(.white.opacity(0.12 + settings.noteOpacity * 0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
         .help(help)
+    }
+
+    private func copyCurrentNote() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(noteStore.markdown, forType: .string)
+
+        copiedNoteResetTask?.cancel()
+        withAnimation(.snappy(duration: 0.12)) {
+            copiedNoteFeedback = true
+        }
+        copiedNoteResetTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.1))
+            guard !Task.isCancelled else { return }
+            withAnimation(.snappy(duration: 0.16)) {
+                copiedNoteFeedback = false
+            }
+        }
     }
 
     @ViewBuilder
