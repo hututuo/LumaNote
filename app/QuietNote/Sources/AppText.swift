@@ -25,8 +25,8 @@ struct AppText {
     var hideNote: String { text("隐藏便签", "Hide Note") }
     var extracted: String { text("已提取", "Extracted") }
     var copy: String { text("复制", "Copy") }
-    var copyNote: String { text("复制便签全文", "Copy note") }
-    var copiedNote: String { text("已复制便签全文", "Copied note") }
+    var openNoteFile: String { text("打开 Markdown 文件", "Open Markdown file") }
+    var saveAsNoteFile: String { text("另存为 Markdown 文件", "Save as Markdown file") }
     var paste: String { text("粘贴", "Paste") }
     var copyExtracted: String { text("复制提取内容", "Copy Extracted") }
     var pasteExtracted: String { text("粘贴提取内容", "Paste Extracted") }
