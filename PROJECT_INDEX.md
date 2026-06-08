@@ -12,16 +12,16 @@
 | `app/QuietNote/build/QuietNote.app` | 2026-06-07 10:09 | 2026-06-07 10:16 | macOS app 包 | 可双击运行的本地调试版 QuietNote | 可重建 | 构建玻璃 Markdown 便签 | 由 `.build/debug/QuietNote` 打包生成 |
 | `app/QuietNote/Sources/MarkdownRenderingEditor.swift` | 2026-06-07 10:20 | 2026-06-08 00:11 | 实时渲染编辑器 | 用原生 `NSTextView` 在编辑时实时渲染 Markdown 样式 | 不建议删除 | Markdown task 输入修复 | task 布局已归一化：解析时按缩进宽度 + 固定 checkbox 槽位动态计算 hidden marker kern；checkbox x 使用 lineFragment 左缘 + textContainer padding + task 缩进；空 task 行按 Return 只删除 marker、不新增换行；关闭 NSTextView 自动补全/文本检查，避免系统根据上一行 `-` 自动补横杠 |
 | `app/QuietNote/Sources/MarkdownPreviewView.swift` | 2026-06-07 10:07 | 2026-06-07 10:24 | 已删除旧组件 | 旧的单独预览模式组件，已被实时渲染编辑器替代 | 已删除 | 去除编辑/预览模式 | 防止后续误回到编辑/预览切换 |
-| `app/QuietNote/Sources/AppText.swift` | 2026-06-07 17:30 | 2026-06-07 17:30 | 应用文案 | App 内中文/English 文案表 | 不建议删除 | 中英文切换 | 用于设置页、更多菜单、剪切板库和动作菜单 |
-| `app/QuietNote/Sources/AppSettings.swift` | 2026-06-07 10:05 | 2026-06-07 17:30 | 应用设置 | 保存透明度、玻璃强度、置顶、剪切板偏好和语言 | 不建议删除 | 中英文切换 | 新增 `language`，默认中文；新用户默认开启本地剪切板监听；`noteOpacity` 最低值为 1% |
-| `app/QuietNote/Sources/SettingsView.swift` | 2026-06-07 10:05 | 2026-06-07 17:34 | 设置窗口 | app 设置表单 | 不建议删除 | 中英文切换与快捷键拆分 | 新增中文/English 分段选择；快捷键拆成快捷呼出、快捷关闭、打开剪切板库 |
-| `app/QuietNote/Sources/NoteWindowView.swift` | 2026-06-07 10:05 | 2026-06-08 00:40 | 主窗口视图 | 顶部拖动提示、底部控制栏、透明度控制和弹出层入口 | 不建议删除 | 设置浮层定位修复 | 三条杠封装为 `islandDragGrip` 独立拖动热区；顶岛透明度只作用于玻璃壳层，标题和图标固定可读；设置/More 菜单改为窗口内玻璃浮层，锚定底部设置按钮并按便签边界自动避让 |
+| `app/QuietNote/Sources/AppText.swift` | 2026-06-07 17:30 | 2026-06-08 00:50 | 应用文案 | App 内中文/English 文案表 | 不建议删除 | 默认外观参数调整 | 设置文案区分“便签透明度”和“磨砂强度/玻璃质感”，用于设置页、更多菜单、剪切板库和动作菜单 |
+| `app/QuietNote/Sources/AppSettings.swift` | 2026-06-07 10:05 | 2026-06-08 00:50 | 应用设置 | 保存透明度、玻璃强度、置顶、剪切板偏好和语言 | 不建议删除 | 默认外观参数调整 | 新增 `language`，默认中文；新用户默认开启本地剪切板监听；`noteOpacity` 最低值为 1%，新默认透明度 60%，新默认磨砂强度 10% |
+| `app/QuietNote/Sources/SettingsView.swift` | 2026-06-07 10:05 | 2026-06-08 00:50 | 设置窗口 | app 设置表单 | 不建议删除 | 默认外观参数调整 | 新增中文/English 分段选择；快捷键拆成快捷呼出、快捷关闭、打开剪切板库；透明度和磨砂强度下方有简短说明 |
+| `app/QuietNote/Sources/NoteWindowView.swift` | 2026-06-07 10:05 | 2026-06-08 00:50 | 主窗口视图 | 顶部拖动提示、底部控制栏、透明度控制和弹出层入口 | 不建议删除 | 默认外观参数调整 | 三条杠封装为 `islandDragGrip` 独立拖动热区；顶岛透明度只作用于玻璃壳层，标题和图标固定可读；设置/More 菜单改为窗口内玻璃浮层，锚定底部设置按钮并按便签边界自动避让 |
 | `app/QuietNote/Sources/NoteStore.swift` | 2026-06-07 10:05 | 2026-06-07 15:02 | 便签数据层 | 本地 Markdown 保存和标题提取 | 不建议删除 | 顶部标题胶囊 | 新增 `displayTitle`：优先使用正文第一个 Markdown 标题，否则显示实际保存文件名 |
 | `app/QuietNote/Sources/WindowDragView.swift` | 2026-06-07 10:05 | 2026-06-07 14:56 | 拖动热区 | 透明 AppKit 拖动层，用于顶部区域和顶岛本体拖拽窗口 | 不建议删除 | 失焦后三指拖动 | `WindowDragView` 负责整条顶栏拖动，`WindowClickDragView` 负责顶岛点击/拖动共存，两者都 `acceptsFirstMouse` |
 | `app/QuietNote/Sources/ClipboardStore.swift` | 2026-06-07 10:05 | 2026-06-07 12:02 | 剪切板数据层 | 本地剪切板监听、保存、识别、复制、粘贴和打开动作 | 不建议删除 | 底部剪切板提取提示条 | 新增最近含提取项记录；URL/邮箱/电话/地址可打开为 Safari/mailto/tel/Apple Maps |
 | `app/QuietNote/Sources/ClipboardDetector.swift` | 2026-06-07 10:05 | 2026-06-07 16:25 | 剪切板识别器 | 从剪切板文本中提取 URL、邮箱、电话、地址和带标签编号 | 不建议删除 | 每条记录下方提取信息 | 不再提取普通数字；Number 仅识别验证码/订单号/快递单号等带标签编号；电话限制为 10-15 位并排除日期格式 |
 | `app/QuietNote/Sources/ClipboardLibraryView.swift` | 2026-06-07 10:05 | 2026-06-07 17:32 | 剪切板库 UI | 搜索、每条记录下方提取信息、复制/粘贴/删除/打开操作 | 不建议删除 | 中英文切换 | 提取项固定显示在所属剪切板记录下方的小框里，支持 Copy/Paste/Open；库内标题、搜索、空状态和动作文案支持中英文 |
-| `app/QuietNote/Sources/MoreMenuView.swift` | 2026-06-07 10:05 | 2026-06-08 00:40 | 紧凑设置菜单 | 便签内更多菜单和快捷键设置 sheet | 不建议删除 | 设置浮层定位修复 | 菜单内容保持紧凑，背景由主窗口内玻璃浮层容器提供；快捷键拆成呼出/关闭/剪切板库 |
+| `app/QuietNote/Sources/MoreMenuView.swift` | 2026-06-07 10:05 | 2026-06-08 00:50 | 紧凑设置菜单 | 便签内更多菜单和快捷键设置 sheet | 不建议删除 | 默认外观参数调整 | 菜单内容保持紧凑，背景由主窗口内玻璃浮层容器提供；顶部显示“玻璃质感”和模糊/泛白/质感说明，小窗口内可滚动；快捷键拆成呼出/关闭/剪切板库 |
 | `app/QuietNote/Sources/NotePanelController.swift` | 2026-06-07 10:05 | 2026-06-07 10:35 | 窗口控制 | 设置 `hidesOnDeactivate=false`，防止切到其他应用时便签面板消失 | 不建议删除 | 失焦后保持悬浮 | 与 always-on-top 配合，便签可叠在其他窗口上 |
 | `app/QuietNote/Sources/QuietNoteApp.swift` | 2026-06-07 10:05 | 2026-06-07 10:35 | 应用入口 | 使用 `.regular` 应用模式并保留 reopen 显示窗口行为 | 不建议删除 | Dock 显示与重新打开应用显示窗口 | 修复进程存在但窗口不见、以及不在 Dock/任务栏显示的问题 |
 | `app/QuietNote/Sources/HotKeyCenter.swift` | 2026-06-07 10:05 | 2026-06-07 17:30 | 全局快捷键 | 注册 QuietNote 全局快捷键 | 不建议删除 | 快捷键拆分 | 新增 `showQuietNote` 和 `hideQuietNote`，默认呼出 `Option+Space`，默认关闭 `Option+Esc`；旧 toggle 名仅用于迁移现有快捷键 |

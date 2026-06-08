@@ -18,6 +18,8 @@ enum AppLanguage: String, CaseIterable, Identifiable {
 @MainActor
 final class AppSettings: ObservableObject {
     nonisolated static let minimumNoteOpacity = 0.01
+    nonisolated static let defaultNoteOpacity = 0.60
+    nonisolated static let defaultGlassStrength = 0.10
 
     @Published var noteOpacity: Double {
         didSet {
@@ -51,8 +53,8 @@ final class AppSettings: ObservableObject {
     private let defaults = UserDefaults.standard
 
     init() {
-        noteOpacity = max(Self.minimumNoteOpacity, defaults.object(forKey: Keys.noteOpacity) as? Double ?? 0.68)
-        glassStrength = defaults.object(forKey: Keys.glassStrength) as? Double ?? 0.82
+        noteOpacity = max(Self.minimumNoteOpacity, defaults.object(forKey: Keys.noteOpacity) as? Double ?? Self.defaultNoteOpacity)
+        glassStrength = defaults.object(forKey: Keys.glassStrength) as? Double ?? Self.defaultGlassStrength
         alwaysOnTop = defaults.object(forKey: Keys.alwaysOnTop) as? Bool ?? true
         monitorClipboard = defaults.object(forKey: Keys.monitorClipboard) as? Bool ?? true
         clipboardLimit = defaults.object(forKey: Keys.clipboardLimit) as? Int ?? 200

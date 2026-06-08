@@ -17,7 +17,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 
 - Markdown note editing with live save.
 - Markdown should render live inside the editable note body, not through separate edit/preview modes.
-- Adjustable note opacity.
+- Adjustable note opacity. New default note opacity is 60%.
 - Customizable global shortcuts for showing the note, hiding the note, and opening the clipboard library.
 - App-level Chinese/English UI language switch in Settings. This changes app chrome text, not the user's Markdown content.
 - Clipboard history saved locally after explicit app setting enables monitoring.
@@ -67,6 +67,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 ## Implementation Notes
 
 - The note opacity slider controls the glass/readability layers, not the whole NSWindow alpha. Text and controls intentionally stay readable.
+- The compact settings copy distinguishes the bottom opacity slider from the glass feel slider: opacity controls how visible the note shell is, while frosted glass controls blur, haze, and glass texture. New default frosted glass strength is 10%.
 - Markdown editing uses `MarkdownRenderingEditor.swift`, an editable `NSTextView` that live-styles the Markdown source. It saves plain Markdown.
 - `- [ ]` and `- [x]` are rendered as clickable checkboxes while keeping the underlying Markdown text.
 - Task markers should not use a tiny hidden font because that makes the insertion caret short near a task marker. The current implementation parses each task line into indentation width plus a fixed checkbox slot, then dynamically computes the hidden marker kern so `- [ ]`, `- [ ] `, `- [ ]  `, `- [x] `, and newly typed tasks occupy the same visual slot.

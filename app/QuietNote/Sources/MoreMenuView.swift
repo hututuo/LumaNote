@@ -10,68 +10,78 @@ struct MoreMenuView: View {
     var body: some View {
         let copy = AppText(language: settings.language)
 
-        VStack(alignment: .leading, spacing: 15) {
-            HStack {
-                Text(copy.appearance)
-                    .font(.system(size: 13, weight: .semibold))
-                Spacer()
-                Text("\(Int(settings.glassStrength * 100))")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            Slider(value: $settings.glassStrength, in: 0...1)
-                .tint(.cyan)
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 15) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(copy.appearance)
+                            .font(.system(size: 13, weight: .semibold))
+                        Spacer()
+                        Text("\(Int(settings.glassStrength * 100))%")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
 
-            Toggle(copy.alwaysOnTop, isOn: $settings.alwaysOnTop)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text(copy.clipboard)
-                        .font(.system(size: 13, weight: .semibold))
-                    Spacer()
-                    Text("\(clipboardStore.items.count)")
-                        .font(.system(size: 12, weight: .medium))
+                    Text(copy.glassHintCompact)
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
-                        .monospacedDigit()
                 }
 
-                Toggle(copy.monitorLocally, isOn: $settings.monitorClipboard)
+                Slider(value: $settings.glassStrength, in: 0...1)
+                    .tint(.cyan)
 
-                Stepper(
-                    copy.keepCompact(settings.clipboardLimit),
-                    value: $settings.clipboardLimit,
-                    in: 25...1000,
-                    step: 25
-                )
-                .font(.system(size: 12.5))
+                Toggle(copy.alwaysOnTop, isOn: $settings.alwaysOnTop)
 
-                Button(role: .destructive) {
-                    clipboardStore.clear()
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text(copy.clipboard)
+                            .font(.system(size: 13, weight: .semibold))
+                        Spacer()
+                        Text("\(clipboardStore.items.count)")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+
+                    Toggle(copy.monitorLocally, isOn: $settings.monitorClipboard)
+
+                    Stepper(
+                        copy.keepCompact(settings.clipboardLimit),
+                        value: $settings.clipboardLimit,
+                        in: 25...1000,
+                        step: 25
+                    )
+                    .font(.system(size: 12.5))
+
+                    Button(role: .destructive) {
+                        clipboardStore.clear()
+                    } label: {
+                        Label(copy.clearClipboard, systemImage: "trash")
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(clipboardStore.items.isEmpty)
+                }
+
+                Divider()
+
+                Button {
+                    showShortcutSettings = true
                 } label: {
-                    Label(copy.clearClipboard, systemImage: "trash")
+                    Label(copy.shortcuts, systemImage: "keyboard")
                 }
                 .buttonStyle(.plain)
-                .disabled(clipboardStore.items.isEmpty)
-            }
 
-            Divider()
-
-            Button {
-                showShortcutSettings = true
-            } label: {
-                Label(copy.shortcuts, systemImage: "keyboard")
+                Button(role: .cancel, action: onClose) {
+                    Label(copy.hideNote, systemImage: "eye.slash")
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-
-            Button(role: .cancel, action: onClose) {
-                Label(copy.hideNote, systemImage: "eye.slash")
-            }
-            .buttonStyle(.plain)
+            .padding(16)
         }
-        .padding(16)
+        .scrollIndicators(.hidden)
         .background(Color.clear)
     }
 }
