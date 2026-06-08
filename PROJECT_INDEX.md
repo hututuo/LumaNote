@@ -18,7 +18,7 @@
 | `app/QuietNote/Sources/NoteWindowView.swift` | 2026-06-07 10:05 | 2026-06-08 00:50 | 主窗口视图 | 顶部拖动提示、底部控制栏、透明度控制和弹出层入口 | 不建议删除 | 默认外观参数调整 | 三条杠封装为 `islandDragGrip` 独立拖动热区；顶岛透明度只作用于玻璃壳层，标题和图标固定可读；设置/More 菜单改为窗口内玻璃浮层，锚定底部设置按钮并按便签边界自动避让 |
 | `app/QuietNote/Sources/NoteStore.swift` | 2026-06-07 10:05 | 2026-06-07 15:02 | 便签数据层 | 本地 Markdown 保存和标题提取 | 不建议删除 | 顶部标题胶囊 | 新增 `displayTitle`：优先使用正文第一个 Markdown 标题，否则显示实际保存文件名 |
 | `app/QuietNote/Sources/WindowDragView.swift` | 2026-06-07 10:05 | 2026-06-07 14:56 | 拖动热区 | 透明 AppKit 拖动层，用于顶部区域和顶岛本体拖拽窗口 | 不建议删除 | 失焦后三指拖动 | `WindowDragView` 负责整条顶栏拖动，`WindowClickDragView` 负责顶岛点击/拖动共存，两者都 `acceptsFirstMouse` |
-| `app/QuietNote/Sources/ClipboardStore.swift` | 2026-06-07 10:05 | 2026-06-07 12:02 | 剪切板数据层 | 本地剪切板监听、保存、识别、复制、粘贴和打开动作 | 不建议删除 | 底部剪切板提取提示条 | 新增最近含提取项记录；URL/邮箱/电话/地址可打开为 Safari/mailto/tel/Apple Maps |
+| `app/QuietNote/Sources/ClipboardStore.swift` | 2026-06-07 10:05 | 2026-06-08 00:58 | 剪切板数据层 | 本地剪切板监听、保存、识别、复制、粘贴和打开动作 | 不建议删除 | 剪切板低延迟监听 | 新增最近含提取项记录；URL/邮箱/电话/地址可打开为 Safari/mailto/tel/Apple Maps；剪切板轮询保持 60Hz，避免提取提示回到约 650ms 延迟 |
 | `app/QuietNote/Sources/ClipboardDetector.swift` | 2026-06-07 10:05 | 2026-06-07 16:25 | 剪切板识别器 | 从剪切板文本中提取 URL、邮箱、电话、地址和带标签编号 | 不建议删除 | 每条记录下方提取信息 | 不再提取普通数字；Number 仅识别验证码/订单号/快递单号等带标签编号；电话限制为 10-15 位并排除日期格式 |
 | `app/QuietNote/Sources/ClipboardLibraryView.swift` | 2026-06-07 10:05 | 2026-06-07 17:32 | 剪切板库 UI | 搜索、每条记录下方提取信息、复制/粘贴/删除/打开操作 | 不建议删除 | 中英文切换 | 提取项固定显示在所属剪切板记录下方的小框里，支持 Copy/Paste/Open；库内标题、搜索、空状态和动作文案支持中英文 |
 | `app/QuietNote/Sources/MoreMenuView.swift` | 2026-06-07 10:05 | 2026-06-08 00:50 | 紧凑设置菜单 | 便签内更多菜单和快捷键设置 sheet | 不建议删除 | 默认外观参数调整 | 菜单内容保持紧凑，背景由主窗口内玻璃浮层容器提供；顶部显示“玻璃质感”和模糊/泛白/质感说明，小窗口内可滚动；快捷键拆成呼出/关闭/剪切板库 |

@@ -29,6 +29,8 @@ struct ClipboardDetection: Codable, Identifiable, Equatable {
 
 @MainActor
 final class ClipboardStore: ObservableObject {
+    nonisolated static let pasteboardPollInterval: TimeInterval = 1.0 / 60.0
+
     @Published private(set) var items: [ClipboardItem] = []
     @Published private(set) var latestSuggestion: ClipboardDetection?
     @Published private(set) var latestDetectedItem: ClipboardItem?
@@ -79,11 +81,12 @@ final class ClipboardStore: ObservableObject {
         timer?.invalidate()
         capturePasteboard(force: true)
 
-        let timer = Timer(timeInterval: 0.65, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: Self.pasteboardPollInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.capturePasteboard(force: false)
             }
         }
+        timer.tolerance = 0.004
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
