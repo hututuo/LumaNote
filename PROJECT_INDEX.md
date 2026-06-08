@@ -15,7 +15,7 @@
 | `app/QuietNote/Sources/AppText.swift` | 2026-06-07 17:30 | 2026-06-08 00:50 | 应用文案 | App 内中文/English 文案表 | 不建议删除 | 默认外观参数调整 | 设置文案区分“便签透明度”和“磨砂强度/玻璃质感”，用于设置页、更多菜单、剪切板库和动作菜单 |
 | `app/QuietNote/Sources/AppSettings.swift` | 2026-06-07 10:05 | 2026-06-08 00:50 | 应用设置 | 保存透明度、玻璃强度、置顶、剪切板偏好和语言 | 不建议删除 | 默认外观参数调整 | 新增 `language`，默认中文；新用户默认开启本地剪切板监听；`noteOpacity` 最低值为 1%，新默认透明度 60%，新默认磨砂强度 10% |
 | `app/QuietNote/Sources/SettingsView.swift` | 2026-06-07 10:05 | 2026-06-08 00:50 | 设置窗口 | app 设置表单 | 不建议删除 | 默认外观参数调整 | 新增中文/English 分段选择；快捷键拆成快捷呼出、快捷关闭、打开剪切板库；透明度和磨砂强度下方有简短说明 |
-| `app/QuietNote/Sources/NoteWindowView.swift` | 2026-06-07 10:05 | 2026-06-08 00:50 | 主窗口视图 | 顶部拖动提示、底部控制栏、透明度控制和弹出层入口 | 不建议删除 | 默认外观参数调整 | 三条杠封装为 `islandDragGrip` 独立拖动热区；顶岛透明度只作用于玻璃壳层，标题和图标固定可读；设置/More 菜单改为窗口内玻璃浮层，锚定底部设置按钮并按便签边界自动避让 |
+| `app/QuietNote/Sources/NoteWindowView.swift` | 2026-06-07 10:05 | 2026-06-08 20:50 | 主窗口视图 | 顶部拖动提示、底部控制栏、透明度控制和弹出层入口 | 不建议删除 | 顶部胶囊描边修复 | 三条杠封装为 `islandDragGrip` 独立拖动热区；顶岛透明度只作用于玻璃壳层，标题和图标固定可读；设置/More 菜单改为窗口内玻璃浮层，锚定底部设置按钮并按便签边界自动避让；顶岛移除局部高光线，避免右下角出现细线线头 |
 | `app/QuietNote/Sources/NoteStore.swift` | 2026-06-07 10:05 | 2026-06-07 15:02 | 便签数据层 | 本地 Markdown 保存和标题提取 | 不建议删除 | 顶部标题胶囊 | 新增 `displayTitle`：优先使用正文第一个 Markdown 标题，否则显示实际保存文件名 |
 | `app/QuietNote/Sources/WindowDragView.swift` | 2026-06-07 10:05 | 2026-06-07 14:56 | 拖动热区 | 透明 AppKit 拖动层，用于顶部区域和顶岛本体拖拽窗口 | 不建议删除 | 失焦后三指拖动 | `WindowDragView` 负责整条顶栏拖动，`WindowClickDragView` 负责顶岛点击/拖动共存，两者都 `acceptsFirstMouse` |
 | `app/QuietNote/Sources/ClipboardStore.swift` | 2026-06-07 10:05 | 2026-06-07 12:02 | 剪切板数据层 | 本地剪切板监听、保存、识别、复制、粘贴和打开动作 | 不建议删除 | 底部剪切板提取提示条 | 新增最近含提取项记录；URL/邮箱/电话/地址可打开为 Safari/mailto/tel/Apple Maps |
