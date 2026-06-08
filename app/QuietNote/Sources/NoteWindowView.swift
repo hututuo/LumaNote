@@ -680,8 +680,9 @@ struct NoteWindowView: View {
     private func fileSwitcherOverlayMetrics(in containerSize: CGSize) -> (width: CGFloat, height: CGFloat, centerX: CGFloat, centerY: CGFloat) {
         let margin: CGFloat = 12
         let width = max(218, min(310, containerSize.width - margin * 2))
-        let recentCount = max(1, min(noteStore.recentFileURLs.count, 5))
-        let height = min(containerSize.height - 68, 72 + CGFloat(recentCount) * 42)
+        let recentCount = max(1, min(noteStore.recentFileURLs.count, 7))
+        let maxHeight = max(210, containerSize.height - 52)
+        let height = min(maxHeight, 84 + CGFloat(recentCount) * 43)
         let anchor = fileSwitchButtonFrame == .zero
             ? CGRect(x: containerSize.width - 116, y: containerSize.height - 34, width: 24, height: 24)
             : fileSwitchButtonFrame
