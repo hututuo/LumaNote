@@ -345,6 +345,14 @@ struct NoteWindowView: View {
         max(0.05, settings.noteOpacity)
     }
 
+    private var islandTextColor: Color {
+        Color.white.opacity(0.94)
+    }
+
+    private var islandIconColor: Color {
+        Color.white.opacity(0.98)
+    }
+
     private var bottomRail: some View {
         let copy = AppText(language: settings.language)
 
@@ -521,7 +529,8 @@ struct NoteWindowView: View {
 
             Text(noteStore.displayTitle)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(islandTextColor)
+                .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .multilineTextAlignment(.center)
@@ -552,12 +561,14 @@ struct NoteWindowView: View {
                 HStack(spacing: 7) {
                     Image(systemName: first.symbol)
                         .font(.system(size: 10, weight: .black))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(islandIconColor)
+                        .shadow(color: .black.opacity(0.2), radius: 1, y: 0.5)
                         .frame(width: 14, height: 22)
 
                     Text(first.value)
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(islandTextColor)
+                        .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .frame(maxWidth: 122, alignment: .leading)
@@ -565,7 +576,7 @@ struct NoteWindowView: View {
                     if item.detections.count > 1 {
                         Text("+\(item.detections.count - 1)")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.primary.opacity(0.9))
+                            .foregroundStyle(islandTextColor)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(.white.opacity(0.16), in: Capsule())
@@ -612,7 +623,8 @@ struct NoteWindowView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.primary)
+        .foregroundStyle(islandIconColor)
+        .shadow(color: .black.opacity(0.2), radius: 1, y: 0.5)
         .background(.white.opacity(0.03 + islandOpacity * 0.08), in: Circle())
         .help("Clipboard")
     }
