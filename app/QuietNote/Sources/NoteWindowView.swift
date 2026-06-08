@@ -42,9 +42,6 @@ struct NoteWindowView: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(alignment: .bottomTrailing) {
-            resizeHint
-        }
         .overlay {
             clipboardInlineOverlay
         }
@@ -735,14 +732,6 @@ struct NoteWindowView: View {
             return (lowerBound + upperBound) / 2
         }
         return Swift.min(Swift.max(value, lowerBound), upperBound)
-    }
-
-    private var resizeHint: some View {
-        Image(systemName: "line.diagonal")
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.secondary.opacity(0.6))
-            .padding(7)
-            .allowsHitTesting(false)
     }
 }
 
