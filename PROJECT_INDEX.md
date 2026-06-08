@@ -89,6 +89,8 @@
 | `app/QuietNote/runs/20260609-003543_seventyfive-percent-width-check/` | 2026-06-09 00:35 | 2026-06-09 00:35 | 运行截图 | 验证 270px 最小宽度下底部工具条自适应压缩且圆角不被破坏 | 可删除 | 75% 最小宽度适配 | `swift build` 与打包通过；自动打开并将窗口设为 270px，系统报告 `size=270x560`，截图确认玻璃外壳圆角完整 |
 | `app/QuietNote/runs/20260609-003927_compact-height-check/` | 2026-06-09 00:39 | 2026-06-09 00:39 | 运行截图 | 验证 270px 最小内容高度下便签变矮且圆角不被破坏 | 可删除 | 75% 最小宽高适配 | `swift build` 与打包通过；自动打开并将窗口设为 270x270，macOS frame 报告 `size=270x302` 是隐藏标题栏计入 frame，截图确认玻璃内容壳已压缩且圆角完整 |
 | `app/QuietNote/runs/20260609-004949_remove-resize-hint-check/` | 2026-06-09 00:49 | 2026-06-09 00:49 | 运行截图 | 验证右下角斜线 resize hint 已移除 | 可删除 | 移除右下角斜线提示 | `swift build` 与打包通过；重新打开新版后截图确认右下角不再显示 `line.diagonal` 斜条 |
+| `app/QuietNote/runs/20260609-020049_clipboard-wrap-chips-check/` | 2026-06-09 02:00 | 2026-06-09 02:00 | 运行截图 | 测试剪切板提取提示和顶部识别弹层状态 | 可删除 | 剪切板提取气泡换行 | `swift test`、`swift build` 与打包通过；AppleScript 点击落在顶岛中间识别区，截图仅保留交互状态参考 |
+| `app/QuietNote/runs/20260609-020110_clipboard-library-wrap-chips-check/` | 2026-06-09 02:01 | 2026-06-09 02:01 | 运行截图 | 再次尝试打开剪切板库并记录当前窗口状态 | 可删除 | 剪切板提取气泡换行 | `swift test`、`swift build` 与打包通过；坐标点击未稳定打开库，但代码已将详情页提取项从横向滚动改为自动换行玻璃气泡 |
 
 ## Current Status
 
