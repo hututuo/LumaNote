@@ -10,6 +10,7 @@
 | `app/QuietNote/scripts/build-app.sh` | 2026-06-07 10:18 | 2026-06-07 10:18 | 构建脚本 | 编译并生成 `build/QuietNote.app` | 不建议删除 | 构建玻璃 Markdown 便签 | 用于本地重建调试版 app 包 |
 | `app/QuietNote/support/Info.plist` | 2026-06-07 10:19 | 2026-06-07 10:35 | app 配置模板 | `QuietNote.app` 的 bundle metadata 模板 | 不建议删除 | 构建玻璃 Markdown 便签 | `LSUIElement=false`，使 app 出现在 Dock/任务栏 |
 | `app/QuietNote/build/QuietNote.app` | 2026-06-07 10:09 | 2026-06-07 10:16 | macOS app 包 | 可双击运行的本地调试版 QuietNote | 可重建 | 构建玻璃 Markdown 便签 | 由 `.build/debug/QuietNote` 打包生成 |
+| `docs/markdown-compatibility.md` | 2026-06-08 21:58 | 2026-06-08 21:58 | GitHub 文档 | 说明 QuietNote 当前 Markdown 实时样式兼容性 | 不建议删除 | Markdown 兼容性说明 | 用表格区分 Supported / Partial / Not styled；强调保存层面保留原始 Markdown，编辑器不是完整 CommonMark/GFM 渲染器 |
 | `app/QuietNote/Sources/MarkdownRenderingEditor.swift` | 2026-06-07 10:20 | 2026-06-08 21:40 | 实时渲染编辑器 | 用原生 `NSTextView` 在编辑时实时渲染 Markdown 样式 | 不建议删除 | 编辑器细滚动条 | task 布局已归一化：解析时按缩进宽度 + 固定 checkbox 槽位动态计算 hidden marker kern；checkbox x 使用 lineFragment 左缘 + textContainer padding + task 缩进；空 task 行按 Return 只删除 marker、不新增换行；关闭 NSTextView 自动补全/文本检查，避免系统根据上一行 `-` 自动补横杠；编辑器滚动容器使用 macOS overlay 小滚动条和 5pt 自定义 mini scroller，右侧细线式显示并自动隐藏 |
 | `app/QuietNote/Sources/MarkdownPreviewView.swift` | 2026-06-07 10:07 | 2026-06-07 10:24 | 已删除旧组件 | 旧的单独预览模式组件，已被实时渲染编辑器替代 | 已删除 | 去除编辑/预览模式 | 防止后续误回到编辑/预览切换 |
 | `app/QuietNote/Sources/AppText.swift` | 2026-06-07 17:30 | 2026-06-08 21:20 | 应用文案 | App 内中文/English 文案表 | 不建议删除 | 最近文件切换 | 设置文案区分“便签透明度”和“磨砂强度/玻璃质感”，用于设置页、更多菜单、剪切板库和动作菜单；新增切换便签文件、打开新文件、最近打开和空状态文案 |
