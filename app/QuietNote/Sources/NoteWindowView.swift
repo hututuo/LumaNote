@@ -12,9 +12,11 @@ struct NoteWindowView: View {
 
     @State private var showClipboard = false
     @State private var showMore = false
+    @State private var showFileSwitcher = false
     @State private var showShortcutSettings = false
     @State private var showExtractionActions = false
     @State private var moreButtonFrame: CGRect = .zero
+    @State private var fileSwitchButtonFrame: CGRect = .zero
     @State private var hiddenSuggestionID: ClipboardItem.ID?
     @State private var suggestionResetTask: Task<Void, Never>?
     @Namespace private var extractionIslandNamespace
@@ -48,9 +50,15 @@ struct NoteWindowView: View {
         .overlay {
             moreInlineOverlay
         }
+        .overlay {
+            fileSwitcherInlineOverlay
+        }
         .coordinateSpace(name: NoteWindowCoordinateSpace.name)
         .onPreferenceChange(MoreButtonFramePreferenceKey.self) { frame in
             moreButtonFrame = frame
+        }
+        .onPreferenceChange(FileSwitchButtonFramePreferenceKey.self) { frame in
+            fileSwitchButtonFrame = frame
         }
         .sheet(isPresented: $showShortcutSettings) {
             ShortcutSettingsView(settings: settings)
@@ -60,6 +68,7 @@ struct NoteWindowView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quietNoteToggleClipboard)) { _ in
             withAnimation(.snappy(duration: 0.16)) {
                 showMore = false
+                showFileSwitcher = false
                 showExtractionActions = false
                 showClipboard.toggle()
             }
@@ -77,6 +86,7 @@ struct NoteWindowView: View {
         }
         .animation(.snappy(duration: 0.16), value: showClipboard)
         .animation(.snappy(duration: 0.16), value: showMore)
+        .animation(.snappy(duration: 0.16), value: showFileSwitcher)
         .animation(.snappy(duration: 0.24), value: clipboardStore.latestDetectedItem?.id)
         .animation(.snappy(duration: 0.24), value: hiddenSuggestionID)
     }
@@ -186,6 +196,74 @@ struct NoteWindowView: View {
         .allowsHitTesting(showMore)
     }
 
+    @ViewBuilder
+    private var fileSwitcherInlineOverlay: some View {
+        GeometryReader { proxy in
+            if showFileSwitcher {
+                let metrics = fileSwitcherOverlayMetrics(in: proxy.size)
+
+                ZStack(alignment: .topLeading) {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.snappy(duration: 0.14)) {
+                                showFileSwitcher = false
+                            }
+                        }
+
+                    FileSwitcherView(
+                        settings: settings,
+                        noteStore: noteStore,
+                        openNewFile: {
+                            withAnimation(.snappy(duration: 0.14)) {
+                                showFileSwitcher = false
+                            }
+                            openNoteFile()
+                        },
+                        openRecentFile: { url in
+                            withAnimation(.snappy(duration: 0.14)) {
+                                showFileSwitcher = false
+                            }
+                            noteStore.openFile(at: url)
+                        }
+                    )
+                    .frame(width: metrics.width, height: metrics.height)
+                    .background {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .fill(.regularMaterial)
+                            .opacity(0.1 + settings.noteOpacity * 0.78)
+                    }
+                    .background {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .fill(Color.white.opacity(0.035 + settings.noteOpacity * 0.08))
+                            .blendMode(.plusLighter)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.62), .white.opacity(0.18), .black.opacity(0.08)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 18, y: 8)
+                    .position(x: metrics.centerX, y: metrics.centerY)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.95, anchor: .bottom).combined(with: .opacity),
+                        removal: .scale(scale: 0.985, anchor: .bottom).combined(with: .opacity)
+                    ))
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .zIndex(31)
+            }
+        }
+        .allowsHitTesting(showFileSwitcher)
+    }
+
     private var readabilityLayer: some View {
         RoundedRectangle(cornerRadius: 20, style: .continuous)
             .fill(Color.white.opacity(0.025 + settings.noteOpacity * (0.14 + settings.glassStrength * 0.16)))
@@ -282,9 +360,22 @@ struct NoteWindowView: View {
                 .monospacedDigit()
                 .frame(width: 36, alignment: .trailing)
 
-            railButton(symbol: "folder", help: copy.openNoteFile) {
-                openNoteFile()
+            railButton(symbol: "arrow.triangle.2.circlepath", help: copy.switchNoteFile) {
+                withAnimation(.snappy(duration: 0.14)) {
+                    showClipboard = false
+                    showMore = false
+                    showExtractionActions = false
+                    showFileSwitcher.toggle()
+                }
             }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: FileSwitchButtonFramePreferenceKey.self,
+                        value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                    )
+                }
+            )
             railButton(symbol: "square.and.arrow.down", help: copy.saveAsNoteFile) {
                 saveNoteFileAs()
             }
@@ -295,6 +386,7 @@ struct NoteWindowView: View {
                 withAnimation(.snappy(duration: 0.14)) {
                     showClipboard = false
                     showExtractionActions = false
+                    showFileSwitcher = false
                     showMore.toggle()
                 }
             }
@@ -476,7 +568,12 @@ struct NoteWindowView: View {
 
     private var clipboardIslandButton: some View {
         Button {
-            showClipboard.toggle()
+            withAnimation(.snappy(duration: 0.16)) {
+                showMore = false
+                showFileSwitcher = false
+                showExtractionActions = false
+                showClipboard.toggle()
+            }
         } label: {
             Image(systemName: "list.clipboard")
                 .font(.system(size: 10, weight: .semibold))
@@ -575,6 +672,28 @@ struct NoteWindowView: View {
         return (width, height, centerX, centerY)
     }
 
+    private func fileSwitcherOverlayMetrics(in containerSize: CGSize) -> (width: CGFloat, height: CGFloat, centerX: CGFloat, centerY: CGFloat) {
+        let margin: CGFloat = 12
+        let width = max(218, min(310, containerSize.width - margin * 2))
+        let recentCount = max(1, min(noteStore.recentFileURLs.count, 5))
+        let height = min(containerSize.height - 68, 72 + CGFloat(recentCount) * 42)
+        let anchor = fileSwitchButtonFrame == .zero
+            ? CGRect(x: containerSize.width - 116, y: containerSize.height - 34, width: 24, height: 24)
+            : fileSwitchButtonFrame
+
+        let preferredX = anchor.midX
+        let minX = margin + width / 2
+        let maxX = containerSize.width - margin - width / 2
+        let centerX = clamped(preferredX, min: minX, max: maxX)
+
+        let preferredY = anchor.minY - 8 - height / 2
+        let minY = margin + height / 2
+        let maxY = containerSize.height - margin - height / 2
+        let centerY = clamped(preferredY, min: minY, max: maxY)
+
+        return (width, height, centerX, centerY)
+    }
+
     private func clamped(_ value: CGFloat, min lowerBound: CGFloat, max upperBound: CGFloat) -> CGFloat {
         guard lowerBound <= upperBound else {
             return (lowerBound + upperBound) / 2
@@ -603,6 +722,136 @@ private struct MoreButtonFramePreferenceKey: PreferenceKey {
         if next != .zero {
             value = next
         }
+    }
+}
+
+private struct FileSwitchButtonFramePreferenceKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero {
+            value = next
+        }
+    }
+}
+
+private struct FileSwitcherView: View {
+    @ObservedObject var settings: AppSettings
+    @ObservedObject var noteStore: NoteStore
+
+    let openNewFile: () -> Void
+    let openRecentFile: (URL) -> Void
+
+    private var copy: AppText {
+        AppText(language: settings.language)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Button(action: openNewFile) {
+                HStack(spacing: 9) {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 18)
+
+                    Text(copy.openNewFile)
+                        .font(.system(size: 12, weight: .semibold))
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 10)
+                .frame(height: 34)
+                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .background(.white.opacity(0.08 + settings.noteOpacity * 0.06), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+            Rectangle()
+                .fill(.white.opacity(0.16 + settings.noteOpacity * 0.16))
+                .frame(height: 1)
+                .padding(.horizontal, 2)
+
+            if noteStore.recentFileURLs.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(copy.noRecentFiles)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .frame(height: 36)
+            } else {
+                Text(copy.recentFiles)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 1)
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 3) {
+                        ForEach(noteStore.recentFileURLs, id: \.self) { url in
+                            recentFileButton(url)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(9)
+    }
+
+    private func recentFileButton(_ url: URL) -> some View {
+        Button {
+            openRecentFile(url)
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: isCurrent(url) ? "checkmark.circle.fill" : "doc.text")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(isCurrent(url) ? Color.cyan : .secondary)
+                    .frame(width: 18)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(url.lastPathComponent)
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    Text(shortPath(for: url))
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 39)
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .background(
+            isCurrent(url) ? Color.cyan.opacity(0.08) : Color.white.opacity(0.04),
+            in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+        )
+    }
+
+    private func isCurrent(_ url: URL) -> Bool {
+        noteStore.currentFileURL.standardizedFileURL.path == url.standardizedFileURL.path
+    }
+
+    private func shortPath(for url: URL) -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let path = url.deletingLastPathComponent().path
+        if path == home {
+            return "~"
+        }
+        if path.hasPrefix(home + "/") {
+            return "~/" + String(path.dropFirst(home.count + 1))
+        }
+        return path
     }
 }
 

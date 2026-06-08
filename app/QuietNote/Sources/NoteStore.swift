@@ -13,6 +13,7 @@ final class NoteStore: ObservableObject {
 
     @Published private(set) var lastSavedText = "Saved"
     @Published private(set) var currentFileURL: URL
+    @Published private(set) var recentFileURLs: [URL] = []
 
     private let defaultFileURL: URL
     private let defaults = UserDefaults.standard
@@ -52,11 +53,13 @@ final class NoteStore: ObservableObject {
             initialFileURL = defaultFileURL
         }
         currentFileURL = initialFileURL
+        recentFileURLs = Self.loadRecentFileURLs(from: defaults)
 
         if let data = try? Data(contentsOf: initialFileURL),
            let text = String(data: data, encoding: .utf8),
            !text.isEmpty {
             markdown = text
+            rememberRecentFile(initialFileURL)
         } else {
             markdown = """
             # Today
@@ -92,6 +95,7 @@ final class NoteStore: ObservableObject {
             let text = try String(contentsOf: url, encoding: .utf8)
             currentFileURL = url
             defaults.set(url.path, forKey: Keys.currentFilePath)
+            rememberRecentFile(url)
             isReplacingText = true
             markdown = text
             isReplacingText = false
@@ -105,7 +109,14 @@ final class NoteStore: ObservableObject {
         saveTask?.cancel()
         currentFileURL = url
         defaults.set(url.path, forKey: Keys.currentFilePath)
+        rememberRecentFile(url)
         saveNow()
+    }
+
+    func removeRecentFile(_ url: URL) {
+        let path = url.standardizedFileURL.path
+        recentFileURLs.removeAll { $0.standardizedFileURL.path == path }
+        defaults.set(recentFileURLs.map(\.path), forKey: Keys.recentFilePaths)
     }
 
     private func scheduleSave() {
@@ -125,7 +136,28 @@ final class NoteStore: ObservableObject {
         }
     }
 
+    private func rememberRecentFile(_ url: URL) {
+        let standardizedURL = url.standardizedFileURL
+        let path = standardizedURL.path
+        recentFileURLs.removeAll { $0.standardizedFileURL.path == path }
+        recentFileURLs.insert(standardizedURL, at: 0)
+        recentFileURLs = Array(recentFileURLs.prefix(8))
+        defaults.set(recentFileURLs.map(\.path), forKey: Keys.recentFilePaths)
+    }
+
+    private static func loadRecentFileURLs(from defaults: UserDefaults) -> [URL] {
+        let paths = defaults.stringArray(forKey: Keys.recentFilePaths) ?? []
+        var seen: Set<String> = []
+        return paths.compactMap { path in
+            guard !path.isEmpty, FileManager.default.fileExists(atPath: path), seen.insert(path).inserted else {
+                return nil
+            }
+            return URL(fileURLWithPath: path).standardizedFileURL
+        }
+    }
+
     private enum Keys {
         static let currentFilePath = "currentFilePath"
+        static let recentFilePaths = "recentFilePaths"
     }
 }

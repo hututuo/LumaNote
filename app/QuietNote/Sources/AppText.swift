@@ -26,6 +26,10 @@ struct AppText {
     var extracted: String { text("已提取", "Extracted") }
     var copy: String { text("复制", "Copy") }
     var openNoteFile: String { text("打开 Markdown 文件", "Open Markdown file") }
+    var switchNoteFile: String { text("切换便签文件", "Switch note file") }
+    var openNewFile: String { text("打开新文件", "Open new file") }
+    var recentFiles: String { text("最近打开", "Recent files") }
+    var noRecentFiles: String { text("没有最近文件", "No recent files") }
     var saveAsNoteFile: String { text("另存为 Markdown 文件", "Save as Markdown file") }
     var paste: String { text("粘贴", "Paste") }
     var copyExtracted: String { text("复制提取内容", "Copy Extracted") }
