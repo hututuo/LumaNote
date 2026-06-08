@@ -518,7 +518,7 @@ struct NoteWindowView: View {
     private func moreOverlayMetrics(in containerSize: CGSize) -> (width: CGFloat, height: CGFloat, centerX: CGFloat, centerY: CGFloat) {
         let margin: CGFloat = 12
         let width = max(210, min(286, containerSize.width - margin * 2))
-        let height = max(230, min(318, containerSize.height - 68))
+        let height = max(250, min(360, containerSize.height - 68))
         let anchor = moreButtonFrame == .zero
             ? CGRect(x: containerSize.width - 44, y: containerSize.height - 34, width: 24, height: 24)
             : moreButtonFrame

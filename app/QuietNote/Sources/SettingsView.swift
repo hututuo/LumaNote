@@ -25,9 +25,22 @@ struct SettingsView: View {
                             .frame(width: 42, alignment: .trailing)
                     }
                 }
+                Text(copy.opacityHint)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
                 LabeledContent(copy.glass) {
-                    Slider(value: $settings.glassStrength, in: 0...1)
+                    HStack {
+                        Slider(value: $settings.glassStrength, in: 0...1)
+                        Text("\(Int(settings.glassStrength * 100))%")
+                            .monospacedDigit()
+                            .frame(width: 42, alignment: .trailing)
+                    }
                 }
+                Text(copy.glassHint)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
                 Toggle(copy.alwaysOnTop, isOn: $settings.alwaysOnTop)
             }
 

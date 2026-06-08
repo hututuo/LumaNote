@@ -4,8 +4,10 @@ struct AppText {
     let language: AppLanguage
 
     var note: String { text("便签", "Note") }
-    var opacity: String { text("透明度", "Opacity") }
-    var glass: String { text("玻璃强度", "Glass") }
+    var opacity: String { text("便签透明度", "Note opacity") }
+    var opacityHint: String { text("控制便签玻璃外壳有多明显。", "Controls how visible the note's glass shell is.") }
+    var glass: String { text("磨砂强度", "Frosted glass") }
+    var glassHint: String { text("控制背景模糊、泛白和玻璃质感。", "Controls blur, haze, and the frosted glass feel.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }
     var shortcuts: String { text("快捷键", "Shortcuts") }
     var showNoteShortcut: String { text("快捷呼出便签：", "Show note:") }
@@ -18,7 +20,8 @@ struct AppText {
     var clear: String { text("清空", "Clear") }
     var clearClipboard: String { text("清空剪切板库", "Clear clipboard library") }
     var keyboardShortcutNote: String { text("快捷键会保存在本机；QuietNote 运行时全局生效。", "Shortcuts are stored locally and work globally while QuietNote is running.") }
-    var appearance: String { text("外观", "Appearance") }
+    var appearance: String { text("玻璃质感", "Glass feel") }
+    var glassHintCompact: String { text("模糊 / 泛白 / 质感", "Blur / haze / texture") }
     var hideNote: String { text("隐藏便签", "Hide Note") }
     var extracted: String { text("已提取", "Extracted") }
     var copy: String { text("复制", "Copy") }
