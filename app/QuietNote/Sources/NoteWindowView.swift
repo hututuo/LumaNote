@@ -13,6 +13,7 @@ struct NoteWindowView: View {
     @State private var showMore = false
     @State private var showShortcutSettings = false
     @State private var showExtractionActions = false
+    @State private var moreButtonFrame: CGRect = .zero
     @State private var hiddenSuggestionID: ClipboardItem.ID?
     @State private var suggestionResetTask: Task<Void, Never>?
     @Namespace private var extractionIslandNamespace
@@ -43,14 +44,12 @@ struct NoteWindowView: View {
         .overlay {
             clipboardInlineOverlay
         }
-        .popover(isPresented: $showMore, arrowEdge: .bottom) {
-            MoreMenuView(
-                settings: settings,
-                clipboardStore: clipboardStore,
-                showShortcutSettings: $showShortcutSettings,
-                onClose: onClose
-            )
-            .frame(width: 286)
+        .overlay {
+            moreInlineOverlay
+        }
+        .coordinateSpace(name: NoteWindowCoordinateSpace.name)
+        .onPreferenceChange(MoreButtonFramePreferenceKey.self) { frame in
+            moreButtonFrame = frame
         }
         .sheet(isPresented: $showShortcutSettings) {
             ShortcutSettingsView(settings: settings)
@@ -58,7 +57,16 @@ struct NoteWindowView: View {
                 .padding(22)
         }
         .onReceive(NotificationCenter.default.publisher(for: .quietNoteToggleClipboard)) { _ in
-            showClipboard.toggle()
+            withAnimation(.snappy(duration: 0.16)) {
+                showMore = false
+                showExtractionActions = false
+                showClipboard.toggle()
+            }
+        }
+        .onChange(of: showShortcutSettings) { _, isPresented in
+            if isPresented {
+                showMore = false
+            }
         }
         .onChange(of: clipboardStore.latestDetectedItem?.id) { _, itemID in
             scheduleSuggestionReset(for: itemID)
@@ -67,6 +75,7 @@ struct NoteWindowView: View {
             suggestionResetTask?.cancel()
         }
         .animation(.snappy(duration: 0.16), value: showClipboard)
+        .animation(.snappy(duration: 0.16), value: showMore)
         .animation(.snappy(duration: 0.24), value: clipboardStore.latestDetectedItem?.id)
         .animation(.snappy(duration: 0.24), value: hiddenSuggestionID)
     }
@@ -113,6 +122,67 @@ struct NoteWindowView: View {
             }
         }
         .allowsHitTesting(showClipboard)
+    }
+
+    @ViewBuilder
+    private var moreInlineOverlay: some View {
+        GeometryReader { proxy in
+            if showMore {
+                let metrics = moreOverlayMetrics(in: proxy.size)
+
+                ZStack(alignment: .topLeading) {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.snappy(duration: 0.14)) {
+                                showMore = false
+                            }
+                        }
+
+                    MoreMenuView(
+                        settings: settings,
+                        clipboardStore: clipboardStore,
+                        showShortcutSettings: $showShortcutSettings,
+                        onClose: {
+                            showMore = false
+                            onClose()
+                        }
+                    )
+                    .frame(width: metrics.width, height: metrics.height)
+                    .background {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .fill(.regularMaterial)
+                            .opacity(0.1 + settings.noteOpacity * 0.78)
+                    }
+                    .background {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .fill(Color.white.opacity(0.035 + settings.noteOpacity * 0.08))
+                            .blendMode(.plusLighter)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.62), .white.opacity(0.18), .black.opacity(0.08)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 18, y: 8)
+                    .position(x: metrics.centerX, y: metrics.centerY)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.95, anchor: .bottomTrailing).combined(with: .opacity),
+                        removal: .scale(scale: 0.985, anchor: .bottomTrailing).combined(with: .opacity)
+                    ))
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .zIndex(32)
+            }
+        }
+        .allowsHitTesting(showMore)
     }
 
     private var readabilityLayer: some View {
@@ -216,8 +286,20 @@ struct NoteWindowView: View {
                 settings.alwaysOnTop.toggle()
             }
             railButton(symbol: "ellipsis", help: "More") {
-                showMore.toggle()
+                withAnimation(.snappy(duration: 0.14)) {
+                    showClipboard = false
+                    showExtractionActions = false
+                    showMore.toggle()
+                }
             }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: MoreButtonFramePreferenceKey.self,
+                        value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                    )
+                }
+            )
         }
         .padding(.horizontal, 14)
         .frame(height: 36)
@@ -433,12 +515,55 @@ struct NoteWindowView: View {
         }
     }
 
+    private func moreOverlayMetrics(in containerSize: CGSize) -> (width: CGFloat, height: CGFloat, centerX: CGFloat, centerY: CGFloat) {
+        let margin: CGFloat = 12
+        let width = max(210, min(286, containerSize.width - margin * 2))
+        let height = max(230, min(318, containerSize.height - 68))
+        let anchor = moreButtonFrame == .zero
+            ? CGRect(x: containerSize.width - 44, y: containerSize.height - 34, width: 24, height: 24)
+            : moreButtonFrame
+
+        let preferredX = anchor.maxX - width / 2
+        let minX = margin + width / 2
+        let maxX = containerSize.width - margin - width / 2
+        let centerX = clamped(preferredX, min: minX, max: maxX)
+
+        let preferredY = anchor.minY - 8 - height / 2
+        let minY = margin + height / 2
+        let maxY = containerSize.height - margin - height / 2
+        let centerY = clamped(preferredY, min: minY, max: maxY)
+
+        return (width, height, centerX, centerY)
+    }
+
+    private func clamped(_ value: CGFloat, min lowerBound: CGFloat, max upperBound: CGFloat) -> CGFloat {
+        guard lowerBound <= upperBound else {
+            return (lowerBound + upperBound) / 2
+        }
+        return Swift.min(Swift.max(value, lowerBound), upperBound)
+    }
+
     private var resizeHint: some View {
         Image(systemName: "line.diagonal")
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(.secondary.opacity(0.6))
             .padding(7)
             .allowsHitTesting(false)
+    }
+}
+
+private enum NoteWindowCoordinateSpace {
+    static let name = "quietNoteWindow"
+}
+
+private struct MoreButtonFramePreferenceKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero {
+            value = next
+        }
     }
 }
 

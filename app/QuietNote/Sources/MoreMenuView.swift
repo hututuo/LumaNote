@@ -72,7 +72,7 @@ struct MoreMenuView: View {
             .buttonStyle(.plain)
         }
         .padding(16)
-        .background(.regularMaterial)
+        .background(Color.clear)
     }
 }
 
