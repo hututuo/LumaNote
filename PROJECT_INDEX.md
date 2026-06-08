@@ -91,6 +91,7 @@
 | `app/QuietNote/runs/20260609-004949_remove-resize-hint-check/` | 2026-06-09 00:49 | 2026-06-09 00:49 | 运行截图 | 验证右下角斜线 resize hint 已移除 | 可删除 | 移除右下角斜线提示 | `swift build` 与打包通过；重新打开新版后截图确认右下角不再显示 `line.diagonal` 斜条 |
 | `app/QuietNote/runs/20260609-020049_clipboard-wrap-chips-check/` | 2026-06-09 02:00 | 2026-06-09 02:00 | 运行截图 | 测试剪切板提取提示和顶部识别弹层状态 | 可删除 | 剪切板提取气泡换行 | `swift test`、`swift build` 与打包通过；AppleScript 点击落在顶岛中间识别区，截图仅保留交互状态参考 |
 | `app/QuietNote/runs/20260609-020110_clipboard-library-wrap-chips-check/` | 2026-06-09 02:01 | 2026-06-09 02:01 | 运行截图 | 再次尝试打开剪切板库并记录当前窗口状态 | 可删除 | 剪切板提取气泡换行 | `swift test`、`swift build` 与打包通过；坐标点击未稳定打开库，但代码已将详情页提取项从横向滚动改为自动换行玻璃气泡 |
+| `app/QuietNote/runs/20260609-021137_clipboard-glass-library-hotkey-check/` | 2026-06-09 02:11 | 2026-06-09 02:11 | 运行截图 | 用 `Option+V` 打开新版剪切板库并确认玻璃卡片列表与换行气泡 | 可删除 | 剪切板库视觉重写 | `swift test`、`swift build` 与打包通过；截图显示剪切板库改为自绘玻璃卡片，提取内容使用多行圆角气泡 |
 
 ## Current Status
 

@@ -34,9 +34,9 @@ struct AppText {
     var recentFiles: String { text("最近打开", "Recent files") }
     var noRecentFiles: String { text("没有最近文件", "No recent files") }
     var saveAsNoteFile: String { text("另存为 Markdown 文件", "Save as Markdown file") }
-    var paste: String { text("粘贴", "Paste") }
+    var paste: String { text("粘贴到当前应用", "Paste to current app") }
     var copyExtracted: String { text("复制提取内容", "Copy Extracted") }
-    var pasteExtracted: String { text("粘贴提取内容", "Paste Extracted") }
+    var pasteExtracted: String { text("粘贴到当前应用", "Paste to current app") }
     var noClipboardItems: String { text("没有剪切板记录", "No clipboard items") }
     var noClipboardDescription: String { text("在任意地方复制文本，QuietNote 会在本地保存。", "Copy text anywhere and QuietNote will save it locally.") }
     var searchClipboard: String { text("搜索本地剪切板", "Search local clipboard") }

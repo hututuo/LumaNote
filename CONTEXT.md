@@ -89,7 +89,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - The bottom-left file button is a switcher, not a direct open button. It uses a left-right arrows icon and opens an in-window glass panel anchored to the button; the first row is "Open new file", followed by a separated recent-file list for quick switching. The file switcher panel is taller than the compact settings menu, sized for up to 7 recent files when space allows, and is less transparent than the note shell so the recent list remains readable over Markdown content.
 - Clipboard monitoring is on by default for new users, can be disabled from the compact more menu or Settings, and immediately captures the current clipboard when enabled.
 - Clipboard monitoring timer starts/stops with the setting and runs in the common run loop so UI interaction is less likely to pause polling.
-- Clipboard library v2 supports local search, per-item delete, copy/paste actions, and Copy/Paste menus on detected values.
+- Clipboard library v2 supports local search, per-item delete, copy/paste actions, and Copy/Paste menus on detected values. Its list is custom `ScrollView + LazyVStack` glass cards, not a default macOS `List`, so it visually matches the main LumaNote shell.
 - Extracted clipboard values are shown under the source clipboard record as contextual chips. Do not reintroduce a top-level type grouping unless the user explicitly asks.
 - Clipboard detail extraction chips should wrap into multiple rows instead of using horizontal scrolling, because sideways trackpad scrolling is awkward in the small sticky-note panel. Chips use rounded glass bubbles with icon + extracted value.
 - Label/colon values such as `地址：...`, `电话：...`, `邮箱：...`, or `备注：...` are processed before generic detection. Known labels are typed when the value validates; unknown or invalid labeled values fall back to copyable Text chips instead of being dropped.
@@ -110,6 +110,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - The top island is intentionally lowered by about 5 px inside the top bar so it has breathing room from the note's rounded top edge.
 - URL extraction excludes Chinese punctuation so values like `https://example.com，地址` are captured as `https://example.com`.
 - Clipboard paste copies the selected text, hides QuietNote, then sends Cmd+V to the system. This may depend on macOS input-event permissions in stricter environments.
+- Clipboard paste UI should be labeled as pasting to the current app, because the action targets whichever app/input had focus before LumaNote.
 - The compact more menu now includes clipboard monitoring, stored item count, retention limit, and clear-library action.
 - Settings now includes a Chinese/English segmented language control. `AppSettings.language` defaults to Chinese, and `AppText` provides app chrome strings for Settings, More, Clipboard Library, and extraction action menus.
 - Settings and the compact More menu include a Launch at Login toggle. It uses macOS `SMAppService.mainApp` rather than a custom LaunchAgent. If registration fails, the toggle reverts and shows the localized error message.

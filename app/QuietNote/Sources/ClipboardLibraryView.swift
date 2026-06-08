@@ -18,41 +18,120 @@ struct ClipboardLibraryView: View {
         let copy = AppText(language: settings.language)
 
         VStack(spacing: 0) {
-            HStack {
-                Label(copy.clipboard, systemImage: "list.clipboard")
-                    .font(.system(size: 14, weight: .semibold))
-                Spacer()
-                Button(copy.clear) {
-                    store.clear()
+            HStack(spacing: 9) {
+                Image(systemName: "list.clipboard")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .frame(width: 24, height: 24)
+                    .background(
+                        LinearGradient(
+                            colors: [.cyan.opacity(0.26), .white.opacity(0.12)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: Circle()
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(.white.opacity(0.34), lineWidth: 1)
+                    )
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(copy.clipboard)
+                        .font(.system(size: 14, weight: .bold))
+                    Text("\(filteredItems.count)")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
                 }
-                .font(.system(size: 12))
+
+                Spacer()
+
+                Button {
+                    store.clear()
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .background(.white.opacity(0.08), in: Circle())
+                .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
+                .help(copy.clear)
                 .disabled(store.items.isEmpty)
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 13)
+            .padding(.top, 13)
+            .padding(.bottom, 9)
 
-            TextField(copy.searchClipboard, text: $query)
-                .textFieldStyle(.roundedBorder)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
+            HStack(spacing: 7) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                TextField(copy.searchClipboard, text: $query)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(.white.opacity(0.18), lineWidth: 1)
+            )
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
 
             if filteredItems.isEmpty {
-                ContentUnavailableView(
-                    copy.noClipboardItems,
-                    systemImage: "clipboard",
-                    description: Text(copy.noClipboardDescription)
-                )
-                .padding(20)
+                emptyState(copy: copy)
             } else {
-                List(filteredItems) { item in
-                    ClipboardRow(item: item, settings: settings, store: store)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(filteredItems) { item in
+                            ClipboardRow(item: item, settings: settings, store: store)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 12)
                 }
-                .listStyle(.plain)
+                .scrollIndicators(.hidden)
             }
         }
+        .foregroundStyle(.primary.opacity(0.92))
+        .background {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.14),
+                    Color.cyan.opacity(0.05),
+                    Color.black.opacity(0.04)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
         .background(.regularMaterial)
+    }
+
+    private func emptyState(copy: AppText) -> some View {
+        VStack(spacing: 9) {
+            Image(systemName: "clipboard")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 46, height: 46)
+                .background(.white.opacity(0.07), in: Circle())
+                .overlay(Circle().stroke(.white.opacity(0.16), lineWidth: 1))
+
+            Text(copy.noClipboardItems)
+                .font(.system(size: 13, weight: .semibold))
+
+            Text(copy.noClipboardDescription)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(22)
     }
 }
 
@@ -64,17 +143,35 @@ private struct ClipboardRow: View {
     var body: some View {
         let copy = AppText(language: settings.language)
 
-        VStack(alignment: .leading, spacing: 7) {
-            Text(item.preview)
-                .font(.system(size: 12.5))
-                .lineLimit(3)
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(item.preview)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.88))
+                    .lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 6)
+
+                Text(item.createdAt, style: .time)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(.white.opacity(0.07), in: Capsule())
+            }
 
             if !item.detections.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(copy.extracted)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
+                    HStack(spacing: 5) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(copy.extracted)
+                            .font(.system(size: 9.5, weight: .bold))
+                    }
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
 
                     WrappingChipLayout(horizontalSpacing: 6, verticalSpacing: 6) {
                         ForEach(item.detections) { detection in
@@ -84,34 +181,64 @@ private struct ClipboardRow: View {
                 }
             }
 
-            HStack {
-                Text(item.createdAt, style: .time)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
+            HStack(spacing: 7) {
+                Spacer(minLength: 0)
+
+                rowActionButton(symbol: "doc.on.doc", help: copy.copy) {
                     store.copy(item.text)
-                } label: {
-                    Image(systemName: "doc.on.doc")
                 }
-                .buttonStyle(.plain)
-                .help("Copy")
-                Button {
+
+                rowActionButton(symbol: "arrow.turn.down.left", help: copy.paste) {
                     store.paste(item.text)
-                } label: {
-                    Image(systemName: "arrow.turn.down.left")
                 }
-                .buttonStyle(.plain)
-                .help("Paste")
-                Button(role: .destructive) {
+
+                rowActionButton(symbol: "trash", help: "Delete", role: .destructive) {
                     store.delete(item)
-                } label: {
-                    Image(systemName: "trash")
                 }
-                .buttonStyle(.plain)
-                .help("Delete")
             }
         }
+        .padding(10)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .background(
+            LinearGradient(
+                colors: [.white.opacity(0.16), .white.opacity(0.05)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.white.opacity(0.34), .white.opacity(0.1), .black.opacity(0.05)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+    }
+
+    private func rowActionButton(
+        symbol: String,
+        help: String,
+        role: ButtonRole? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(role: role, action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 10.5, weight: .semibold))
+                .frame(width: 23, height: 22)
+        }
+        .buttonStyle(.plain)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .stroke(.white.opacity(0.18), lineWidth: 1)
+        )
+        .help(help)
     }
 }
 
@@ -119,6 +246,17 @@ private struct DetectionChip: View {
     let detection: ClipboardDetection
     @ObservedObject var settings: AppSettings
     @ObservedObject var store: ClipboardStore
+
+    private var tint: Color {
+        switch detection.kind {
+        case .url: .cyan
+        case .email: .blue
+        case .phone: .green
+        case .address: .orange
+        case .number: .purple
+        case .text: .pink
+        }
+    }
 
     var body: some View {
         let copy = AppText(language: settings.language)
@@ -145,25 +283,39 @@ private struct DetectionChip: View {
             HStack(spacing: 5) {
                 Image(systemName: detection.symbol)
                     .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(tint.opacity(0.95))
                     .frame(width: 12)
                 Text(detection.value)
                     .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.92))
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .frame(maxWidth: 210, alignment: .leading)
+            .frame(maxWidth: 198, alignment: .leading)
             .padding(.horizontal, 9)
             .padding(.vertical, 5.5)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .background(
-                Color.white.opacity(0.08),
-                in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                LinearGradient(
+                    colors: [tint.opacity(0.24), .white.opacity(0.1)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(.white.opacity(0.36), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [tint.opacity(0.58), .white.opacity(0.32), .black.opacity(0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
             )
-            .shadow(color: .black.opacity(0.06), radius: 4, y: 1)
+            .shadow(color: tint.opacity(0.12), radius: 7, y: 2)
+            .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
         }
         .menuStyle(.borderlessButton)
     }
