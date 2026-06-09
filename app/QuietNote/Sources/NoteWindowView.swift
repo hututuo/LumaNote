@@ -395,101 +395,119 @@ struct NoteWindowView: View {
             let labelFontSize = 12 - progress
             let percentWidth = 36 - progress * 4
 
-            HStack(spacing: spacing) {
-                Text("1")
-                    .font(.system(size: labelFontSize, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                Slider(value: $settings.noteOpacity, in: AppSettings.minimumNoteOpacity...1)
-                    .tint(.cyan)
-                    .frame(minWidth: sliderMinWidth)
-                    .layoutPriority(1)
-
-                Text("100")
-                    .font(.system(size: labelFontSize, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                Text("\(Int(settings.noteOpacity * 100))%")
-                    .font(.system(size: labelFontSize, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .frame(width: percentWidth, alignment: .trailing)
-
-                railButton(symbol: "arrow.left.arrow.right", help: copy.switchNoteFile, size: buttonSize) {
-                    withAnimation(.snappy(duration: 0.14)) {
-                        showClipboard = false
-                        showMore = false
-                        showExtractionActions = false
-                        showFileSwitcher.toggle()
-                    }
+            if #available(macOS 26.0, *) {
+                GlassEffectContainer(spacing: spacing + 8) {
+                    bottomRailControls(
+                        copy: copy,
+                        spacing: spacing,
+                        horizontalPadding: horizontalPadding,
+                        sliderMinWidth: sliderMinWidth,
+                        buttonSize: buttonSize,
+                        labelFontSize: labelFontSize,
+                        percentWidth: percentWidth
+                    )
                 }
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: FileSwitchButtonFramePreferenceKey.self,
-                            value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
-                        )
-                    }
-                )
-                railButton(symbol: "square.and.arrow.down", help: copy.saveAsNoteFile, size: buttonSize) {
-                    saveNoteFileAs()
-                }
-                railButton(symbol: settings.alwaysOnTop ? "pin.fill" : "pin", help: "Pin", size: buttonSize) {
-                    settings.alwaysOnTop.toggle()
-                }
-                railButton(symbol: "ellipsis", help: "More", size: buttonSize) {
-                    withAnimation(.snappy(duration: 0.14)) {
-                        showClipboard = false
-                        showExtractionActions = false
-                        showFileSwitcher = false
-                        showMore.toggle()
-                    }
-                }
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: MoreButtonFramePreferenceKey.self,
-                            value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
-                        )
-                    }
+            } else {
+                bottomRailControls(
+                    copy: copy,
+                    spacing: spacing,
+                    horizontalPadding: horizontalPadding,
+                    sliderMinWidth: sliderMinWidth,
+                    buttonSize: buttonSize,
+                    labelFontSize: labelFontSize,
+                    percentWidth: percentWidth
                 )
             }
-            .padding(.horizontal, horizontalPadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(height: 36)
         .background { bottomRailLiquidGlassBackground }
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(.white.opacity(0.006 + settings.noteOpacity * 0.009))
-                .frame(height: 1)
+    }
+
+    private func bottomRailControls(
+        copy: AppText,
+        spacing: CGFloat,
+        horizontalPadding: CGFloat,
+        sliderMinWidth: CGFloat,
+        buttonSize: CGFloat,
+        labelFontSize: CGFloat,
+        percentWidth: CGFloat
+    ) -> some View {
+        HStack(spacing: spacing) {
+            Text("1")
+                .font(.system(size: labelFontSize, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            Slider(value: $settings.noteOpacity, in: AppSettings.minimumNoteOpacity...1)
+                .tint(.cyan)
+                .frame(minWidth: sliderMinWidth)
+                .layoutPriority(1)
+
+            Text("100")
+                .font(.system(size: labelFontSize, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            Text("\(Int(settings.noteOpacity * 100))%")
+                .font(.system(size: labelFontSize, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .frame(width: percentWidth, alignment: .trailing)
+
+            railButton(symbol: "arrow.left.arrow.right", help: copy.switchNoteFile, size: buttonSize) {
+                withAnimation(.snappy(duration: 0.14)) {
+                    showClipboard = false
+                    showMore = false
+                    showExtractionActions = false
+                    showFileSwitcher.toggle()
+                }
+            }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: FileSwitchButtonFramePreferenceKey.self,
+                        value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                    )
+                }
+            )
+            railButton(symbol: "square.and.arrow.down", help: copy.saveAsNoteFile, size: buttonSize) {
+                saveNoteFileAs()
+            }
+            railButton(symbol: settings.alwaysOnTop ? "pin.fill" : "pin", help: "Pin", size: buttonSize) {
+                settings.alwaysOnTop.toggle()
+            }
+            railButton(symbol: "ellipsis", help: "More", size: buttonSize) {
+                withAnimation(.snappy(duration: 0.14)) {
+                    showClipboard = false
+                    showExtractionActions = false
+                    showFileSwitcher = false
+                    showMore.toggle()
+                }
+            }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: MoreButtonFramePreferenceKey.self,
+                        value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                    )
+                }
+            )
         }
+        .padding(.horizontal, horizontalPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var bottomRailLiquidGlassBackground: some View {
         ZStack {
             if #available(macOS 26.0, *) {
-                Rectangle()
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(.clear)
                     .glassEffect(
-                        .regular.interactive(),
-                        in: Rectangle()
+                        .clear.interactive(),
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous)
                     )
             } else {
                 Rectangle()
                     .fill(.ultraThinMaterial)
                     .opacity(controlChromeOpacity)
             }
-
-            LinearGradient(
-                colors: [
-                    .white.opacity(0.003 + settings.noteOpacity * 0.004),
-                    .clear,
-                    .clear
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .blendMode(.plusLighter)
         }
     }
 
@@ -505,32 +523,28 @@ struct NoteWindowView: View {
     private func railButton(symbol: String, help: String, size: CGFloat = 24, action: @escaping () -> Void) -> some View {
         let cornerRadius = max(6, size * 0.29)
 
-        return Button(action: action) {
+        let button = Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: size * 0.54, weight: .semibold))
                 .frame(width: size, height: size)
         }
-        .buttonStyle(.plain)
-        .background { railButtonGlass(cornerRadius: cornerRadius) }
-        .help(help)
-    }
 
-    @ViewBuilder
-    private func railButtonGlass(cornerRadius: CGFloat) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-
-        if #available(macOS 26.0, *) {
-            shape
-                .fill(.clear)
-                .glassEffect(.regular.interactive(), in: shape)
-                .overlay {
-                    shape.stroke(.white.opacity(0.025 + settings.noteOpacity * 0.035), lineWidth: 0.7)
-                }
-        } else {
-            shape
-                .fill(.ultraThinMaterial)
-                .opacity(0.08 + settings.noteOpacity * 0.1)
+        return Group {
+            if #available(macOS 26.0, *) {
+                button
+                    .buttonStyle(.glass(.clear))
+                    .frame(width: size, height: size)
+                    .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            } else {
+                button
+                    .buttonStyle(.plain)
+                    .background(
+                        .ultraThinMaterial.opacity(0.08 + settings.noteOpacity * 0.1),
+                        in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    )
+            }
         }
+        .help(help)
     }
 
     private func openNoteFile() {
