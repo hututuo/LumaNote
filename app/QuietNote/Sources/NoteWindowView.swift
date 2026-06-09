@@ -37,9 +37,9 @@ struct NoteWindowView: View {
                     .padding(.trailing, 5)
                     .padding(.top, 10)
                     .padding(.bottom, 8)
-
-                bottomRail
             }
+
+            bottomRail
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
@@ -357,7 +357,7 @@ struct NoteWindowView: View {
     }
 
     private var controlChromeOpacity: Double {
-        0.34 + settings.noteOpacity * 0.42
+        0.16 + settings.noteOpacity * 0.26
     }
 
     private var islandOpacity: Double {
@@ -457,15 +457,33 @@ struct NoteWindowView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(height: 36)
-        .background {
-            Rectangle()
-                .fill(.thinMaterial)
-                .opacity(controlChromeOpacity)
-        }
+        .background { bottomRailLiquidGlassBackground }
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(.white.opacity(0.16 + settings.noteOpacity * 0.22))
+                .fill(.white.opacity(0.16 + settings.noteOpacity * 0.16))
                 .frame(height: 1)
+        }
+    }
+
+    private var bottomRailLiquidGlassBackground: some View {
+        ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .opacity(controlChromeOpacity)
+
+            LinearGradient(
+                colors: [
+                    .white.opacity(0.11 + settings.noteOpacity * 0.05),
+                    .white.opacity(0.018),
+                    .black.opacity(0.025 + settings.noteOpacity * 0.025)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .blendMode(.plusLighter)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.02 + settings.noteOpacity * 0.025))
         }
     }
 
@@ -488,7 +506,7 @@ struct NoteWindowView: View {
         }
         .buttonStyle(.plain)
         .background(
-            .white.opacity(0.12 + settings.noteOpacity * 0.08),
+            .white.opacity(0.08 + settings.noteOpacity * 0.055),
             in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         )
         .help(help)
