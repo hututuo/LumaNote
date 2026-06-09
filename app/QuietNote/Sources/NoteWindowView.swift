@@ -500,7 +500,7 @@ struct NoteWindowView: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(.clear)
                     .glassEffect(
-                        .clear.interactive(),
+                        .clear,
                         in: RoundedRectangle(cornerRadius: 18, style: .continuous)
                     )
             } else {
@@ -532,8 +532,14 @@ struct NoteWindowView: View {
         return Group {
             if #available(macOS 26.0, *) {
                 button
-                    .buttonStyle(.glass(.clear))
-                    .frame(width: size, height: size)
+                    .buttonStyle(.plain)
+                    .background {
+                        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+                        shape
+                            .fill(.clear)
+                            .glassEffect(.clear, in: shape)
+                    }
                     .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             } else {
                 button
