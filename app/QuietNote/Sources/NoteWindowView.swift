@@ -356,12 +356,12 @@ struct NoteWindowView: View {
         max(0.08, settings.noteOpacity)
     }
 
-    private var controlChromeOpacity: Double {
-        0.16 + settings.noteOpacity * 0.26
-    }
-
     private var islandOpacity: Double {
         max(0.05, settings.noteOpacity)
+    }
+
+    private var bottomRailOpacity: Double {
+        islandOpacity
     }
 
     private var topDragPassthroughHeight: CGFloat {
@@ -460,33 +460,22 @@ struct NoteWindowView: View {
         .background { bottomRailLiquidGlassBackground }
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(.white.opacity(0.018 + settings.noteOpacity * 0.025))
+                .fill(.white.opacity(0.08 + bottomRailOpacity * 0.14))
                 .frame(height: 1)
         }
     }
 
     private var bottomRailLiquidGlassBackground: some View {
         ZStack {
-            if #available(macOS 26.0, *) {
-                Rectangle()
-                    .fill(.clear)
-                    .glassEffect(
-                        .regular
-                            .tint(Color.white.opacity(0.003 + settings.noteOpacity * 0.004))
-                            .interactive(),
-                        in: Rectangle()
-                    )
-            } else {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .opacity(controlChromeOpacity)
-            }
+            Rectangle()
+                .fill(.regularMaterial)
+                .opacity(0.08 + bottomRailOpacity * 0.72)
 
             LinearGradient(
                 colors: [
-                    .white.opacity(0.008 + settings.noteOpacity * 0.006),
-                    .white.opacity(0.0015),
-                    .black.opacity(0.002 + settings.noteOpacity * 0.003)
+                    .white.opacity(0.025 + bottomRailOpacity * 0.075),
+                    .white.opacity(0.006 + bottomRailOpacity * 0.018),
+                    .black.opacity(0.012 + bottomRailOpacity * 0.028)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -494,8 +483,21 @@ struct NoteWindowView: View {
             .blendMode(.plusLighter)
 
             Rectangle()
-                .fill(Color.white.opacity(0.0008 + settings.noteOpacity * 0.0018))
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.18 + bottomRailOpacity * 0.56),
+                            .white.opacity(0.08 + bottomRailOpacity * 0.14),
+                            .white.opacity(0.02 + bottomRailOpacity * 0.04)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         }
+        .shadow(color: .white.opacity(0.04 + bottomRailOpacity * 0.12), radius: 3, x: -1, y: -1)
+        .shadow(color: .black.opacity(0.04 + bottomRailOpacity * 0.12), radius: 10, y: 4)
     }
 
     private func railCompactProgress(for width: CGFloat) -> CGFloat {
@@ -517,7 +519,7 @@ struct NoteWindowView: View {
         }
         .buttonStyle(.plain)
         .background(
-            .white.opacity(0.065 + settings.noteOpacity * 0.04),
+            .white.opacity(0.03 + bottomRailOpacity * 0.08),
             in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         )
         .help(help)
