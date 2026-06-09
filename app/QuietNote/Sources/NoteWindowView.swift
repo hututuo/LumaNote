@@ -357,7 +357,7 @@ struct NoteWindowView: View {
     }
 
     private var controlChromeOpacity: Double {
-        0.055 + settings.noteOpacity * 0.065
+        0.16 + settings.noteOpacity * 0.26
     }
 
     private var islandOpacity: Double {
@@ -460,7 +460,7 @@ struct NoteWindowView: View {
         .background { bottomRailLiquidGlassBackground }
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(.white.opacity(0.006 + settings.noteOpacity * 0.009))
+                .fill(.white.opacity(0.018 + settings.noteOpacity * 0.025))
                 .frame(height: 1)
         }
     }
@@ -471,7 +471,9 @@ struct NoteWindowView: View {
                 Rectangle()
                     .fill(.clear)
                     .glassEffect(
-                        .regular.interactive(),
+                        .regular
+                            .tint(Color.white.opacity(0.003 + settings.noteOpacity * 0.004))
+                            .interactive(),
                         in: Rectangle()
                     )
             } else {
@@ -482,14 +484,17 @@ struct NoteWindowView: View {
 
             LinearGradient(
                 colors: [
-                    .white.opacity(0.003 + settings.noteOpacity * 0.004),
-                    .clear,
-                    .clear
+                    .white.opacity(0.008 + settings.noteOpacity * 0.006),
+                    .white.opacity(0.0015),
+                    .black.opacity(0.002 + settings.noteOpacity * 0.003)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .blendMode(.plusLighter)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.0008 + settings.noteOpacity * 0.0018))
         }
     }
 
@@ -511,26 +516,11 @@ struct NoteWindowView: View {
                 .frame(width: size, height: size)
         }
         .buttonStyle(.plain)
-        .background { railButtonGlass(cornerRadius: cornerRadius) }
+        .background(
+            .white.opacity(0.065 + settings.noteOpacity * 0.04),
+            in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        )
         .help(help)
-    }
-
-    @ViewBuilder
-    private func railButtonGlass(cornerRadius: CGFloat) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-
-        if #available(macOS 26.0, *) {
-            shape
-                .fill(.clear)
-                .glassEffect(.regular.interactive(), in: shape)
-                .overlay {
-                    shape.stroke(.white.opacity(0.025 + settings.noteOpacity * 0.035), lineWidth: 0.7)
-                }
-        } else {
-            shape
-                .fill(.ultraThinMaterial)
-                .opacity(0.08 + settings.noteOpacity * 0.1)
-        }
     }
 
     private func openNoteFile() {
