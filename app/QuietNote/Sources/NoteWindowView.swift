@@ -460,7 +460,7 @@ struct NoteWindowView: View {
         .background { bottomRailLiquidGlassBackground }
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(.white.opacity(0.055 + settings.noteOpacity * 0.055))
+                .fill(.white.opacity(0.018 + settings.noteOpacity * 0.025))
                 .frame(height: 1)
         }
     }
@@ -472,7 +472,7 @@ struct NoteWindowView: View {
                     .fill(.clear)
                     .glassEffect(
                         .regular
-                            .tint(Color.white.opacity(0.012 + settings.noteOpacity * 0.008))
+                            .tint(Color.white.opacity(0.003 + settings.noteOpacity * 0.004))
                             .interactive(),
                         in: Rectangle()
                     )
@@ -484,9 +484,9 @@ struct NoteWindowView: View {
 
             LinearGradient(
                 colors: [
-                    .white.opacity(0.024 + settings.noteOpacity * 0.012),
-                    .white.opacity(0.0035),
-                    .black.opacity(0.006 + settings.noteOpacity * 0.006)
+                    .white.opacity(0.008 + settings.noteOpacity * 0.006),
+                    .white.opacity(0.0015),
+                    .black.opacity(0.002 + settings.noteOpacity * 0.003)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -494,7 +494,7 @@ struct NoteWindowView: View {
             .blendMode(.plusLighter)
 
             Rectangle()
-                .fill(Color.white.opacity(0.0025 + settings.noteOpacity * 0.005))
+                .fill(Color.white.opacity(0.0008 + settings.noteOpacity * 0.0018))
         }
     }
 
