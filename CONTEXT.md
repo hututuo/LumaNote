@@ -123,7 +123,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - `NotePanelController.swift` sets `panel.hidesOnDeactivate = false`; verified by switching to Finder while the note remained visible above other windows.
 - `NotePanelController.swift` lets the root `NSHostingView` autoresize with the panel content area. Keep this, otherwise narrowing the window can crop the old-width SwiftUI rounded shell and make the visible edges look square.
 - The panel and SwiftUI rounded shell share `NoteWindowLayout.minimumSize` at 270 x 270. This keeps both width and height compact, with width at 75% of the 360 px normal width. The bottom rail compacts between 360 px and 270 px by shrinking spacing, horizontal padding, the opacity slider, and rail buttons; the clipboard, settings, and file-switcher overlays also reduce their minimum heights so a short note does not clip the rounded glass shell.
-- The bottom rail is an overlay above the Markdown editor rather than a separate layout row. On macOS 26+, its background uses SwiftUI's real `glassEffect(.regular.tint(...).interactive(), in:)` Liquid Glass API with a very light tint/highlight so note text can visually pass underneath the toolbar while the controls remain readable. Older macOS versions fall back to the lighter `ultraThinMaterial` stack.
+- The bottom rail is an overlay above the Markdown editor rather than a separate layout row. On macOS 26+, its background uses SwiftUI's real `glassEffect(.regular.tint(...).interactive(), in:)` Liquid Glass API with an extra-low tint/highlight so note text can visually pass underneath the toolbar while the controls remain readable. Older macOS versions fall back to the lighter `ultraThinMaterial` stack.
 
 ## Notes For Next Agent
 
