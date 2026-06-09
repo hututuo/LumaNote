@@ -467,15 +467,26 @@ struct NoteWindowView: View {
 
     private var bottomRailLiquidGlassBackground: some View {
         ZStack {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .opacity(controlChromeOpacity)
+            if #available(macOS 26.0, *) {
+                Rectangle()
+                    .fill(.clear)
+                    .glassEffect(
+                        .regular
+                            .tint(Color.white.opacity(0.05 + settings.noteOpacity * 0.03))
+                            .interactive(),
+                        in: Rectangle()
+                    )
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .opacity(controlChromeOpacity)
+            }
 
             LinearGradient(
                 colors: [
-                    .white.opacity(0.11 + settings.noteOpacity * 0.05),
-                    .white.opacity(0.018),
-                    .black.opacity(0.025 + settings.noteOpacity * 0.025)
+                    .white.opacity(0.07 + settings.noteOpacity * 0.035),
+                    .white.opacity(0.012),
+                    .black.opacity(0.018 + settings.noteOpacity * 0.018)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -483,7 +494,7 @@ struct NoteWindowView: View {
             .blendMode(.plusLighter)
 
             Rectangle()
-                .fill(Color.white.opacity(0.02 + settings.noteOpacity * 0.025))
+                .fill(Color.white.opacity(0.01 + settings.noteOpacity * 0.018))
         }
     }
 
