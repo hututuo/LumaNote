@@ -75,6 +75,18 @@ struct NoteWindowView: View {
                 showClipboard.toggle()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            closeClipboardOnFocusLoss()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
+            closeClipboardOnFocusLoss()
+        }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)) { notification in
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  app.bundleIdentifier != Bundle.main.bundleIdentifier
+            else { return }
+            closeClipboardOnFocusLoss()
+        }
         .onChange(of: showShortcutSettings) { _, isPresented in
             if isPresented {
                 showMore = false
@@ -354,6 +366,13 @@ struct NoteWindowView: View {
 
     private var topDragPassthroughHeight: CGFloat {
         38
+    }
+
+    private func closeClipboardOnFocusLoss() {
+        guard showClipboard else { return }
+        withAnimation(.snappy(duration: 0.14)) {
+            showClipboard = false
+        }
     }
 
     private var islandTextColor: Color {

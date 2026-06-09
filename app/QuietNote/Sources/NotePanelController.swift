@@ -72,6 +72,7 @@ final class NotePanelController {
     func show(animated: Bool = true) {
         guard !panel.isVisible else {
             panel.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
             return
         }
         panel.alphaValue = animated ? 0 : 1
