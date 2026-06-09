@@ -101,13 +101,20 @@ struct NoteWindowView: View {
                 let panelHeight = min(390, max(178, proxy.size.height - 74))
 
                 ZStack(alignment: .top) {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation(.snappy(duration: 0.16)) {
-                                showClipboard = false
+                    VStack(spacing: 0) {
+                        Color.clear
+                            .frame(height: topDragPassthroughHeight)
+                            .allowsHitTesting(false)
+
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.snappy(duration: 0.16)) {
+                                    showClipboard = false
+                                }
                             }
-                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     ClipboardLibraryView(settings: settings, store: clipboardStore)
                         .frame(width: panelWidth, height: panelHeight)
@@ -343,6 +350,10 @@ struct NoteWindowView: View {
 
     private var islandOpacity: Double {
         max(0.05, settings.noteOpacity)
+    }
+
+    private var topDragPassthroughHeight: CGFloat {
+        38
     }
 
     private var islandTextColor: Color {
