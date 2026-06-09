@@ -460,7 +460,7 @@ struct NoteWindowView: View {
         .background { bottomRailLiquidGlassBackground }
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(.white.opacity(0.16 + settings.noteOpacity * 0.16))
+                .fill(.white.opacity(0.1 + settings.noteOpacity * 0.1))
                 .frame(height: 1)
         }
     }
@@ -472,7 +472,7 @@ struct NoteWindowView: View {
                     .fill(.clear)
                     .glassEffect(
                         .regular
-                            .tint(Color.white.opacity(0.05 + settings.noteOpacity * 0.03))
+                            .tint(Color.white.opacity(0.025 + settings.noteOpacity * 0.015))
                             .interactive(),
                         in: Rectangle()
                     )
@@ -484,9 +484,9 @@ struct NoteWindowView: View {
 
             LinearGradient(
                 colors: [
-                    .white.opacity(0.07 + settings.noteOpacity * 0.035),
-                    .white.opacity(0.012),
-                    .black.opacity(0.018 + settings.noteOpacity * 0.018)
+                    .white.opacity(0.045 + settings.noteOpacity * 0.02),
+                    .white.opacity(0.008),
+                    .black.opacity(0.012 + settings.noteOpacity * 0.012)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -494,7 +494,7 @@ struct NoteWindowView: View {
             .blendMode(.plusLighter)
 
             Rectangle()
-                .fill(Color.white.opacity(0.01 + settings.noteOpacity * 0.018))
+                .fill(Color.white.opacity(0.006 + settings.noteOpacity * 0.012))
         }
     }
 
@@ -517,7 +517,7 @@ struct NoteWindowView: View {
         }
         .buttonStyle(.plain)
         .background(
-            .white.opacity(0.08 + settings.noteOpacity * 0.055),
+            .white.opacity(0.065 + settings.noteOpacity * 0.04),
             in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         )
         .help(help)
