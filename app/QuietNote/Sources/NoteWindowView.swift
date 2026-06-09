@@ -361,7 +361,10 @@ struct NoteWindowView: View {
     }
 
     private var bottomRailOpacity: Double {
-        islandOpacity
+        let lowerBound = AppSettings.minimumNoteOpacity
+        let progress = (settings.noteOpacity - lowerBound) / (1 - lowerBound)
+        let clampedProgress = min(max(progress, 0), 1)
+        return 0.075 + clampedProgress * 0.425
     }
 
     private var topDragPassthroughHeight: CGFloat {
