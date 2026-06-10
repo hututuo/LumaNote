@@ -19,6 +19,9 @@ fi
 
 cp "$ROOT/.build/debug/QuietNote" "$APP_DIR/Contents/MacOS/QuietNote"
 chmod +x "$APP_DIR/Contents/MacOS/QuietNote"
+if ! otool -l "$APP_DIR/Contents/MacOS/QuietNote" | grep -F '@executable_path/../Frameworks' >/dev/null; then
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_DIR/Contents/MacOS/QuietNote"
+fi
 cp "$ROOT/support/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$ROOT/support/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 ditto "$SPARKLE_FRAMEWORK" "$APP_DIR/Contents/Frameworks/Sparkle.framework"
