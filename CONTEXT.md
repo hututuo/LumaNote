@@ -32,6 +32,9 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Debug app bundle: `app/QuietNote/build/LumaNote.app`
 - Build script: `app/QuietNote/scripts/build-app.sh` compiles, packages, ad-hoc signs with the explicit designated requirement `identifier "com.hututuo.lumanote"`, and verifies `build/LumaNote.app`.
 - DMG script: `app/QuietNote/scripts/build-dmg.sh` packages the signed app with an `/Applications` symlink and custom glass installer background into `build/LumaNote-<version>-macos-arm64.dmg`.
+- Release script: `app/QuietNote/scripts/prepare-release.sh` builds the app, verifies the stable signing requirement, creates the DMG, Sparkle update zip, compatibility zip, and `SHA256SUMS-v<version>.txt` under `app/QuietNote/build/releases/v<version>/`.
+- Current release notes: `docs/releases/v0.1.1.md`.
+- Current release audit: `docs/releases/v0.1.1-audit.md`.
 - Current visual verification: `app/QuietNote/runs/20260607-101650_opacity-readability/screen.png`
 - Current live-render verification: `app/QuietNote/runs/20260607-102025_live-render-editor/screen.png`
 - Current drag-handle/display verification: `app/QuietNote/runs/20260607-102630_visible-drag-bars-display/screen.png`
@@ -96,6 +99,8 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - The temporary `0.1.2` / build `3` test update package was reverted after testing. Keep Sparkle integration, automatic update checking, and the visible update button; do not keep one-off test update artifacts unless a new test feed is needed.
 - Sparkle automatic checks are enabled by default with `SUEnableAutomaticChecks=true` and `SUScheduledCheckInterval=86400`; the in-app update section reads/writes Sparkle's own `automaticallyChecksForUpdates` property rather than duplicating the setting in `AppSettings`.
 - Test appcast files live in `appcast-test/` on the `test/ad-hoc-permission-update` branch. The current update archive is a Sparkle-signed zip, not the public-facing DMG, because Sparkle can update from zip reliably while the DMG script is only for manual drag-install distribution.
+- For v0.1.1, `appcast-test/appcast.xml` points its enclosure to the GitHub Release asset `https://github.com/hututuo/LumaNote/releases/download/v0.1.1/LumaNote-0.1.1-macos-arm64.zip`. Because Keychain access was unavailable in the release audit run, the release flow must upload the exact existing signed zip from `appcast-test/LumaNote-0.1.1-macos-arm64.zip` or regenerate the appcast with the Sparkle private key.
+- `prepare-release.sh` supports both Sparkle Keychain mode (`--account com.hututuo.lumanote`) and non-interactive file mode through `SPARKLE_PRIVATE_KEY_FILE`. Private keys must stay outside the repo, preferably under a user-private path such as `~/.config/lumanote/sparkle-ed25519-private.key` with `0600` permissions.
 - GitHub test downloads should use the DMG artifact, not the old zip. The DMG is a drag-to-Applications image and may still trigger macOS "unidentified developer" Gatekeeper flow because it is ad-hoc signed but not notarized.
 - The DMG background is source-controlled at `app/QuietNote/support/dmg-background.png` and can be regenerated with `app/QuietNote/scripts/generate-dmg-background.swift`. Do not commit generated DMGs from `app/QuietNote/build/` unless the user explicitly asks for a release artifact.
 - `NoteStore` tracks a current Markdown file URL and up to 8 recent file URLs. Opening a file loads it into the note, pushes it to the recent list, and switches live save to that file; Save As writes the current content to the chosen file, pushes it to the recent list, and then switches live save to the new path. The current path and recent paths are remembered locally for the next launch.
@@ -137,6 +142,11 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - `NotePanelController.swift` lets the root `NSHostingView` autoresize with the panel content area. Keep this, otherwise narrowing the window can crop the old-width SwiftUI rounded shell and make the visible edges look square.
 - The panel and SwiftUI rounded shell share `NoteWindowLayout.minimumSize` at 270 x 270. This keeps both width and height compact, with width at 75% of the 360 px normal width. The bottom rail compacts between 360 px and 270 px by shrinking spacing, horizontal padding, the opacity slider, and rail buttons; the clipboard, settings, and file-switcher overlays also reduce their minimum heights so a short note does not clip the rounded glass shell.
 - The bottom rail is an overlay above the Markdown editor rather than a separate layout row. Its material follows the same glass-shell recipe as the top island: regular material, subtle white highlight, gradient border, and shadow. The rail uses its own visibility curve: at the lowest note opacity it is about 50% stronger than the island's 5% minimum so the controls remain findable, while at 100% note opacity it is capped at half strength so the toolbar still feels transparent.
+
+## Release Status
+
+- `v0.1.1 partial`: local build, ad-hoc signing, DMG packaging, checksum verification, mounted DMG inspection, and temporary install/launch smoke passed on 2026-06-11. Remaining gate is publishing source/tag/assets to GitHub and, for future appcast regeneration, unlocking Keychain or providing `SPARKLE_PRIVATE_KEY_FILE`.
+- Final local release artifacts are under `app/QuietNote/build/releases/v0.1.1/` and remain ignored build outputs. Upload these to GitHub Releases rather than committing them: `LumaNote-0.1.1-macos-arm64.dmg`, `LumaNote-0.1.1-macos-arm64.zip`, `LumaNote.app.zip`, and `SHA256SUMS-v0.1.1.txt`.
 
 ## Notes For Next Agent
 
