@@ -84,6 +84,10 @@ struct MoreMenuView: View {
 
                 PermissionRequestView(settings: settings, compact: true)
 
+                Divider()
+
+                UpdateCheckButtonView(settings: settings, compact: true)
+
                 Button(role: .cancel, action: onClose) {
                     Label(copy.hideNote, systemImage: "eye.slash")
                 }

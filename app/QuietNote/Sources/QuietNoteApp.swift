@@ -99,7 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
-    @objc private func checkForUpdatesFromMenu() {
+    @objc func checkForUpdatesFromMenu() {
         checkForUpdates()
     }
 
