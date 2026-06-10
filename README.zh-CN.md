@@ -40,7 +40,9 @@ curl -fsSL https://raw.githubusercontent.com/hututuo/LumaNote/main/install.sh | 
 
 安装脚本会把仓库克隆或更新到 `~/.lumanote/source`，在本地构建并进行 ad-hoc 签名，安装到 `~/Applications/LumaNote.app`，并自动打开。
 
-预构建测试包：[LumaNote-0.1.0-macos-arm64.zip](downloads/LumaNote-0.1.0-macos-arm64.zip)
+DMG 下载：[LumaNote-0.1.0-macos-arm64.dmg](downloads/LumaNote-0.1.0-macos-arm64.dmg)
+
+打开 DMG 后，把 `LumaNote.app` 拖到 `Applications` 即可。
 
 如果你把仓库发布在其他地址，可以覆盖 clone 来源：
 
@@ -55,6 +57,7 @@ LUMANOTE_REPO=https://github.com/your-name/LumaNote.git \
 git clone https://github.com/hututuo/LumaNote.git
 cd LumaNote/app/QuietNote
 ./scripts/build-app.sh
+./scripts/build-dmg.sh
 open build/LumaNote.app
 ```
 
@@ -100,6 +103,7 @@ LumaNote/
   app/QuietNote/                 # SwiftUI macOS app 源码
     Sources/                     # App 代码
     scripts/build-app.sh         # 构建 build/LumaNote.app
+    scripts/build-dmg.sh         # 构建拖到 Applications 安装的 DMG
     support/Info.plist           # Bundle 元数据
     support/AppIcon.icns         # macOS app 图标
   assets/                        # README 图标和微信群二维码
@@ -115,6 +119,7 @@ LumaNote/
 cd app/QuietNote
 swift build
 ./scripts/build-app.sh
+./scripts/build-dmg.sh
 open build/LumaNote.app
 ```
 
@@ -122,5 +127,5 @@ open build/LumaNote.app
 
 ## 说明
 
-LumaNote 目前是本地 macOS 构建版，不是 Developer ID 签名/公证的 App Store 发布版。如果首次启动遇到 macOS Gatekeeper 提示，可以从源码本地构建，或在系统设置中允许打开。
+LumaNote 目前是 ad-hoc 签名的本地 macOS 构建版，不是 Developer ID 签名/公证的 App Store 发布版。首次启动时，macOS 可能提示“未知开发者”。这时请打开“系统设置” -> “隐私与安全”，在 LumaNote 的安全提示旁点击“仍要打开”，然后在弹窗里确认“打开”。
 `./scripts/build-app.sh` 会对本地 app bundle 做 ad-hoc 签名，适合本地安装和后续一键更新流程，但它不等同于开发者证书签名或 notarization。
