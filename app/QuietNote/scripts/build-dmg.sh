@@ -55,14 +55,18 @@ cleanup_mount() {
 }
 trap cleanup_mount EXIT
 
-osascript <<APPLESCRIPT
+if ! osascript <<APPLESCRIPT
 tell application "Finder"
   set dmgFolder to (POSIX file "$MOUNT_POINT" as alias)
   open dmgFolder
   set dmgWindow to container window of dmgFolder
   set current view of dmgWindow to icon view
-  set toolbar visible of dmgWindow to false
-  set statusbar visible of dmgWindow to false
+  try
+    set toolbar visible of dmgWindow to false
+  end try
+  try
+    set statusbar visible of dmgWindow to false
+  end try
   set bounds of dmgWindow to {120, 120, 840, 580}
   set viewOptions to icon view options of dmgWindow
   set arrangement of viewOptions to not arranged
@@ -72,9 +76,14 @@ tell application "Finder"
   set position of item "Applications" of dmgFolder to {538, 232}
   update dmgFolder without registering applications
   delay 1
-  close dmgWindow
+  try
+    close dmgWindow
+  end try
 end tell
 APPLESCRIPT
+then
+  echo "Warning: Finder DMG styling failed; continuing with an unstyled but installable DMG." >&2
+fi
 
 sync
 sleep 1
