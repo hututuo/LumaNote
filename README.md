@@ -10,6 +10,8 @@
 
 **One command install · Live Markdown styling · Local clipboard library**
 
+<img src="design/quiet-rail-note_reference_20260607-100100.png" alt="LumaNote glass sticky note preview" width="640">
+
 </div>
 
 > The English and Chinese READMEs are maintained as content-equivalent versions. If one document changes, update the other in the same commit.
@@ -30,19 +32,52 @@ LumaNote is built for the tiny notes that should stay close: a thought, a checkl
 
 Most note apps become libraries, databases, or dashboards. LumaNote stays intentionally small: one elegant glass note, live Markdown styling, quick file switching, adjustable transparency, and a local clipboard library that can surface useful extracted values without taking over the screen.
 
-## Quick Install
+## Installation
+
+Recommended: download the latest DMG from GitHub Releases:
+
+- [LumaNote-0.1.1-macos-arm64.dmg](https://github.com/hututuo/LumaNote/releases/latest/download/LumaNote-0.1.1-macos-arm64.dmg)
+
+Verify the checksum published with the release:
+
+```bash
+curl -fL https://github.com/hututuo/LumaNote/releases/latest/download/SHA256SUMS-v0.1.1.txt -o SHA256SUMS-v0.1.1.txt
+shasum -a 256 -c SHA256SUMS-v0.1.1.txt
+```
+
+Open the DMG and drag `LumaNote.app` to `Applications`.
+
+Backup install with the GitHub Release zip:
+
+```bash
+APP_NAME="LumaNote"
+ASSET_NAME="LumaNote.app.zip"
+DOWNLOAD_URL="https://github.com/hututuo/LumaNote/releases/latest/download/${ASSET_NAME}"
+TMP_DIR="$(mktemp -d)"
+TARGET="$HOME/Applications/${APP_NAME}.app"
+
+mkdir -p "$HOME/Applications"
+curl -fL "$DOWNLOAD_URL" -o "$TMP_DIR/$ASSET_NAME"
+ditto -x -k "$TMP_DIR/$ASSET_NAME" "$TMP_DIR"
+APP_PATH="$(find "$TMP_DIR" -maxdepth 1 -name "${APP_NAME}.app" -type d -print -quit)"
+ditto "$APP_PATH" "$TARGET"
+xattr -dr com.apple.quarantine "$TARGET"
+open "$TARGET"
+```
+
+This build is ad-hoc signed and is not Apple notarized. macOS may show an "unidentified developer" warning on first launch. Download only from the official release page and verify the SHA256 checksum before opening.
+
+If macOS blocks the first launch, open `System Settings` -> `Privacy & Security`, find the LumaNote warning, click `Open Anyway`, then confirm `Open`.
+
+## Source Install
 
 macOS 14+ with Swift / Xcode Command Line Tools:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hututuo/LumaNote/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hututuo/LumaNote/test/ad-hoc-permission-update/install.sh | bash
 ```
 
 The installer clones or updates the repository under `~/.lumanote/source`, builds and ad-hoc signs the app locally, installs it to `~/Applications/LumaNote.app`, and opens it.
-
-DMG download: [LumaNote-0.1.0-macos-arm64.dmg](downloads/LumaNote-0.1.0-macos-arm64.dmg)
-
-Open the DMG and drag `LumaNote.app` to `Applications`.
 
 If you publish this repository under a different URL, override the clone source:
 
@@ -96,6 +131,24 @@ LumaNote stores app data locally under:
 
 Clipboard monitoring is local and can be disabled from the in-note menu or Settings.
 
+## Permissions, Updates, And Dependencies
+
+The DMG and zip builds bundle the Swift app and Sparkle framework. Users do not need Homebrew, Node.js, Python, a local server, an MCP server, a daemon, or a sidecar process.
+
+Optional permissions:
+
+- Accessibility: used for paste-to-current-app automation and for update permission-retention checks.
+- Login Items: used only if you enable Launch at Login.
+- Clipboard access: used locally when clipboard monitoring is enabled.
+
+Updates use Sparkle with EdDSA-signed appcast metadata. The appcast is currently hosted at:
+
+```text
+https://raw.githubusercontent.com/hututuo/LumaNote/test/ad-hoc-permission-update/appcast-test/appcast.xml
+```
+
+Sparkle's private signing key is not stored in this repository. Release operators should keep it in the login Keychain under account `com.hututuo.lumanote`, or in a user-private file such as `~/.config/lumanote/sparkle-ed25519-private.key` passed through `SPARKLE_PRIVATE_KEY_FILE`.
+
 ## Repository Layout
 
 ```text
@@ -123,9 +176,21 @@ swift build
 open build/LumaNote.app
 ```
 
+Prepare release artifacts:
+
+```bash
+cd app/QuietNote
+LUMANOTE_SKIP_APPCAST=1 ./scripts/prepare-release.sh
+```
+
+For a signed appcast build, make the Sparkle private key available and omit `LUMANOTE_SKIP_APPCAST=1`.
+
 Build outputs, `.build/`, `build/`, and local run artifacts are intentionally ignored.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
 
 ## Notes
 
-LumaNote is currently an ad-hoc signed local macOS build, not a Developer ID signed or notarized App Store release. On first launch, macOS may show an "unidentified developer" warning. Open `System Settings` -> `Privacy & Security`, find the LumaNote warning, click `Open Anyway`, then confirm `Open`.
 The local bundle is ad-hoc signed during `./scripts/build-app.sh`, which is useful for local installation and update workflows but is not the same as Developer ID signing or notarization.
