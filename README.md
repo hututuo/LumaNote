@@ -41,8 +41,9 @@ Recommended: download the latest DMG from GitHub Releases:
 Verify the checksum published with the release:
 
 ```bash
+curl -fL https://github.com/hututuo/LumaNote/releases/latest/download/LumaNote-0.1.1-macos-arm64.dmg -o LumaNote-0.1.1-macos-arm64.dmg
 curl -fL https://github.com/hututuo/LumaNote/releases/latest/download/SHA256SUMS-v0.1.1.txt -o SHA256SUMS-v0.1.1.txt
-shasum -a 256 -c SHA256SUMS-v0.1.1.txt
+grep 'LumaNote-0.1.1-macos-arm64.dmg' SHA256SUMS-v0.1.1.txt | shasum -a 256 -c -
 ```
 
 Open the DMG and drag `LumaNote.app` to `Applications`.
