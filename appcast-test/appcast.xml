@@ -11,9 +11,22 @@
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <description sparkle:format="markdown"><![CDATA[# LumaNote 0.1.1
 
-测试 ad-hoc 签名 + Sparkle 更新后，辅助功能权限是否保留。
+发布日期：2026-06-11
+
+## 更新内容
+
+- 接入 Sparkle 应用内更新检查，菜单栏和设置页均提供“检查更新”入口。
+- 保持 bundle identifier 与 ad-hoc designated requirement 为 `com.hututuo.lumanote`，用于验证更新后 macOS 权限保留。
+- 新增辅助功能权限状态与请求入口，用于测试更新后的权限连续性，也支撑粘贴到当前 app 的自动化。
+- 默认启用 Sparkle 自动检查更新，检查间隔为 24 小时。
+
+## 安装与安全说明
+
+这个构建是 ad-hoc 签名，并未经过 Apple notarization。首次打开时，macOS 可能提示“未知开发者”。请只从官方 release 页面下载，并在打开前校验 SHA256。
+
+如果系统拦截首次启动，请打开“系统设置” -> “隐私与安全”，找到 LumaNote 的提示，点击“仍要打开”，然后确认“打开”。
 ]]></description>
-            <enclosure url="https://raw.githubusercontent.com/hututuo/LumaNote/test/ad-hoc-permission-update/appcast-test/LumaNote-0.1.1-macos-arm64.zip" length="3785531" type="application/octet-stream" sparkle:edSignature="N8AQ54M1CPbiZQ8as0ZltIsM3Dvpzth48W2g67W8RxujBO6PiCgwnNQS3lZgjNcjGjVXaHwzXbxjyDsUK8RGBg=="/>
+            <enclosure url="https://github.com/hututuo/LumaNote/releases/download/v0.1.1/LumaNote-0.1.1-macos-arm64.zip" length="3785531" type="application/octet-stream" sparkle:edSignature="N8AQ54M1CPbiZQ8as0ZltIsM3Dvpzth48W2g67W8RxujBO6PiCgwnNQS3lZgjNcjGjVXaHwzXbxjyDsUK8RGBg=="/>
         </item>
     </channel>
 </rss>
