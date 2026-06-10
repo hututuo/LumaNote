@@ -63,6 +63,10 @@ struct SettingsView: View {
                 PermissionRequestView(settings: settings)
             }
 
+            Section(copy.checkForUpdates) {
+                UpdateCheckButtonView(settings: settings)
+            }
+
             Section(copy.clipboard) {
                 Toggle(copy.monitorClipboard, isOn: $settings.monitorClipboard)
                 Stepper(copy.keepLatest(settings.clipboardLimit), value: $settings.clipboardLimit, in: 25...1000, step: 25)

@@ -37,6 +37,13 @@ struct AppText {
             "Used to test whether system permission survives updates, and to support paste-to-current-app automation."
         )
     }
+    var checkForUpdates: String { text("检查更新", "Check for updates") }
+    var checkForUpdatesHint: String {
+        text(
+            "用于测试 Sparkle 更新；授权后点这里拉取测试包。",
+            "Used to test Sparkle updates; click after granting permission."
+        )
+    }
     var extracted: String { text("已提取", "Extracted") }
     var copy: String { text("复制", "Copy") }
     var openNoteFile: String { text("打开 Markdown 文件", "Open Markdown file") }
