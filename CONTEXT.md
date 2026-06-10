@@ -31,7 +31,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Visual reference: `design/quiet-rail-note_reference_20260607-100100.png`
 - Debug app bundle: `app/QuietNote/build/LumaNote.app`
 - Build script: `app/QuietNote/scripts/build-app.sh` compiles, packages, ad-hoc signs, and verifies `build/LumaNote.app`.
-- DMG script: `app/QuietNote/scripts/build-dmg.sh` packages the signed app with an `/Applications` symlink into `build/LumaNote-<version>-macos-arm64.dmg`.
+- DMG script: `app/QuietNote/scripts/build-dmg.sh` packages the signed app with an `/Applications` symlink and custom glass installer background into `build/LumaNote-<version>-macos-arm64.dmg`.
 - Current visual verification: `app/QuietNote/runs/20260607-101650_opacity-readability/screen.png`
 - Current live-render verification: `app/QuietNote/runs/20260607-102025_live-render-editor/screen.png`
 - Current drag-handle/display verification: `app/QuietNote/runs/20260607-102630_visible-drag-bars-display/screen.png`
@@ -89,6 +89,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - The public product name is LumaNote. The Swift package/target still uses the legacy `QuietNote` name internally, while the built macOS bundle is `LumaNote.app` with the selected glass bubble icon.
 - `build-app.sh` signs the local bundle with ad-hoc identity (`codesign --sign -`) and verifies it with `codesign --verify --deep --strict`. This is for local builds/install/update hygiene and is not Developer ID signing or notarization.
 - GitHub test downloads should use the DMG artifact, not the old zip. The DMG is a drag-to-Applications image and may still trigger macOS "unidentified developer" Gatekeeper flow because it is ad-hoc signed but not notarized.
+- The DMG background is source-controlled at `app/QuietNote/support/dmg-background.png` and can be regenerated with `app/QuietNote/scripts/generate-dmg-background.swift`. Do not commit generated DMGs from `app/QuietNote/build/` unless the user explicitly asks for a release artifact.
 - `NoteStore` tracks a current Markdown file URL and up to 8 recent file URLs. Opening a file loads it into the note, pushes it to the recent list, and switches live save to that file; Save As writes the current content to the chosen file, pushes it to the recent list, and then switches live save to the new path. The current path and recent paths are remembered locally for the next launch.
 - The bottom-left file button is a switcher, not a direct open button. It uses a left-right arrows icon and opens an in-window glass panel anchored to the button; the first row is "Open new file", followed by a separated recent-file list for quick switching. The file switcher panel is taller than the compact settings menu, sized for up to 7 recent files when space allows, and is less transparent than the note shell so the recent list remains readable over Markdown content.
 - Clipboard monitoring is on by default for new users, can be disabled from the compact more menu or Settings, and immediately captures the current clipboard when enabled.
