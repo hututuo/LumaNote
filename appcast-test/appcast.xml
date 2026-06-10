@@ -1,0 +1,19 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>LumaNote</title>
+        <item>
+            <title>0.1.1</title>
+            <pubDate>Thu, 11 Jun 2026 00:41:22 +0800</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# LumaNote 0.1.1
+
+测试 ad-hoc 签名 + Sparkle 更新后，辅助功能权限是否保留。
+]]></description>
+            <enclosure url="https://raw.githubusercontent.com/hututuo/LumaNote/test/ad-hoc-permission-update/appcast-test/LumaNote-0.1.1-macos-arm64.zip" length="3785531" type="application/octet-stream" sparkle:edSignature="N8AQ54M1CPbiZQ8as0ZltIsM3Dvpzth48W2g67W8RxujBO6PiCgwnNQS3lZgjNcjGjVXaHwzXbxjyDsUK8RGBg=="/>
+        </item>
+    </channel>
+</rss>
