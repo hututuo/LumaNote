@@ -3,22 +3,6 @@
     <channel>
         <title>LumaNote</title>
         <item>
-            <title>0.1.2</title>
-            <pubDate>Thu, 11 Jun 2026 00:46:31 +0800</pubDate>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[# LumaNote 0.1.2
-
-测试可见“检查更新”入口，并验证 ad-hoc 签名 + Sparkle 更新后辅助功能权限是否保留。
-]]></description>
-            <enclosure url="https://raw.githubusercontent.com/hututuo/LumaNote/test/ad-hoc-permission-update/appcast-test/LumaNote-0.1.2-macos-arm64.zip" length="3793635" type="application/octet-stream" sparkle:edSignature="hG641guWmEvjHgGiLUepZPVAmysMqOOq32N30CI1bn2DaP3LJBz86enNKBGHovWk98OgrHnvqB8JusX1at2kAQ=="/>
-            <sparkle:deltas>
-                <enclosure url="https://raw.githubusercontent.com/hututuo/LumaNote/test/ad-hoc-permission-update/appcast-test/LumaNote3-2.delta" sparkle:deltaFrom="2" length="128802" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977616" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="SjqnHvVQgSXrausbOG3iJI9p8aN/k/9jdC+ZOJari4d88qYS5bwTYRXUdNvmQeeZirPiMx5u26R//oJlx9uIDw=="/>
-            </sparkle:deltas>
-        </item>
-        <item>
             <title>0.1.1</title>
             <pubDate>Thu, 11 Jun 2026 00:41:22 +0800</pubDate>
             <sparkle:version>2</sparkle:version>
