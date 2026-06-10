@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 import SwiftUI
 
 @main
@@ -13,6 +14,13 @@ struct QuietNoteApp: App {
             )
             .frame(width: 460)
         }
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates...") {
+                    appDelegate.checkForUpdates()
+                }
+            }
+        }
     }
 }
 
@@ -21,6 +29,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let settings = AppSettings()
     let noteStore = NoteStore()
     let clipboardStore = ClipboardStore()
+    let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     private var panelController: NotePanelController?
     private var hotKeyCenter: HotKeyCenter?
@@ -61,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Hide Note", action: #selector(hideNoteFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Clipboard Library", action: #selector(toggleClipboardFromMenu), keyEquivalent: ""))
         menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Check for Updates...", action: #selector(checkForUpdatesFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Quit LumaNote", action: #selector(quit), keyEquivalent: "q"))
         item.menu = menu
@@ -83,6 +97,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    }
+
+    @objc private func checkForUpdatesFromMenu() {
+        checkForUpdates()
+    }
+
+    func checkForUpdates() {
+        updaterController.checkForUpdates(nil)
     }
 
     @objc private func quit() {
