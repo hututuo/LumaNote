@@ -38,10 +38,11 @@ struct AppText {
         )
     }
     var checkForUpdates: String { text("检查更新", "Check for updates") }
+    var automaticallyCheckForUpdates: String { text("自动检查更新", "Check automatically") }
     var checkForUpdatesHint: String {
         text(
-            "用于测试 Sparkle 更新；授权后点这里拉取测试包。",
-            "Used to test Sparkle updates; click after granting permission."
+            "开启后会按系统更新周期自动检查；按钮可立即检查。",
+            "When enabled, Sparkle checks on its schedule; the button checks now."
         )
     }
     var extracted: String { text("已提取", "Extracted") }

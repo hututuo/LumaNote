@@ -107,6 +107,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updaterController.checkForUpdates(nil)
     }
 
+    var canCheckForUpdates: Bool {
+        updaterController.updater.canCheckForUpdates
+    }
+
+    var automaticallyChecksForUpdates: Bool {
+        updaterController.updater.automaticallyChecksForUpdates
+    }
+
+    func setAutomaticallyChecksForUpdates(_ enabled: Bool) {
+        updaterController.updater.automaticallyChecksForUpdates = enabled
+    }
+
     @objc private func quit() {
         NSApp.terminate(nil)
     }
