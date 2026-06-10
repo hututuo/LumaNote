@@ -40,6 +40,8 @@ curl -fsSL https://raw.githubusercontent.com/hututuo/LumaNote/main/install.sh | 
 
 The installer clones or updates the repository under `~/.lumanote/source`, builds and ad-hoc signs the app locally, installs it to `~/Applications/LumaNote.app`, and opens it.
 
+Prebuilt test package: [LumaNote-0.1.0-macos-arm64.zip](downloads/LumaNote-0.1.0-macos-arm64.zip)
+
 If you publish this repository under a different URL, override the clone source:
 
 ```bash

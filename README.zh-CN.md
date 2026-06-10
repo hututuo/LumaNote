@@ -40,6 +40,8 @@ curl -fsSL https://raw.githubusercontent.com/hututuo/LumaNote/main/install.sh | 
 
 安装脚本会把仓库克隆或更新到 `~/.lumanote/source`，在本地构建并进行 ad-hoc 签名，安装到 `~/Applications/LumaNote.app`，并自动打开。
 
+预构建测试包：[LumaNote-0.1.0-macos-arm64.zip](downloads/LumaNote-0.1.0-macos-arm64.zip)
+
 如果你把仓库发布在其他地址，可以覆盖 clone 来源：
 
 ```bash
