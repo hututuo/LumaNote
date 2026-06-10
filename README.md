@@ -38,7 +38,7 @@ macOS 14+ with Swift / Xcode Command Line Tools:
 curl -fsSL https://raw.githubusercontent.com/hututuo/LumaNote/main/install.sh | bash
 ```
 
-The installer clones or updates the repository under `~/.lumanote/source`, builds the app locally, installs it to `~/Applications/LumaNote.app`, and opens it.
+The installer clones or updates the repository under `~/.lumanote/source`, builds and ad-hoc signs the app locally, installs it to `~/Applications/LumaNote.app`, and opens it.
 
 If you publish this repository under a different URL, override the clone source:
 
@@ -121,3 +121,4 @@ Build outputs, `.build/`, `build/`, and local run artifacts are intentionally ig
 ## Notes
 
 LumaNote is currently a local macOS build, not a signed/notarized App Store release. If macOS Gatekeeper warns on first launch, build from source or approve the app through System Settings.
+The local bundle is ad-hoc signed during `./scripts/build-app.sh`, which is useful for local installation and update workflows but is not the same as Developer ID signing or notarization.

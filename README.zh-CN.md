@@ -38,7 +38,7 @@ LumaNote 是为那些需要一直放在手边的小内容做的：一个想法�
 curl -fsSL https://raw.githubusercontent.com/hututuo/LumaNote/main/install.sh | bash
 ```
 
-安装脚本会把仓库克隆或更新到 `~/.lumanote/source`，在本地构建 app，安装到 `~/Applications/LumaNote.app`，并自动打开。
+安装脚本会把仓库克隆或更新到 `~/.lumanote/source`，在本地构建并进行 ad-hoc 签名，安装到 `~/Applications/LumaNote.app`，并自动打开。
 
 如果你把仓库发布在其他地址，可以覆盖 clone 来源：
 
@@ -120,4 +120,5 @@ open build/LumaNote.app
 
 ## 说明
 
-LumaNote 目前是本地 macOS 构建版，不是已签名/公证的 App Store 发布版。如果首次启动遇到 macOS Gatekeeper 提示，可以从源码本地构建，或在系统设置中允许打开。
+LumaNote 目前是本地 macOS 构建版，不是 Developer ID 签名/公证的 App Store 发布版。如果首次启动遇到 macOS Gatekeeper 提示，可以从源码本地构建，或在系统设置中允许打开。
+`./scripts/build-app.sh` 会对本地 app bundle 做 ad-hoc 签名，适合本地安装和后续一键更新流程，但它不等同于开发者证书签名或 notarization。

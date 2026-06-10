@@ -16,6 +16,7 @@ need_command() {
 need_command git
 need_command swift
 need_command plutil
+need_command codesign
 
 mkdir -p "$SOURCE_DIR" "$APP_INSTALL_DIR"
 

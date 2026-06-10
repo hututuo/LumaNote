@@ -16,4 +16,6 @@ cp "$ROOT/support/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$ROOT/support/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 
 plutil -lint "$APP_DIR/Contents/Info.plist"
+codesign --force --deep --sign - "$APP_DIR"
+codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 echo "$APP_DIR"

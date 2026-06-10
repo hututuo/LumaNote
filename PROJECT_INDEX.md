@@ -6,14 +6,14 @@
 | `PROJECT_INDEX.md` | 2026-06-07 10:01 | 2026-06-07 10:01 | 项目索引 | 记录项目内方案、设计稿、源码、运行验证和归档状态 | 不建议删除 | 构建玻璃 Markdown 便签 | 持续维护 |
 | `.gitignore` | 2026-06-08 09:53 | 2026-06-08 09:53 | Git 忽略规则 | 排除 `.DS_Store`、Swift 构建产物、生成的 `QuietNote.app`、run/scratch/backups 和临时日志，避免可重建/临时材料进入功能 commit | 不建议删除 | Glass Markdown Note Git 初始化 v01 | 项目根目录已按独立 Git 仓库管理；首个提交为 `项目初始归档` |
 | `design/quiet-rail-note_reference_20260607-100100.png` | 2026-06-07 10:01 | 2026-06-07 10:01 | 视觉参考 | 融合 Bottom Rail Note 与 Slim Strip Note 的主视觉靶子 | 不建议删除 | Product Design 视觉方向 | 作为 SwiftUI 实现参考 |
-| `README.md` | 2026-06-08 22:15 | 2026-06-08 22:35 | 英文 README | GitHub 英文首页，含 LumaNote 品牌、一条命令安装、功能介绍、社区二维码和开发说明 | 不建议删除 | 开机自启设置 | 参考 PaperSpine / Paper2ZH README 风格，和中文 README 内容等价维护；功能表已补 Launch at login |
-| `README.zh-CN.md` | 2026-06-08 22:15 | 2026-06-08 22:35 | 中文 README | GitHub 中文首页，含 LumaNote 品牌、一条命令安装、功能介绍、社区二维码和开发说明 | 不建议删除 | 开机自启设置 | 参考 PaperSpine / Paper2ZH README 风格，和英文 README 内容等价维护；功能表已补开机自启 |
-| `install.sh` | 2026-06-08 22:15 | 2026-06-08 22:15 | 一键安装脚本 | 从 GitHub 克隆/更新源码，构建并安装到 `~/Applications/LumaNote.app` | 不建议删除 | 一条命令安装 | 默认仓库 `https://github.com/hututuo/LumaNote.git`，可用 `LUMANOTE_REPO` 覆盖 |
+| `README.md` | 2026-06-08 22:15 | 2026-06-10 23:55 | 英文 README | GitHub 英文首页，含 LumaNote 品牌、一条命令安装、功能介绍、社区二维码和开发说明 | 不建议删除 | ad-hoc signing | 参考 PaperSpine / Paper2ZH README 风格，和中文 README 内容等价维护；说明安装/手动构建会本地 ad-hoc 签名，但不等同 Developer ID 签名或公证 |
+| `README.zh-CN.md` | 2026-06-08 22:15 | 2026-06-10 23:55 | 中文 README | GitHub 中文首页，含 LumaNote 品牌、一条命令安装、功能介绍、社区二维码和开发说明 | 不建议删除 | ad-hoc signing | 参考 PaperSpine / Paper2ZH README 风格，和英文 README 内容等价维护；说明安装/手动构建会本地 ad-hoc 签名，但不等同 Developer ID 签名或公证 |
+| `install.sh` | 2026-06-08 22:15 | 2026-06-10 23:55 | 一键安装脚本 | 从 GitHub 克隆/更新源码，构建、ad-hoc 签名并安装到 `~/Applications/LumaNote.app` | 不建议删除 | ad-hoc signing | 默认仓库 `https://github.com/hututuo/LumaNote.git`，可用 `LUMANOTE_REPO` 覆盖；会检查 `codesign` 后调用构建脚本 |
 | `app/QuietNote/Package.swift` | 2026-06-07 10:05 | 2026-06-09 01:12 | Swift Package 配置 | 定义 LumaNote/QuietNote 可执行 target 和测试 target | 不建议删除 | 剪切板提取规则优化 | 新增 `QuietNoteTests`，用于验证剪切板提取规则 |
 | `assets/lumanote-icon.png` | 2026-06-08 22:14 | 2026-06-08 22:14 | 品牌图标 | README 展示用 LumaNote 玻璃便签气泡图标 | 不建议删除 | LumaNote 品牌 | 来源为本轮 image generation 最终确认图 |
 | `assets/wechat-group-qr.jpeg` | 2026-06-08 22:14 | 2026-06-08 22:14 | 社区二维码 | README Community 区块微信群二维码 | 不建议删除 | LumaNote README | 复用 `paper2zh-chatgpt-web-skill` 的 HTT repositories 微信群二维码 |
 | `app/QuietNote/` | 2026-06-07 10:05 | 2026-06-08 22:15 | SwiftUI 应用源码 | 原生 macOS 玻璃 Markdown 便签应用，公开产品名为 LumaNote | 不建议删除 | 构建玻璃 Markdown 便签 | Swift target 仍沿用内部名 `QuietNote`，打包输出为 `build/LumaNote.app` |
-| `app/QuietNote/scripts/build-app.sh` | 2026-06-07 10:18 | 2026-06-08 22:15 | 构建脚本 | 编译并生成 `build/LumaNote.app` | 不建议删除 | LumaNote 品牌 | 会复制 `AppIcon.icns` 到 app bundle |
+| `app/QuietNote/scripts/build-app.sh` | 2026-06-07 10:18 | 2026-06-10 23:55 | 构建脚本 | 编译、打包、ad-hoc 签名并生成 `build/LumaNote.app` | 不建议删除 | ad-hoc signing | 会复制 `AppIcon.icns` 到 app bundle，并执行 `codesign --force --deep --sign -` 与严格验证 |
 | `app/QuietNote/support/Info.plist` | 2026-06-07 10:19 | 2026-06-08 22:15 | app 配置模板 | `LumaNote.app` 的 bundle metadata 模板 | 不建议删除 | LumaNote 品牌 | `CFBundleName`/`CFBundleDisplayName` 为 LumaNote，`LSUIElement=false`，使 app 出现在 Dock/任务栏 |
 | `app/QuietNote/support/AppIcon.icns` | 2026-06-08 22:14 | 2026-06-08 22:14 | macOS app 图标 | LumaNote bundle 使用的 `.icns` 图标 | 不建议删除 | LumaNote 品牌 | 由 `assets/lumanote-icon.png` 生成 |
 | `app/QuietNote/build/LumaNote.app` | 2026-06-08 22:15 | 2026-06-08 22:15 | macOS app 包 | 可双击运行的本地调试版 LumaNote | 可重建 | 构建玻璃 Markdown 便签 | 由 `.build/debug/QuietNote` 打包生成 |
