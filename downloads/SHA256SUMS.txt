@@ -1,0 +1,1 @@
+1dc9fa0d55e9e980839dc7d7088521d6ff0b3c4e5418d76b98b7ffcebd51247e  LumaNote-0.1.0-macos-arm64.zip
