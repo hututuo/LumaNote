@@ -145,8 +145,8 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 
 ## Release Status
 
-- `v0.1.1 partial`: local build, ad-hoc signing, DMG packaging, checksum verification, mounted DMG inspection, and temporary install/launch smoke passed on 2026-06-11. Remaining gate is publishing source/tag/assets to GitHub and, for future appcast regeneration, unlocking Keychain or providing `SPARKLE_PRIVATE_KEY_FILE`.
-- Final local release artifacts are under `app/QuietNote/build/releases/v0.1.1/` and remain ignored build outputs. Upload these to GitHub Releases rather than committing them: `LumaNote-0.1.1-macos-arm64.dmg`, `LumaNote-0.1.1-macos-arm64.zip`, `LumaNote.app.zip`, and `SHA256SUMS-v0.1.1.txt`.
+- `v0.1.1 published`: local build, ad-hoc signing, DMG packaging, checksum verification, mounted DMG inspection, temporary install/launch smoke, branch push, and GitHub Release upload passed on 2026-06-11. Release URL: `https://github.com/hututuo/LumaNote/releases/tag/v0.1.1`.
+- Final local release artifacts are under `app/QuietNote/build/releases/v0.1.1/` and remain ignored build outputs. The same assets have been uploaded to GitHub Releases: `LumaNote-0.1.1-macos-arm64.dmg`, `LumaNote-0.1.1-macos-arm64.zip`, `LumaNote.app.zip`, and `SHA256SUMS-v0.1.1.txt`.
 
 ## Notes For Next Agent
 

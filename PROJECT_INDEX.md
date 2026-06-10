@@ -16,7 +16,7 @@
 | `appcast-test/LumaNote-0.1.1-macos-arm64.zip` | 2026-06-11 00:41 | 2026-06-11 00:41 | Sparkle 测试更新包 | 供 Sparkle 下载并替换本地 app 的 zip 更新包 | 可替换 | Sparkle 测试更新包 | 包内 app 为 ad-hoc signed，designated requirement 为 `identifier "com.hututuo.lumanote"`；用于验证辅助功能权限更新后是否保留 |
 | `appcast-test/LumaNote-0.1.1-macos-arm64.md` | 2026-06-11 00:41 | 2026-06-11 02:14 | Sparkle 更新说明 | Sparkle appcast 内嵌 release notes 来源 | 可替换 | v0.1.1 发布审查 | 已扩写 0.1.1 更新内容、ad-hoc 未公证和 Gatekeeper 首启说明 |
 | `docs/releases/v0.1.1.md` | 2026-06-11 02:14 | 2026-06-11 02:14 | 发布说明 | v0.1.1 GitHub/Sparkle 发布说明基线 | 不建议删除 | v0.1.1 发布审查 | 记录更新亮点、安装安全说明、appcast 地址、checksum 生成方式和验证命令 |
-| `docs/releases/v0.1.1-audit.md` | 2026-06-11 02:14 | 2026-06-11 02:14 | 发布审查 | v0.1.1 release gate 审查记录 | 不建议删除 | v0.1.1 发布审查 | Ready=partial；记录本地验证通过项、Sparkle Keychain 阻塞、GitHub release 待发布、最终本地产物路径和 SHA256 |
+| `docs/releases/v0.1.1-audit.md` | 2026-06-11 02:14 | 2026-06-11 02:18 | 发布审查 | v0.1.1 release gate 审查记录 | 不建议删除 | v0.1.1 发布审查 | Ready=yes for test/ad-hoc-permission-update release channel；记录本地验证通过项、GitHub release URL、Sparkle Keychain 再生成 appcast 的限制、最终本地产物路径和 SHA256 |
 | `app/QuietNote/Package.swift` | 2026-06-07 10:05 | 2026-06-11 00:48 | Swift Package 配置 | 定义 LumaNote/QuietNote 可执行 target 和测试 target | 不建议删除 | Sparkle 测试更新 | 新增 Sparkle 2 依赖，用于测试 ad-hoc signed app 的更新流程；保留 `QuietNoteTests` 验证剪切板提取规则 |
 | `app/QuietNote/Package.resolved` | 2026-06-11 00:48 | 2026-06-11 00:48 | SwiftPM 锁定文件 | 锁定 KeyboardShortcuts 和 Sparkle 版本 | 不建议删除 | Sparkle 测试更新 | 当前解析 Sparkle 2.9.3；KeyboardShortcuts 1.17.0 |
 | `assets/lumanote-icon.png` | 2026-06-08 22:14 | 2026-06-08 22:14 | 品牌图标 | README 展示用 LumaNote 玻璃便签气泡图标 | 不建议删除 | LumaNote 品牌 | 来源为本轮 image generation 最终确认图 |
