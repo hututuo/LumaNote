@@ -18,7 +18,7 @@ if [ ! -d "$APP_DIR" ]; then
   exit 1
 fi
 
-if [ ! -f "$BACKGROUND_PATH" ]; then
+if [ ! -f "$BACKGROUND_PATH" ] || [ "$ROOT/scripts/generate-dmg-background.swift" -nt "$BACKGROUND_PATH" ]; then
   "$ROOT/scripts/generate-dmg-background.swift" "$BACKGROUND_PATH"
 fi
 
