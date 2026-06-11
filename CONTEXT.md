@@ -27,6 +27,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 
 ## Current Build Entry
 
+- 2026-06-11 local packaging review: DMG background copy now says `系统设置 → 隐私与安全 → 滑到最底下找到 LumaNote`, and `prepare-release.sh` keeps the GitHub Release download prefix ending in `/` so Sparkle appcast URLs stay correct. `LUMANOTE_ALLOW_DIRTY=1 app/QuietNote/scripts/prepare-release.sh` completed successfully and produced a reviewable v0.1.1 DMG/zip/checksum set under `app/QuietNote/build/releases/v0.1.1/`; mounted DMG verification found both `.DS_Store` and `.background/dmg-background.png`. No GitHub push/release was performed in this step.
 - App source: `app/QuietNote/`
 - Visual reference: `design/quiet-rail-note_reference_20260607-100100.png`
 - Debug app bundle: `app/QuietNote/build/LumaNote.app`

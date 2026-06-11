@@ -124,7 +124,7 @@ rightCard.stroke()
 
 drawArrow(from: CGPoint(x: 294, y: 236), to: CGPoint(x: 426, y: 236))
 
-let warningRect = NSRect(x: 78, y: 72, width: 564, height: 78)
+let warningRect = NSRect(x: 78, y: 66, width: 564, height: 88)
 let warningPanel = roundedRect(warningRect, radius: 22)
 color(0x0F172A, 0.06).setFill()
 warningPanel.fill()
@@ -132,11 +132,12 @@ color(0xFFFFFF, 0.70).setStroke()
 warningPanel.lineWidth = 1
 warningPanel.stroke()
 
-drawCapsule(NSRect(x: 100, y: 112, width: 90, height: 24), fill: color(0x0F766E, 0.13), stroke: color(0x0F766E, 0.18))
-drawText("首次打开", rect: NSRect(x: 112, y: 116, width: 66, height: 17), size: 12, weight: .semibold, color: color(0x0F766E, 0.88), align: .center)
+drawCapsule(NSRect(x: 100, y: 120, width: 90, height: 24), fill: color(0x0F766E, 0.13), stroke: color(0x0F766E, 0.18))
+drawText("首次打开", rect: NSRect(x: 112, y: 124, width: 66, height: 17), size: 12, weight: .semibold, color: color(0x0F766E, 0.88), align: .center)
 
-drawText("如果提示“未知开发者”：", rect: NSRect(x: 206, y: 114, width: 410, height: 20), size: 13, weight: .semibold, color: color(0x0F172A, 0.72))
-drawText("系统设置 → 隐私与安全 → 找到 LumaNote → 点“仍要打开” → 确认“打开”", rect: NSRect(x: 100, y: 88, width: 520, height: 20), size: 12.5, weight: .regular, color: color(0x334155, 0.68), align: .center)
+drawText("提示“未知开发者”时不要删除 App", rect: NSRect(x: 206, y: 122, width: 410, height: 20), size: 13.5, weight: .semibold, color: color(0x0F3B57, 0.86))
+drawText("系统设置 → 隐私与安全 → 滑到最底下找到 LumaNote", rect: NSRect(x: 100, y: 94, width: 520, height: 20), size: 12.5, weight: .medium, color: color(0x334155, 0.76), align: .center)
+drawText("点“仍要打开”，再确认“打开”", rect: NSRect(x: 100, y: 74, width: 520, height: 20), size: 12.5, weight: .medium, color: color(0x334155, 0.76), align: .center)
 
 let textureColor = color(0xFFFFFF, 0.22)
 for x in stride(from: 50, through: 670, by: 26) {

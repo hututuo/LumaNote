@@ -2,6 +2,8 @@
 
 | 路径 | 创建时间 | 最近修改 | 类型 | 用途 | 是否可删除 | 关联任务 | 备注 |
 |---|---|---|---|---|---|---|---|
+| `app/QuietNote/scripts/build-dmg.sh` / `app/QuietNote/scripts/generate-dmg-background.swift` / `app/QuietNote/scripts/prepare-release.sh` / `app/QuietNote/support/dmg-background.png` | 2026-06-11 00:02 | 2026-06-11 14:58 | DMG 背景与打包脚本 | 本地打包审查版 DMG 引导图，突出未知开发者 Gatekeeper 打开路径 | 不建议删除 | LumaNote local DMG review 2026-06-11 | `build-dmg.sh` 在生成脚本比 PNG 新时自动重画背景；文案改为“提示‘未知开发者’时不要删除 App / 系统设置 → 隐私与安全 → 滑到最底下找到 LumaNote / 点‘仍要打开’，再确认‘打开’”；`prepare-release.sh` 默认 download prefix 保留结尾 `/`，避免 Sparkle appcast URL 缺少 tag 目录 |
+| `app/QuietNote/build/releases/v0.1.1/` | 2026-06-11 11:18 | 2026-06-11 14:58 | 本地发布产物 | 本轮可检查的 LumaNote v0.1.1 DMG、Sparkle zip、兼容 zip 和 SHA256 | 可删除，可重建 | LumaNote local DMG review 2026-06-11 | Git 忽略；验证：`LUMANOTE_ALLOW_DIRTY=1 app/QuietNote/scripts/prepare-release.sh`、`hdiutil verify` 通过；DMG 挂载检查包含 `.DS_Store` 与 `.background/dmg-background.png`，背景 PNG 为 1440 x 920 RGBA；`appcast-test/appcast.xml` enclosure URL 为 `https://github.com/hututuo/LumaNote/releases/download/v0.1.1/LumaNote-0.1.1-macos-arm64.zip` |
 | `CONTEXT.md` | 2026-06-07 10:01 | 2026-06-07 10:01 | 项目上下文 | 记录极简玻璃 Markdown 便签的产品方向、核心行为和入口 | 不建议删除 | 构建玻璃 Markdown 便签 | 后续先读 |
 | `PROJECT_INDEX.md` | 2026-06-07 10:01 | 2026-06-07 10:01 | 项目索引 | 记录项目内方案、设计稿、源码、运行验证和归档状态 | 不建议删除 | 构建玻璃 Markdown 便签 | 持续维护 |
 | `.gitignore` | 2026-06-08 09:53 | 2026-06-08 09:53 | Git 忽略规则 | 排除 `.DS_Store`、Swift 构建产物、生成的 `QuietNote.app`、run/scratch/backups 和临时日志，避免可重建/临时材料进入功能 commit | 不建议删除 | Glass Markdown Note Git 初始化 v01 | 项目根目录已按独立 Git 仓库管理；首个提交为 `项目初始归档` |
