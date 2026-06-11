@@ -43,13 +43,19 @@ struct NoteWindowView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
-            clipboardInlineOverlay
+            if showClipboard {
+                clipboardInlineOverlay
+            }
         }
         .overlay {
-            moreInlineOverlay
+            if showMore {
+                moreInlineOverlay
+            }
         }
         .overlay {
-            fileSwitcherInlineOverlay
+            if showFileSwitcher {
+                fileSwitcherInlineOverlay
+            }
         }
         .frame(
             minWidth: NoteWindowLayout.minimumSize.width,
@@ -108,185 +114,176 @@ struct NoteWindowView: View {
     @ViewBuilder
     private var clipboardInlineOverlay: some View {
         GeometryReader { proxy in
-            if showClipboard {
-                let panelWidth = min(360, max(238, proxy.size.width - 20))
-                let panelHeight = min(390, max(178, proxy.size.height - 74))
+            let panelWidth = min(360, max(238, proxy.size.width - 20))
+            let panelHeight = min(390, max(178, proxy.size.height - 74))
 
-                ZStack(alignment: .top) {
-                    VStack(spacing: 0) {
-                        Color.clear
-                            .frame(height: topDragPassthroughHeight)
-                            .allowsHitTesting(false)
+            ZStack(alignment: .top) {
+                VStack(spacing: 0) {
+                    Color.clear
+                        .frame(height: topDragPassthroughHeight)
+                        .allowsHitTesting(false)
 
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                withAnimation(.snappy(duration: 0.16)) {
-                                    showClipboard = false
-                                }
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.snappy(duration: 0.16)) {
+                                showClipboard = false
                             }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    ClipboardLibraryView(settings: settings, store: clipboardStore)
-                        .frame(width: panelWidth, height: panelHeight)
-                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [.white.opacity(0.62), .white.opacity(0.18), .black.opacity(0.08)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
-                        .padding(.top, 40)
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity),
-                            removal: .scale(scale: 0.985, anchor: .top).combined(with: .opacity)
-                        ))
+                        }
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height)
-                .zIndex(30)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                ClipboardLibraryView(settings: settings, store: clipboardStore)
+                    .frame(width: panelWidth, height: panelHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.62), .white.opacity(0.18), .black.opacity(0.08)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
+                    .padding(.top, 40)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.985, anchor: .top).combined(with: .opacity)
+                    ))
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .zIndex(30)
         }
-        .allowsHitTesting(showClipboard)
     }
 
     @ViewBuilder
     private var moreInlineOverlay: some View {
         GeometryReader { proxy in
-            if showMore {
-                let metrics = moreOverlayMetrics(in: proxy.size)
+            let metrics = moreOverlayMetrics(in: proxy.size)
 
-                ZStack(alignment: .topLeading) {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation(.snappy(duration: 0.14)) {
-                                showMore = false
-                            }
-                        }
-
-                    MoreMenuView(
-                        settings: settings,
-                        clipboardStore: clipboardStore,
-                        showShortcutSettings: $showShortcutSettings,
-                        onClose: {
+            ZStack(alignment: .topLeading) {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.snappy(duration: 0.14)) {
                             showMore = false
-                            onClose()
                         }
-                    )
-                    .frame(width: metrics.width, height: metrics.height)
-                    .background {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(.regularMaterial)
-                            .opacity(0.62 + settings.noteOpacity * 0.24)
                     }
-                    .background {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(Color(nsColor: .windowBackgroundColor).opacity(0.12 + settings.noteOpacity * 0.18))
+
+                MoreMenuView(
+                    settings: settings,
+                    clipboardStore: clipboardStore,
+                    showShortcutSettings: $showShortcutSettings,
+                    onClose: {
+                        showMore = false
+                        onClose()
                     }
-                    .background {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(Color.white.opacity(0.055 + settings.noteOpacity * 0.08))
-                            .blendMode(.plusLighter)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.62), .white.opacity(0.18), .black.opacity(0.08)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.2), radius: 18, y: 8)
-                    .position(x: metrics.centerX, y: metrics.centerY)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.95, anchor: .bottomTrailing).combined(with: .opacity),
-                        removal: .scale(scale: 0.985, anchor: .bottomTrailing).combined(with: .opacity)
-                    ))
+                )
+                .frame(width: metrics.width, height: metrics.height)
+                .background {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(.regularMaterial)
+                        .opacity(0.62 + settings.noteOpacity * 0.24)
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height)
-                .zIndex(32)
+                .background {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(Color(nsColor: .windowBackgroundColor).opacity(0.12 + settings.noteOpacity * 0.18))
+                }
+                .background {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(Color.white.opacity(0.055 + settings.noteOpacity * 0.08))
+                        .blendMode(.plusLighter)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.62), .white.opacity(0.18), .black.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.2), radius: 18, y: 8)
+                .position(x: metrics.centerX, y: metrics.centerY)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.95, anchor: .bottomTrailing).combined(with: .opacity),
+                    removal: .scale(scale: 0.985, anchor: .bottomTrailing).combined(with: .opacity)
+                ))
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .zIndex(32)
         }
-        .allowsHitTesting(showMore)
     }
 
     @ViewBuilder
     private var fileSwitcherInlineOverlay: some View {
         GeometryReader { proxy in
-            if showFileSwitcher {
-                let metrics = fileSwitcherOverlayMetrics(in: proxy.size)
+            let metrics = fileSwitcherOverlayMetrics(in: proxy.size)
 
-                ZStack(alignment: .topLeading) {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation(.snappy(duration: 0.14)) {
-                                showFileSwitcher = false
-                            }
+            ZStack(alignment: .topLeading) {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.snappy(duration: 0.14)) {
+                            showFileSwitcher = false
                         }
+                    }
 
-                    FileSwitcherView(
-                        settings: settings,
-                        noteStore: noteStore,
-                        openNewFile: {
-                            withAnimation(.snappy(duration: 0.14)) {
-                                showFileSwitcher = false
-                            }
-                            openNoteFile()
-                        },
-                        openRecentFile: { url in
-                            withAnimation(.snappy(duration: 0.14)) {
-                                showFileSwitcher = false
-                            }
-                            noteStore.openFile(at: url)
+                FileSwitcherView(
+                    settings: settings,
+                    noteStore: noteStore,
+                    openNewFile: {
+                        withAnimation(.snappy(duration: 0.14)) {
+                            showFileSwitcher = false
                         }
-                    )
-                    .frame(width: metrics.width, height: metrics.height)
-                    .background {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(.regularMaterial)
-                            .opacity(0.1 + settings.noteOpacity * 0.78)
+                        openNoteFile()
+                    },
+                    openRecentFile: { url in
+                        withAnimation(.snappy(duration: 0.14)) {
+                            showFileSwitcher = false
+                        }
+                        noteStore.openFile(at: url)
                     }
-                    .background {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(Color.white.opacity(0.035 + settings.noteOpacity * 0.08))
-                            .blendMode(.plusLighter)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.62), .white.opacity(0.18), .black.opacity(0.08)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.2), radius: 18, y: 8)
-                    .position(x: metrics.centerX, y: metrics.centerY)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.95, anchor: .bottom).combined(with: .opacity),
-                        removal: .scale(scale: 0.985, anchor: .bottom).combined(with: .opacity)
-                    ))
+                )
+                .frame(width: metrics.width, height: metrics.height)
+                .background {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(.regularMaterial)
+                        .opacity(0.1 + settings.noteOpacity * 0.78)
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height)
-                .zIndex(31)
+                .background {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(Color.white.opacity(0.035 + settings.noteOpacity * 0.08))
+                        .blendMode(.plusLighter)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.62), .white.opacity(0.18), .black.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.2), radius: 18, y: 8)
+                .position(x: metrics.centerX, y: metrics.centerY)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.95, anchor: .bottom).combined(with: .opacity),
+                    removal: .scale(scale: 0.985, anchor: .bottom).combined(with: .opacity)
+                ))
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .zIndex(31)
         }
-        .allowsHitTesting(showFileSwitcher)
     }
 
     private var readabilityLayer: some View {
@@ -439,7 +436,7 @@ struct NoteWindowView: View {
                 railButton(symbol: settings.alwaysOnTop ? "pin.fill" : "pin", help: "Pin", size: buttonSize) {
                     settings.alwaysOnTop.toggle()
                 }
-                railButton(symbol: "ellipsis", help: "More", size: buttonSize) {
+                railButton(symbol: "ellipsis", help: "More", size: buttonSize, hitSize: max(30, buttonSize + 8)) {
                     withAnimation(.snappy(duration: 0.14)) {
                         showClipboard = false
                         showExtractionActions = false
@@ -512,19 +509,24 @@ struct NoteWindowView: View {
         return min(max((fullWidth - width) / (fullWidth - compactWidth), 0), 1)
     }
 
-    private func railButton(symbol: String, help: String, size: CGFloat = 24, action: @escaping () -> Void) -> some View {
+    private func railButton(symbol: String, help: String, size: CGFloat = 24, hitSize: CGFloat? = nil, action: @escaping () -> Void) -> some View {
         let cornerRadius = max(6, size * 0.29)
+        let tappableSize = max(size, hitSize ?? size)
 
         return Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: size * 0.54, weight: .semibold))
-                .frame(width: size, height: size)
+            ZStack {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.white.opacity(0.03 + bottomRailOpacity * 0.08))
+                    .frame(width: size, height: size)
+
+                Image(systemName: symbol)
+                    .font(.system(size: size * 0.54, weight: .semibold))
+                    .frame(width: size, height: size)
+            }
+            .frame(width: tappableSize, height: tappableSize)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(
-            .white.opacity(0.03 + bottomRailOpacity * 0.08),
-            in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        )
         .help(help)
     }
 
