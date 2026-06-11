@@ -138,7 +138,6 @@ The DMG and zip builds bundle the Swift app and Sparkle framework. Users do not 
 
 Optional permissions:
 
-- Accessibility: used for paste-to-current-app automation and for update permission-retention checks.
 - Login Items: used only if you enable Launch at Login.
 - Clipboard access: used locally when clipboard monitoring is enabled.
 

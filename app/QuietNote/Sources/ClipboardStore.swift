@@ -100,15 +100,6 @@ final class ClipboardStore: ObservableObject {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
-    func paste(_ text: String) {
-        copy(text)
-        NSApp.hide(nil)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-            Self.sendCommandV()
-        }
-    }
-
     func open(_ detection: ClipboardDetection) {
         guard let url = detection.openURL else { return }
         NSWorkspace.shared.open(url)
@@ -184,17 +175,6 @@ final class ClipboardStore: ObservableObject {
         try? data.write(to: fileURL, options: .atomic)
     }
 
-    private static func sendCommandV() {
-        guard let source = CGEventSource(stateID: .hidSystemState),
-              let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        else { return }
-
-        keyDown.flags = .maskCommand
-        keyUp.flags = .maskCommand
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
-    }
 }
 
 extension ClipboardDetection {

@@ -26,17 +26,6 @@ struct AppText {
     var launchAtLogin: String { text("开机自启", "Launch at login") }
     var launchAtLoginHint: String { text("使用 macOS 登录项服务；可能需要系统确认。", "Uses macOS Login Items; macOS may ask for confirmation.") }
     var launchAtLoginFailed: String { text("开机自启设置失败：", "Launch at login failed:") }
-    var permissions: String { text("权限", "Permissions") }
-    var accessibilityPermission: String { text("辅助功能权限", "Accessibility permission") }
-    var requestAccessibilityPermission: String { text("请求权限", "Request permission") }
-    var permissionAuthorized: String { text("已授权", "Authorized") }
-    var permissionNotAuthorized: String { text("未授权", "Not authorized") }
-    var accessibilityPermissionHint: String {
-        text(
-            "用于测试更新后系统权限是否保留，也会支持粘贴到当前应用等自动操作。",
-            "Used to test whether system permission survives updates, and to support paste-to-current-app automation."
-        )
-    }
     var checkForUpdates: String { text("检查更新", "Check for updates") }
     var automaticallyCheckForUpdates: String { text("自动检查更新", "Check automatically") }
     var checkForUpdatesHint: String {
@@ -53,9 +42,7 @@ struct AppText {
     var recentFiles: String { text("最近打开", "Recent files") }
     var noRecentFiles: String { text("没有最近文件", "No recent files") }
     var saveAsNoteFile: String { text("另存为 Markdown 文件", "Save as Markdown file") }
-    var paste: String { text("粘贴到当前应用", "Paste to current app") }
     var copyExtracted: String { text("复制提取内容", "Copy Extracted") }
-    var pasteExtracted: String { text("粘贴到当前应用", "Paste to current app") }
     var noClipboardItems: String { text("没有剪切板记录", "No clipboard items") }
     var noClipboardDescription: String { text("在任意地方复制文本，QuietNote 会在本地保存。", "Copy text anywhere and QuietNote will save it locally.") }
     var searchClipboard: String { text("搜索本地剪切板", "Search local clipboard") }

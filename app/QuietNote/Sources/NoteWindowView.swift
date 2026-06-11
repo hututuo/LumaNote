@@ -718,13 +718,6 @@ struct NoteWindowView: View {
                             Label(copy.copy, systemImage: "doc.on.doc")
                         }
 
-                        Button {
-                            showExtractionActions = false
-                            clipboardStore.paste(detection.value)
-                        } label: {
-                            Label(copy.paste, systemImage: "arrow.turn.down.left")
-                        }
-
                         if let openTitle = detection.openTitle {
                             Button {
                                 showExtractionActions = false
