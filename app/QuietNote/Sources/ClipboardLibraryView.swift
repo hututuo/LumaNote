@@ -179,10 +179,6 @@ private struct ClipboardRow: View {
                     store.copy(item.text)
                 }
 
-                rowActionButton(symbol: "arrow.turn.down.left", help: copy.paste) {
-                    store.paste(item.text)
-                }
-
                 rowActionButton(symbol: "trash", help: "Delete", role: .destructive) {
                     store.delete(item)
                 }
@@ -364,13 +360,6 @@ private struct DetectionChip: View {
                 store.copy(detection.value)
             } label: {
                 Label(copy.copyExtracted, systemImage: "doc.on.doc")
-            }
-
-            Button {
-                showActions = false
-                store.paste(detection.value)
-            } label: {
-                Label(copy.pasteExtracted, systemImage: "arrow.turn.down.left")
             }
 
             if let openTitle = detection.openTitle {

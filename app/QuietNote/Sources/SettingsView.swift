@@ -59,10 +59,6 @@ struct SettingsView: View {
                 KeyboardShortcuts.Recorder(copy.clipboardShortcut, name: .toggleClipboardLibrary)
             }
 
-            Section(copy.permissions) {
-                PermissionRequestView(settings: settings)
-            }
-
             Section(copy.checkForUpdates) {
                 UpdateCheckButtonView(settings: settings)
             }
