@@ -30,7 +30,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
+        scrollView.autohidesScrollers = false
         scrollView.scrollerStyle = .overlay
         scrollView.scrollerInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
         scrollView.borderType = .noBorder
@@ -650,12 +650,12 @@ private final class ThinOverlayScroller: NSScroller {
 
     override func drawKnob() {
         let progress = min(max(visualProgress, 0), 1)
-        let knobWidth = 0.72 + progress * 1.68
+        let knobWidth = 1.35 + progress * 1.25
         let verticalInset = 3.5 - progress * 1.7
         let horizontalInset = max(0, (bounds.width - knobWidth) / 2)
         let knobRect = rect(for: .knob).insetBy(dx: horizontalInset, dy: verticalInset)
         guard knobRect.height > 8 else { return }
-        NSColor.labelColor.withAlphaComponent(0.1 + progress * 0.2).setFill()
+        NSColor.labelColor.withAlphaComponent(0.18 + progress * 0.16).setFill()
         NSBezierPath(roundedRect: knobRect, xRadius: knobRect.width / 2, yRadius: knobRect.width / 2).fill()
     }
 
@@ -686,8 +686,7 @@ private final class ThinOverlayScroller: NSScroller {
     }
 
     private var targetVisualProgress: CGFloat {
-        let windowIsActive = NSApp.isActive && (window?.isKeyWindow == true || window?.isMainWindow == true)
-        return windowIsActive && (isPointerInside || isRecentlyActive) ? 1 : 0
+        NSApp.isActive && (isPointerInside || isRecentlyActive) ? 1 : 0
     }
 
     private func animateVisibility(to target: CGFloat) {
