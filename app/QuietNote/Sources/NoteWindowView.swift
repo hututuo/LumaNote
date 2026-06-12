@@ -33,7 +33,7 @@ struct NoteWindowView: View {
                 topBar
 
                 content
-                    .padding(.leading, 8)
+                    .padding(.leading, 10)
                     .padding(.trailing, 5)
                     .padding(.top, 10)
                     .padding(.bottom, contentBottomInset)
