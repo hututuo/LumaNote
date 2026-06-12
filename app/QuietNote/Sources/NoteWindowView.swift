@@ -36,7 +36,7 @@ struct NoteWindowView: View {
                     .padding(.leading, 18)
                     .padding(.trailing, 5)
                     .padding(.top, 10)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, contentBottomInset)
             }
 
             bottomRail
@@ -349,6 +349,14 @@ struct NoteWindowView: View {
         MarkdownRenderingEditor(text: $noteStore.markdown)
     }
 
+    private var bottomRailHeight: CGFloat {
+        36
+    }
+
+    private var contentBottomInset: CGFloat {
+        bottomRailHeight + 10
+    }
+
     private var shellOpacity: Double {
         max(0.08, settings.noteOpacity)
     }
@@ -456,7 +464,9 @@ struct NoteWindowView: View {
             .padding(.horizontal, horizontalPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(height: 36)
+        .frame(height: bottomRailHeight)
+        .contentShape(Rectangle())
+        .onTapGesture {}
         .background { bottomRailLiquidGlassBackground }
         .overlay(alignment: .top) {
             Rectangle()
