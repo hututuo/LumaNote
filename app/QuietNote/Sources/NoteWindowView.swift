@@ -360,16 +360,29 @@ struct NoteWindowView: View {
         26
     }
 
+    private var markdownTopFadeHeight: CGFloat {
+        16
+    }
+
     private var contentBottomInset: CGFloat {
         bottomRailHeight
     }
 
     private var markdownContentFadeMask: some View {
         GeometryReader { proxy in
-            let fadeHeight = min(markdownBottomFadeHeight, max(0, proxy.size.height))
+            let maxFadeHeight = max(0, proxy.size.height / 2)
+            let topFadeHeight = min(markdownTopFadeHeight, maxFadeHeight)
+            let bottomFadeHeight = min(markdownBottomFadeHeight, maxFadeHeight)
 
             ZStack(alignment: .trailing) {
                 VStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [.white.opacity(0), .white],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: topFadeHeight)
+
                     Rectangle()
                         .fill(.white)
 
@@ -378,7 +391,7 @@ struct NoteWindowView: View {
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: fadeHeight)
+                    .frame(height: bottomFadeHeight)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
 
