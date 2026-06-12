@@ -25,16 +25,10 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = MarkdownScrollView()
-        let verticalScroller = ThinOverlayScroller()
-        verticalScroller.controlSize = .mini
         scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
+        scrollView.hasVerticalScroller = false
         scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = false
-        scrollView.scrollerStyle = .overlay
-        scrollView.scrollerInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
         scrollView.borderType = .noBorder
-        scrollView.verticalScroller = verticalScroller
 
         let textView = MarkdownTaskTextView()
         textView.delegate = context.coordinator
@@ -65,6 +59,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         textView.string = text
 
         scrollView.documentView = textView
+        scrollView.refreshScrollIndicator()
         context.coordinator.textView = textView
         context.coordinator.applyMarkdownStyle()
         return scrollView
@@ -78,6 +73,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             textView.selectedRanges = selectedRanges
         }
         context.coordinator.applyMarkdownStyle()
+        (scrollView as? MarkdownScrollView)?.refreshScrollIndicator()
     }
 
     @MainActor
@@ -558,65 +554,117 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 }
 
 private final class MarkdownScrollView: NSScrollView {
-    override func scrollWheel(with event: NSEvent) {
-        (verticalScroller as? ThinOverlayScroller)?.markActive()
-        super.scrollWheel(with: event)
-    }
-}
+    private let scrollIndicator = MarkdownScrollIndicatorView()
 
-private final class ThinOverlayScroller: NSScroller {
-    private var isPointerInside = false
-    private var isRecentlyActive = false
-    private var visualProgress: CGFloat = 0
-    private var trackingAreaToken: NSTrackingArea?
-    private var idleGeneration = 0
-    private var animationGeneration = 0
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        installScrollIndicator()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        installScrollIndicator()
+    }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
 
-    override class func scrollerWidth(
-        for controlSize: NSControl.ControlSize,
-        scrollerStyle: NSScroller.Style
-    ) -> CGFloat {
-        if scrollerStyle == .overlay {
-            return 4
+    override var documentView: NSView? {
+        didSet {
+            observeScrollGeometry()
+            refreshScrollIndicator()
         }
-        return super.scrollerWidth(for: controlSize, scrollerStyle: scrollerStyle)
     }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        NotificationCenter.default.removeObserver(self)
+    override func scrollWheel(with event: NSEvent) {
+        scrollIndicator.markActive()
+        super.scrollWheel(with: event)
+        refreshScrollIndicator()
+    }
 
-        if let window {
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(updateIdleVisibility),
-                name: NSWindow.didBecomeKeyNotification,
-                object: window
-            )
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(updateIdleVisibility),
-                name: NSWindow.didResignKeyNotification,
-                object: window
-            )
+    override func layout() {
+        super.layout()
+        layoutScrollIndicator()
+        refreshScrollIndicator()
+    }
+
+    func refreshScrollIndicator() {
+        layoutScrollIndicator()
+
+        guard let documentView else {
+            scrollIndicator.isHidden = true
+            return
         }
 
+        let viewportHeight = max(1, contentView.bounds.height)
+        let documentHeight = max(documentView.bounds.height, documentView.frame.height)
+        guard documentHeight > viewportHeight + 1 else {
+            scrollIndicator.isHidden = true
+            return
+        }
+
+        let maxOffset = max(1, documentHeight - viewportHeight)
+        let offset = min(max(contentView.bounds.origin.y, 0), maxOffset)
+        let progress = offset / maxOffset
+        let thumbHeight = max(24, viewportHeight / documentHeight * scrollIndicator.bounds.height)
+
+        scrollIndicator.isHidden = false
+        scrollIndicator.update(progress: progress, thumbHeight: thumbHeight)
+    }
+
+    private func installScrollIndicator() {
+        drawsBackground = false
+        addSubview(scrollIndicator, positioned: .above, relativeTo: nil)
+        observeScrollGeometry()
+    }
+
+    private func observeScrollGeometry() {
+        NotificationCenter.default.removeObserver(self, name: NSView.boundsDidChangeNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
+
+        contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(updateIdleVisibility),
-            name: NSApplication.didBecomeActiveNotification,
-            object: NSApp
+            selector: #selector(scrollGeometryDidChange),
+            name: NSView.boundsDidChangeNotification,
+            object: contentView
         )
+
+        documentView?.postsFrameChangedNotifications = true
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(updateIdleVisibility),
-            name: NSApplication.didResignActiveNotification,
-            object: NSApp
+            selector: #selector(scrollGeometryDidChange),
+            name: NSView.frameDidChangeNotification,
+            object: documentView
         )
+    }
+
+    private func layoutScrollIndicator() {
+        let width: CGFloat = 5
+        let x = max(0, bounds.width - width - 1)
+        let y = contentView.frame.minY + 2
+        let height = max(0, contentView.frame.height - 4)
+        scrollIndicator.frame = NSRect(x: x, y: y, width: width, height: height)
+    }
+
+    @objc private func scrollGeometryDidChange() {
+        refreshScrollIndicator()
+    }
+}
+
+private final class MarkdownScrollIndicatorView: NSView {
+    private var isPointerInside = false
+    private var isRecentlyActive = false
+    private var visualProgress: CGFloat = 0
+    private var scrollProgress: CGFloat = 0
+    private var thumbHeight: CGFloat = 24
+    private var trackingAreaToken: NSTrackingArea?
+    private var idleGeneration = 0
+    private var animationGeneration = 0
+
+    override var isFlipped: Bool {
+        true
     }
 
     override func updateTrackingAreas() {
@@ -644,19 +692,29 @@ private final class ThinOverlayScroller: NSScroller {
         super.mouseExited(with: event)
     }
 
-    override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {
-        // Keep the note surface clean: only the floating thumb is drawn.
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let progress = min(max(visualProgress, 0), 1)
+        let knobWidth = 2 + progress * 1
+        let availableTravel = max(0, bounds.height - thumbHeight)
+        let y = availableTravel * min(max(scrollProgress, 0), 1)
+        let knobRect = NSRect(
+            x: (bounds.width - knobWidth) / 2,
+            y: y,
+            width: knobWidth,
+            height: thumbHeight
+        ).insetBy(dx: 0, dy: 1.5 - progress * 0.8)
+
+        guard knobRect.height > 8 else { return }
+        NSColor.systemGray.withAlphaComponent(0.36 + progress * 0.2).setFill()
+        NSBezierPath(roundedRect: knobRect, xRadius: knobRect.width / 2, yRadius: knobRect.width / 2).fill()
     }
 
-    override func drawKnob() {
-        let progress = min(max(visualProgress, 0), 1)
-        let knobWidth = 1.35 + progress * 1.25
-        let verticalInset = 3.5 - progress * 1.7
-        let horizontalInset = max(0, (bounds.width - knobWidth) / 2)
-        let knobRect = rect(for: .knob).insetBy(dx: horizontalInset, dy: verticalInset)
-        guard knobRect.height > 8 else { return }
-        NSColor.labelColor.withAlphaComponent(0.18 + progress * 0.16).setFill()
-        NSBezierPath(roundedRect: knobRect, xRadius: knobRect.width / 2, yRadius: knobRect.width / 2).fill()
+    func update(progress: CGFloat, thumbHeight: CGFloat) {
+        scrollProgress = min(max(progress, 0), 1)
+        self.thumbHeight = min(max(thumbHeight, 24), max(24, bounds.height))
+        needsDisplay = true
     }
 
     func markActive() {
@@ -678,15 +736,8 @@ private final class ThinOverlayScroller: NSScroller {
         animateVisibility(to: targetVisualProgress)
     }
 
-    @objc private func updateIdleVisibility() {
-        if !NSApp.isActive || window?.isKeyWindow != true {
-            isRecentlyActive = false
-        }
-        animateVisibility(to: targetVisualProgress)
-    }
-
     private var targetVisualProgress: CGFloat {
-        NSApp.isActive && (isPointerInside || isRecentlyActive) ? 1 : 0
+        isPointerInside || isRecentlyActive ? 1 : 0
     }
 
     private func animateVisibility(to target: CGFloat) {
