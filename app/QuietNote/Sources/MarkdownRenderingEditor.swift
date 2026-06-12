@@ -647,7 +647,7 @@ private final class MarkdownScrollView: NSScrollView {
 
     private func layoutScrollIndicator() {
         let width: CGFloat = 5
-        let x = max(0, bounds.width - width - 1)
+        let x = max(0, bounds.width - width + 1)
         let y = contentView.frame.minY + 2
         let height = max(0, contentView.frame.height - 4)
         scrollIndicator.frame = NSRect(x: x, y: y, width: width, height: height)
