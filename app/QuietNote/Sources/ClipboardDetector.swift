@@ -1,12 +1,41 @@
 import Foundation
 
 enum ClipboardDetector {
+    private enum Regexes {
+        static let labeledValue = regex(
+            #"(?:[\s,，;；]*)([\p{Han}A-Za-z][\p{Han}A-Za-z0-9 _-]{0,14})\s*[:：]\s*(.+?)(?=(?:[\s,，;；]+[\p{Han}A-Za-z][\p{Han}A-Za-z0-9 _-]{0,14}\s*[:：])|[\n;；]|$)"#,
+            options: [.caseInsensitive]
+        )
+        static let url = regex(#"(?i)(?:https?://|www\.)[^\s<>"'，。；、！？]+"#)
+        static let email = regex(#"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#, options: [.caseInsensitive])
+        static let labeledNumber = regex(#"(?i)(?:\#(numberLabels))\s*[:：#]?\s*([A-Z0-9][A-Z0-9 -]{2,30}[A-Z0-9])"#)
+        static let phone = regex(#"(?<!\d)(?:\+?\d[\d\s().-]{6,}\d)(?!\d)"#)
+
+        private static let numberLabels = [
+            "验证码", "校验码", "动态码", "取件码", "提取码",
+            "订单号", "订单", "单号", "快递单号", "运单号", "物流单号",
+            "票号", "发票号", "编号", "序列号", "工单号",
+            "code", "pin", "otp", "order", "tracking", "invoice", "ticket", "serial", "case"
+        ].joined(separator: "|")
+
+        private static func regex(
+            _ pattern: String,
+            options: NSRegularExpression.Options = []
+        ) -> NSRegularExpression {
+            do {
+                return try NSRegularExpression(pattern: pattern, options: options)
+            } catch {
+                preconditionFailure("Invalid clipboard regex: \(pattern)")
+            }
+        }
+    }
+
     static func detect(in text: String) -> [ClipboardDetection] {
         var matches: [DetectedMatch] = []
 
         appendLabeledValueMatches(in: text, into: &matches)
-        appendMatches(kind: .url, pattern: #"(?i)(?:https?://|www\.)[^\s<>"'，。；、！？]+"#, in: text, into: &matches, excluding: matches.map(\.range))
-        appendMatches(kind: .email, pattern: #"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#, in: text, into: &matches, options: [.caseInsensitive], excluding: matches.map(\.range))
+        appendMatches(kind: .url, regex: Regexes.url, in: text, into: &matches, excluding: matches.map(\.range))
+        appendMatches(kind: .email, regex: Regexes.email, in: text, into: &matches, excluding: matches.map(\.range))
         appendPhoneMatches(in: text, into: &matches, excluding: matches.map(\.range))
         appendLabeledNumberMatches(in: text, into: &matches, excluding: matches.map(\.range))
         appendAddressMatches(in: text, into: &matches, excluding: matches.map(\.range))
@@ -25,11 +54,8 @@ enum ClipboardDetector {
     }
 
     private static func appendLabeledValueMatches(in text: String, into matches: inout [DetectedMatch]) {
-        let labelPattern = #"(?:[\s,，;；]*)([\p{Han}A-Za-z][\p{Han}A-Za-z0-9 _-]{0,14})\s*[:：]\s*(.+?)(?=(?:[\s,，;；]+[\p{Han}A-Za-z][\p{Han}A-Za-z0-9 _-]{0,14}\s*[:：])|[\n;；]|$)"#
-        guard let regex = try? NSRegularExpression(pattern: labelPattern, options: [.caseInsensitive]) else { return }
-
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        regex.matches(in: text, range: range).prefix(10).forEach { match in
+        Regexes.labeledValue.matches(in: text, range: range).prefix(10).forEach { match in
             guard match.numberOfRanges > 2,
                   let labelRange = Range(match.range(at: 1), in: text),
                   let valueRange = Range(match.range(at: 2), in: text)
@@ -47,8 +73,8 @@ enum ClipboardDetector {
             }
 
             var nested: [DetectedMatch] = []
-            appendMatches(kind: .url, pattern: #"(?i)(?:https?://|www\.)[^\s<>"'，。；、！？]+"#, in: value, into: &nested)
-            appendMatches(kind: .email, pattern: #"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#, in: value, into: &nested, options: [.caseInsensitive])
+            appendMatches(kind: .url, regex: Regexes.url, in: value, into: &nested)
+            appendMatches(kind: .email, regex: Regexes.email, in: value, into: &nested)
             appendPhoneMatches(in: value, into: &nested)
             appendLabeledNumberMatches(in: "\(label): \(value)", into: &nested)
 
@@ -74,13 +100,11 @@ enum ClipboardDetector {
 
     private static func appendMatches(
         kind: ClipboardDetection.Kind,
-        pattern: String,
+        regex: NSRegularExpression,
         in text: String,
         into matches: inout [DetectedMatch],
-        options: NSRegularExpression.Options = [],
         excluding excludedRanges: [NSRange] = []
     ) {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else { return }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         regex.matches(in: text, range: range).prefix(8).forEach { match in
             guard !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
@@ -94,17 +118,8 @@ enum ClipboardDetector {
         into matches: inout [DetectedMatch],
         excluding excludedRanges: [NSRange] = []
     ) {
-        let labels = [
-            "验证码", "校验码", "动态码", "取件码", "提取码",
-            "订单号", "订单", "单号", "快递单号", "运单号", "物流单号",
-            "票号", "发票号", "编号", "序列号", "工单号",
-            "code", "pin", "otp", "order", "tracking", "invoice", "ticket", "serial", "case"
-        ].joined(separator: "|")
-        let pattern = #"(?i)(?:\#(labels))\s*[:：#]?\s*([A-Z0-9][A-Z0-9 -]{2,30}[A-Z0-9])"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
-
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        regex.matches(in: text, range: range).prefix(6).forEach { match in
+        Regexes.labeledNumber.matches(in: text, range: range).prefix(6).forEach { match in
             guard !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
             guard match.numberOfRanges > 1,
                   let valueRange = Range(match.range(at: 1), in: text)
@@ -124,11 +139,8 @@ enum ClipboardDetector {
         into matches: inout [DetectedMatch],
         excluding excludedRanges: [NSRange] = []
     ) {
-        let pattern = #"(?<!\d)(?:\+?\d[\d\s().-]{6,}\d)(?!\d)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
-
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        regex.matches(in: text, range: range).prefix(6).forEach { match in
+        Regexes.phone.matches(in: text, range: range).prefix(6).forEach { match in
             guard !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
             guard let swiftRange = Range(match.range, in: text) else { return }
             let value = String(text[swiftRange])
