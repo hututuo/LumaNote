@@ -32,6 +32,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.scrollerStyle = .overlay
+        scrollView.scrollerInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
         scrollView.borderType = .noBorder
         scrollView.verticalScroller = verticalScroller
 
@@ -562,9 +563,20 @@ private final class ThinOverlayScroller: NSScroller {
         scrollerStyle: NSScroller.Style
     ) -> CGFloat {
         if scrollerStyle == .overlay {
-            return 5
+            return 4
         }
         return super.scrollerWidth(for: controlSize, scrollerStyle: scrollerStyle)
+    }
+
+    override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {
+        // Keep the note surface clean: only the floating thumb is drawn.
+    }
+
+    override func drawKnob() {
+        let knobRect = rect(for: .knob).insetBy(dx: 1.25, dy: 2)
+        guard knobRect.height > 8 else { return }
+        NSColor.labelColor.withAlphaComponent(0.28).setFill()
+        NSBezierPath(roundedRect: knobRect, xRadius: knobRect.width / 2, yRadius: knobRect.width / 2).fill()
     }
 }
 
