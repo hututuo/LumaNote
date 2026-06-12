@@ -555,6 +555,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
 private final class MarkdownScrollView: NSScrollView {
     private let scrollIndicator = MarkdownScrollIndicatorView()
+    private var isRefreshingScrollIndicator = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -590,6 +591,10 @@ private final class MarkdownScrollView: NSScrollView {
     }
 
     func refreshScrollIndicator() {
+        guard !isRefreshingScrollIndicator else { return }
+        isRefreshingScrollIndicator = true
+        defer { isRefreshingScrollIndicator = false }
+
         layoutScrollIndicator()
 
         guard let documentView else {
@@ -598,14 +603,14 @@ private final class MarkdownScrollView: NSScrollView {
         }
 
         let viewportHeight = max(1, contentView.bounds.height)
-        let documentHeight = max(documentView.bounds.height, documentView.frame.height)
+        let documentHeight = measuredDocumentHeight(for: documentView, viewportHeight: viewportHeight)
         guard documentHeight > viewportHeight + 1 else {
             scrollIndicator.isHidden = true
             return
         }
 
         let maxOffset = max(1, documentHeight - viewportHeight)
-        let offset = min(max(contentView.bounds.origin.y, 0), maxOffset)
+        let offset = min(max(scrollOffset(for: documentView, documentHeight: documentHeight), 0), maxOffset)
         let progress = offset / maxOffset
         let thumbHeight = max(24, viewportHeight / documentHeight * scrollIndicator.bounds.height)
 
@@ -646,6 +651,28 @@ private final class MarkdownScrollView: NSScrollView {
         let y = contentView.frame.minY + 2
         let height = max(0, contentView.frame.height - 4)
         scrollIndicator.frame = NSRect(x: x, y: y, width: width, height: height)
+    }
+
+    private func measuredDocumentHeight(for documentView: NSView, viewportHeight: CGFloat) -> CGFloat {
+        guard let textView = documentView as? NSTextView,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer
+        else {
+            return max(viewportHeight, documentView.bounds.height, documentView.frame.height)
+        }
+
+        layoutManager.ensureLayout(for: textContainer)
+        let usedRect = layoutManager.usedRect(for: textContainer)
+        let contentHeight = ceil(usedRect.maxY + textView.textContainerInset.height * 2)
+        return max(viewportHeight, contentHeight)
+    }
+
+    private func scrollOffset(for documentView: NSView, documentHeight: CGFloat) -> CGFloat {
+        let visibleRect = documentView.visibleRect
+        if documentView.isFlipped {
+            return visibleRect.minY
+        }
+        return documentHeight - visibleRect.maxY
     }
 
     @objc private func scrollGeometryDidChange() {
