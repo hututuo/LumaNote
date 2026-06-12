@@ -347,14 +347,46 @@ struct NoteWindowView: View {
 
     private var content: some View {
         MarkdownRenderingEditor(text: $noteStore.markdown)
+            .mask {
+                markdownContentFadeMask
+            }
     }
 
     private var bottomRailHeight: CGFloat {
         36
     }
 
+    private var markdownBottomFadeHeight: CGFloat {
+        26
+    }
+
     private var contentBottomInset: CGFloat {
-        bottomRailHeight + 10
+        bottomRailHeight
+    }
+
+    private var markdownContentFadeMask: some View {
+        GeometryReader { proxy in
+            let fadeHeight = min(markdownBottomFadeHeight, max(0, proxy.size.height))
+
+            ZStack(alignment: .trailing) {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(.white)
+
+                    LinearGradient(
+                        colors: [.white, .white.opacity(0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: fadeHeight)
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+
+                Rectangle()
+                    .fill(.white)
+                    .frame(width: 12)
+            }
+        }
     }
 
     private var shellOpacity: Double {
