@@ -1,10 +1,28 @@
 import Combine
 import Foundation
 
+private enum NoteFileWriter {
+    static func write(_ text: String, to url: URL) -> Bool {
+        do {
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    static func writeOffMain(_ text: String, to url: URL) async -> Bool {
+        await Task.detached(priority: .utility) {
+            write(text, to: url)
+        }.value
+    }
+}
+
 @MainActor
 final class NoteStore: ObservableObject {
     @Published var markdown: String {
         didSet {
+            refreshDisplayTitle()
             if !isReplacingText {
                 scheduleSave()
             }
@@ -14,27 +32,12 @@ final class NoteStore: ObservableObject {
     @Published private(set) var lastSavedText = "Saved"
     @Published private(set) var currentFileURL: URL
     @Published private(set) var recentFileURLs: [URL] = []
+    @Published private(set) var displayTitle = ""
 
     private let defaultFileURL: URL
     private let defaults = UserDefaults.standard
     private var saveTask: Task<Void, Never>?
     private var isReplacingText = false
-
-    var displayTitle: String {
-        let lines = markdown.split(whereSeparator: \.isNewline)
-        if let heading = lines.first(where: { line in
-            line.trimmingCharacters(in: .whitespaces).hasPrefix("#")
-        }) {
-            let title = heading
-                .trimmingCharacters(in: .whitespaces)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "# "))
-            if !title.isEmpty {
-                return title
-            }
-        }
-
-        return currentFileURL.lastPathComponent
-    }
 
     var currentFileName: String {
         currentFileURL.lastPathComponent
@@ -75,14 +78,14 @@ final class NoteStore: ObservableObject {
             Quick snippet: `cmd + shift + n`
             """
         }
+        refreshDisplayTitle()
     }
 
     func saveNow() {
         saveTask?.cancel()
-        do {
-            try markdown.write(to: currentFileURL, atomically: true, encoding: .utf8)
+        if NoteFileWriter.write(markdown, to: currentFileURL) {
             lastSavedText = "Saved just now"
-        } catch {
+        } else {
             lastSavedText = "Save failed"
         }
     }
@@ -99,6 +102,7 @@ final class NoteStore: ObservableObject {
             isReplacingText = true
             markdown = text
             isReplacingText = false
+            refreshDisplayTitle()
             lastSavedText = "Opened"
         } catch {
             lastSavedText = "Open failed"
@@ -110,6 +114,7 @@ final class NoteStore: ObservableObject {
         currentFileURL = url
         defaults.set(url.path, forKey: Keys.currentFilePath)
         rememberRecentFile(url)
+        refreshDisplayTitle()
         saveNow()
     }
 
@@ -127,13 +132,33 @@ final class NoteStore: ObservableObject {
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(280))
             guard !Task.isCancelled else { return }
-            do {
-                try text.write(to: url, atomically: true, encoding: .utf8)
-                await MainActor.run { self?.lastSavedText = "Saved just now" }
-            } catch {
-                await MainActor.run { self?.lastSavedText = "Save failed" }
+            let didSave = await NoteFileWriter.writeOffMain(text, to: url)
+            guard !Task.isCancelled else { return }
+            self?.lastSavedText = didSave ? "Saved just now" : "Save failed"
+        }
+    }
+
+    private func refreshDisplayTitle() {
+        let title = Self.title(for: markdown, currentFileURL: currentFileURL)
+        if displayTitle != title {
+            displayTitle = title
+        }
+    }
+
+    private static func title(for markdown: String, currentFileURL: URL) -> String {
+        let lines = markdown.split(whereSeparator: \.isNewline)
+        if let heading = lines.first(where: { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("#")
+        }) {
+            let title = heading
+                .trimmingCharacters(in: .whitespaces)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "# "))
+            if !title.isEmpty {
+                return title
             }
         }
+
+        return currentFileURL.lastPathComponent
     }
 
     private func rememberRecentFile(_ url: URL) {

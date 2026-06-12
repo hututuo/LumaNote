@@ -16,6 +16,8 @@ struct ClipboardLibraryView: View {
 
     var body: some View {
         let copy = AppText(language: settings.language)
+        let visibleItems = filteredItems
+        let visibleRows = Array(visibleItems.enumerated())
 
         VStack(spacing: 0) {
             HStack(spacing: 9) {
@@ -39,7 +41,7 @@ struct ClipboardLibraryView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(copy.clipboard)
                         .font(.system(size: 14, weight: .bold))
-                    Text("\(filteredItems.count)")
+                    Text("\(visibleItems.count)")
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .foregroundStyle(.secondary)
                 }
@@ -82,15 +84,15 @@ struct ClipboardLibraryView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
 
-            if filteredItems.isEmpty {
+            if visibleItems.isEmpty {
                 emptyState(copy: copy)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 0) {
-                        ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
+                        ForEach(visibleRows, id: \.element.id) { index, item in
                             ClipboardRow(item: item, settings: settings, store: store)
 
-                            if index < filteredItems.count - 1 {
+                            if index < visibleItems.count - 1 {
                                 Divider()
                                     .overlay(.white.opacity(0.12))
                                     .padding(.leading, 3)

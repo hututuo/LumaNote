@@ -2,7 +2,7 @@ import AppKit
 import Combine
 import Foundation
 
-struct ClipboardItem: Codable, Identifiable, Equatable {
+struct ClipboardItem: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let text: String
     let createdAt: Date
@@ -13,8 +13,8 @@ struct ClipboardItem: Codable, Identifiable, Equatable {
     }
 }
 
-struct ClipboardDetection: Codable, Identifiable, Equatable {
-    enum Kind: String, Codable, CaseIterable {
+struct ClipboardDetection: Codable, Identifiable, Equatable, Sendable {
+    enum Kind: String, Codable, CaseIterable, Sendable {
         case url = "URL"
         case email = "Email"
         case phone = "Phone"
@@ -28,6 +28,29 @@ struct ClipboardDetection: Codable, Identifiable, Equatable {
     let value: String
 }
 
+private enum ClipboardPersistence {
+    static func load(from fileURL: URL) -> [ClipboardItem]? {
+        guard let data = try? Data(contentsOf: fileURL) else { return nil }
+        return try? JSONDecoder().decode([ClipboardItem].self, from: data)
+    }
+
+    static func save(_ items: [ClipboardItem], to fileURL: URL) -> Bool {
+        guard let data = try? JSONEncoder().encode(items) else { return false }
+        do {
+            try data.write(to: fileURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    static func saveOffMain(_ items: [ClipboardItem], to fileURL: URL) async -> Bool {
+        await Task.detached(priority: .utility) {
+            save(items, to: fileURL)
+        }.value
+    }
+}
+
 @MainActor
 final class ClipboardStore: ObservableObject {
     @Published private(set) var items: [ClipboardItem] = []
@@ -36,6 +59,7 @@ final class ClipboardStore: ObservableObject {
 
     private var settings: AppSettings?
     private var timer: Timer?
+    private var saveTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
     private var lastChangeCount = NSPasteboard.general.changeCount
     private let fileURL: URL
@@ -111,14 +135,14 @@ final class ClipboardStore: ObservableObject {
             latestDetectedItem = nil
             latestSuggestion = nil
         }
-        save()
+        save(debounce: false)
     }
 
     func clear() {
         items.removeAll()
         latestSuggestion = nil
         latestDetectedItem = nil
-        save()
+        save(debounce: false)
     }
 
     private func capturePasteboard(force: Bool) {
@@ -164,15 +188,20 @@ final class ClipboardStore: ObservableObject {
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data)
-        else { return }
-        items = decoded
+        items = ClipboardPersistence.load(from: fileURL) ?? []
     }
 
-    private func save() {
-        guard let data = try? JSONEncoder().encode(items) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+    private func save(debounce: Bool = true) {
+        saveTask?.cancel()
+        let snapshot = items
+        let fileURL = fileURL
+        saveTask = Task {
+            if debounce {
+                try? await Task.sleep(for: .milliseconds(160))
+            }
+            guard !Task.isCancelled else { return }
+            _ = await ClipboardPersistence.saveOffMain(snapshot, to: fileURL)
+        }
     }
 
 }

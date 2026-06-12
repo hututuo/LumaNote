@@ -67,12 +67,17 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
+        var didReplaceText = false
         if textView.string != text {
             let selectedRanges = textView.selectedRanges
             textView.string = text
             textView.selectedRanges = selectedRanges
+            didReplaceText = true
         }
-        context.coordinator.applyMarkdownStyle()
+        if didReplaceText {
+            context.coordinator.applyMarkdownStyle()
+            (scrollView as? MarkdownScrollView)?.invalidateDocumentHeight()
+        }
         (scrollView as? MarkdownScrollView)?.refreshScrollIndicator()
     }
 
@@ -82,6 +87,42 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         weak var textView: NSTextView?
         private var isStyling = false
 
+        private struct InlineRule {
+            let regex: NSRegularExpression
+            let attributes: [NSAttributedString.Key: Any]
+        }
+
+        private static let inlineRules: [InlineRule] = [
+            InlineRule(regex: markdownRegex(#"`([^`]+)`"#), attributes: inlineCodeAttributes()),
+            InlineRule(regex: markdownRegex(#"\*\*\*([^*\n]+)\*\*\*"#), attributes: boldItalicAttributes()),
+            InlineRule(regex: markdownRegex(#"___([^_\n]+)___"#), attributes: boldItalicAttributes()),
+            InlineRule(regex: markdownRegex(#"\*\*([^*]+)\*\*"#), attributes: [.font: NSFont.boldSystemFont(ofSize: 15.5)]),
+            InlineRule(regex: markdownRegex(#"__([^_]+)__"#), attributes: [.font: NSFont.boldSystemFont(ofSize: 15.5)]),
+            InlineRule(regex: markdownRegex(#"(?<!\*)\*([^*\n]+)\*(?!\*)"#), attributes: [.obliqueness: 0.12]),
+            InlineRule(regex: markdownRegex(#"(?<!_)_([^_\n]+)_(?!_)"#), attributes: [.obliqueness: 0.12]),
+            InlineRule(regex: markdownRegex(#"~~([^~]+)~~"#), attributes: [.strikethroughStyle: NSUnderlineStyle.single.rawValue]),
+            InlineRule(regex: markdownRegex(#"==([^=\n]+)=="#), attributes: highlightAttributes()),
+            InlineRule(regex: markdownRegex(#"!\[([^\]]*)\]\(([^)]+)\)"#), attributes: imageAttributes()),
+            InlineRule(regex: markdownRegex(#"\[([^\]]+)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)"#), attributes: linkAttributes()),
+            InlineRule(regex: markdownRegex(#"\[[^\]]+\]\[[^\]]*\]"#), attributes: linkAttributes()),
+            InlineRule(regex: markdownRegex(#"\[\[[^\]\n]+\]\]"#), attributes: wikiLinkAttributes()),
+            InlineRule(regex: markdownRegex(#"<https?://[^>\s]+>"#), attributes: linkAttributes()),
+            InlineRule(regex: markdownRegex(#"<[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}>"#), attributes: linkAttributes()),
+            InlineRule(regex: markdownRegex(#"https?://[^\s<>"']+"#), attributes: linkAttributes()),
+            InlineRule(regex: markdownRegex(#"(?<![/\w.-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w.-])"#), attributes: linkAttributes()),
+            InlineRule(regex: markdownRegex(#":[a-zA-Z0-9_+-]+:"#), attributes: shortcodeAttributes())
+        ]
+
+        private static let alertRegex = markdownRegex(
+            #"^(\s*(?:>\s*)+)\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]"#,
+            options: [.caseInsensitive]
+        )
+        private static let quoteRegex = markdownRegex(#"^\s*(?:>\s*)+"#)
+        private static let listRegex = markdownRegex(#"^([ \t]*)(?:[-*+]|\d+\.)\s+"#)
+        private static let referenceDefinitionRegex = markdownRegex(#"^\s*\[[^\]]+\]:\s+\S+"#)
+        private static let imagePrefixRegex = markdownRegex(#"^\s*!\[[^\]]*\]\([^)]+\)"#)
+        private static let taskRegex = markdownRegex(#"^([ \t]*)([-*]\s+\[)([ xX])(\])([ \t]*)"#)
+
         init(text: Binding<String>) {
             _text = text
         }
@@ -90,6 +131,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             guard let textView else { return }
             text = textView.string
             applyMarkdownStyle()
+            (textView.enclosingScrollView as? MarkdownScrollView)?.invalidateDocumentHeight()
         }
 
         func applyMarkdownStyle() {
@@ -165,13 +207,13 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                     return
                 }
 
-                if let reference = Self.prefixRange(pattern: #"^\s*\[[^\]]+\]:\s+\S+"#, in: line, lineRange: lineRange) {
+                if let reference = Self.prefixRange(regex: Self.referenceDefinitionRegex, in: line, lineRange: lineRange) {
                     storage.addAttributes(Self.referenceDefinitionAttributes(), range: lineRange)
                     storage.addAttributes(Self.markerAttributes(), range: reference)
                     return
                 }
 
-                if let marker = Self.prefixRange(pattern: #"^\s*!\[[^\]]*\]\([^)]+\)"#, in: line, lineRange: lineRange) {
+                if let marker = Self.prefixRange(regex: Self.imagePrefixRegex, in: line, lineRange: lineRange) {
                     storage.addAttributes(Self.imageAttributes(), range: lineRange)
                     storage.addAttributes(Self.markerAttributes(), range: marker)
                     return
@@ -207,35 +249,14 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
         private func styleInline(in storage: NSTextStorage) {
             let fullRange = NSRange(location: 0, length: storage.length)
-            apply(pattern: #"`([^`]+)`"#, attributes: Self.inlineCodeAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"\*\*\*([^*\n]+)\*\*\*"#, attributes: Self.boldItalicAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"___([^_\n]+)___"#, attributes: Self.boldItalicAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"\*\*([^*]+)\*\*"#, attributes: [.font: NSFont.boldSystemFont(ofSize: 15.5)], in: storage, range: fullRange)
-            apply(pattern: #"__([^_]+)__"#, attributes: [.font: NSFont.boldSystemFont(ofSize: 15.5)], in: storage, range: fullRange)
-            apply(pattern: #"(?<!\*)\*([^*\n]+)\*(?!\*)"#, attributes: [.obliqueness: 0.12], in: storage, range: fullRange)
-            apply(pattern: #"(?<!_)_([^_\n]+)_(?!_)"#, attributes: [.obliqueness: 0.12], in: storage, range: fullRange)
-            apply(pattern: #"~~([^~]+)~~"#, attributes: [.strikethroughStyle: NSUnderlineStyle.single.rawValue], in: storage, range: fullRange)
-            apply(pattern: #"==([^=\n]+)=="#, attributes: Self.highlightAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"!\[([^\]]*)\]\(([^)]+)\)"#, attributes: Self.imageAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"\[([^\]]+)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"\[[^\]]+\]\[[^\]]*\]"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"\[\[[^\]\n]+\]\]"#, attributes: Self.wikiLinkAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"<https?://[^>\s]+>"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"<[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}>"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"https?://[^\s<>"']+"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
-            apply(pattern: #"(?<![/\w.-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w.-])"#, attributes: Self.linkAttributes(), in: storage, range: fullRange)
-            apply(pattern: #":[a-zA-Z0-9_+-]+:"#, attributes: Self.shortcodeAttributes(), in: storage, range: fullRange)
+            Self.inlineRules.forEach { rule in
+                apply(rule: rule, in: storage, range: fullRange)
+            }
         }
 
-        private func apply(
-            pattern: String,
-            attributes: [NSAttributedString.Key: Any],
-            in storage: NSTextStorage,
-            range: NSRange
-        ) {
-            guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
-            regex.matches(in: storage.string, range: range).forEach { match in
-                storage.addAttributes(attributes, range: match.range)
+        private func apply(rule: InlineRule, in storage: NSTextStorage, range: NSRange) {
+            rule.regex.matches(in: storage.string, range: range).forEach { match in
+                storage.addAttributes(rule.attributes, range: match.range)
             }
         }
 
@@ -251,9 +272,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             in line: String,
             lineRange: NSRange
         ) -> (markerRange: NSRange, kindRange: NSRange, kind: String, level: Int)? {
-            let pattern = #"^(\s*(?:>\s*)+)\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]"#
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
-                  let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
+            guard let match = alertRegex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
             else { return nil }
 
             let marker = match.range(at: 1)
@@ -271,8 +290,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             in line: String,
             lineRange: NSRange
         ) -> (markerRange: NSRange, level: Int)? {
-            guard let regex = try? NSRegularExpression(pattern: #"^\s*(?:>\s*)+"#),
-                  let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
+            guard let match = quoteRegex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
             else { return nil }
 
             let markerText = (line as NSString).substring(with: match.range)
@@ -286,9 +304,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             in line: String,
             lineRange: NSRange
         ) -> (markerRange: NSRange, indentationWidth: CGFloat)? {
-            let pattern = #"^([ \t]*)(?:[-*+]|\d+\.)\s+"#
-            guard let regex = try? NSRegularExpression(pattern: pattern),
-                  let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
+            guard let match = listRegex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
             else { return nil }
 
             let indentation = match.range(at: 1)
@@ -304,9 +320,8 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             return pipeCount >= 2
         }
 
-        private static func prefixRange(pattern: String, in line: String, lineRange: NSRange) -> NSRange? {
-            guard let regex = try? NSRegularExpression(pattern: pattern),
-                  let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
+        private static func prefixRange(regex: NSRegularExpression, in line: String, lineRange: NSRange) -> NSRange? {
+            guard let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
             else { return nil }
             return NSRange(location: lineRange.location + match.range.location, length: match.range.length)
         }
@@ -321,9 +336,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             markerAttributes: [NSAttributedString.Key: Any],
             done: Bool
         )? {
-            let pattern = #"^([ \t]*)([-*]\s+\[)([ xX])(\])([ \t]*)"#
-            guard let regex = try? NSRegularExpression(pattern: pattern),
-                  let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
+            guard let match = taskRegex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
             else { return nil }
 
             let markerRange = NSRange(location: lineRange.location + match.range.location, length: match.range.length)
@@ -550,12 +563,25 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             default: return .systemBlue
             }
         }
+
+        private static func markdownRegex(
+            _ pattern: String,
+            options: NSRegularExpression.Options = []
+        ) -> NSRegularExpression {
+            do {
+                return try NSRegularExpression(pattern: pattern, options: options)
+            } catch {
+                preconditionFailure("Invalid Markdown regex: \(pattern)")
+            }
+        }
     }
 }
 
 private final class MarkdownScrollView: NSScrollView {
     private let scrollIndicator = MarkdownScrollIndicatorView()
     private var isRefreshingScrollIndicator = false
+    private var cachedDocumentHeight: CGFloat?
+    private var lastViewportWidth: CGFloat = 0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -586,8 +612,13 @@ private final class MarkdownScrollView: NSScrollView {
 
     override func layout() {
         super.layout()
+        invalidateDocumentHeightIfNeeded()
         layoutScrollIndicator()
         refreshScrollIndicator()
+    }
+
+    func invalidateDocumentHeight() {
+        cachedDocumentHeight = nil
     }
 
     func refreshScrollIndicator() {
@@ -596,6 +627,7 @@ private final class MarkdownScrollView: NSScrollView {
         defer { isRefreshingScrollIndicator = false }
 
         layoutScrollIndicator()
+        invalidateDocumentHeightIfNeeded()
 
         guard let documentView else {
             scrollIndicator.isHidden = true
@@ -603,7 +635,13 @@ private final class MarkdownScrollView: NSScrollView {
         }
 
         let viewportHeight = max(1, contentView.bounds.height)
-        let documentHeight = measuredDocumentHeight(for: documentView, viewportHeight: viewportHeight)
+        let documentHeight: CGFloat
+        if let cachedDocumentHeight {
+            documentHeight = cachedDocumentHeight
+        } else {
+            documentHeight = measuredDocumentHeight(for: documentView, viewportHeight: viewportHeight)
+            cachedDocumentHeight = documentHeight
+        }
         guard documentHeight > viewportHeight + 1 else {
             scrollIndicator.isHidden = true
             return
@@ -631,7 +669,7 @@ private final class MarkdownScrollView: NSScrollView {
         contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(scrollGeometryDidChange),
+            selector: #selector(scrollGeometryDidChange(_:)),
             name: NSView.boundsDidChangeNotification,
             object: contentView
         )
@@ -639,7 +677,7 @@ private final class MarkdownScrollView: NSScrollView {
         documentView?.postsFrameChangedNotifications = true
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(scrollGeometryDidChange),
+            selector: #selector(scrollGeometryDidChange(_:)),
             name: NSView.frameDidChangeNotification,
             object: documentView
         )
@@ -675,7 +713,20 @@ private final class MarkdownScrollView: NSScrollView {
         return documentHeight - visibleRect.maxY
     }
 
-    @objc private func scrollGeometryDidChange() {
+    private func invalidateDocumentHeightIfNeeded() {
+        let viewportWidth = contentView.bounds.width
+        if abs(viewportWidth - lastViewportWidth) > 0.5 {
+            lastViewportWidth = viewportWidth
+            invalidateDocumentHeight()
+        }
+    }
+
+    @objc private func scrollGeometryDidChange(_ notification: Notification) {
+        if let object = notification.object as? NSView, object === documentView {
+            invalidateDocumentHeight()
+        } else {
+            invalidateDocumentHeightIfNeeded()
+        }
         refreshScrollIndicator()
     }
 }
@@ -877,14 +928,23 @@ private final class MarkdownTaskTextView: NSTextView {
     }
 
     private static func taskContinuationPrefix(in linePrefix: String) -> String? {
-        let pattern = #"^(\s*)[-*]\s+\[[ xX]\][ \t]*"#
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              regex.firstMatch(in: linePrefix, range: NSRange(location: 0, length: (linePrefix as NSString).length)) != nil
+        guard Self.taskContinuationRegex.firstMatch(
+            in: linePrefix,
+            range: NSRange(location: 0, length: (linePrefix as NSString).length)
+        ) != nil
         else { return nil }
 
         let indentation = String(linePrefix.prefix { $0 == " " || $0 == "\t" })
         return indentation
     }
+
+    private static let taskContinuationRegex: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(pattern: #"^(\s*)[-*]\s+\[[ xX]\][ \t]*"#)
+        } catch {
+            preconditionFailure("Invalid task continuation regex")
+        }
+    }()
 
     private static func isEmptyTaskLine(_ trimmed: String) -> Bool {
         trimmed == "- [ ]" || trimmed == "* [ ]" || trimmed == "- [x]" || trimmed == "- [X]" || trimmed == "* [x]" || trimmed == "* [X]"
