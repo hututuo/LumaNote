@@ -567,8 +567,10 @@ private final class MarkdownScrollView: NSScrollView {
 private final class ThinOverlayScroller: NSScroller {
     private var isPointerInside = false
     private var isRecentlyActive = false
+    private var visualProgress: CGFloat = 0
     private var trackingAreaToken: NSTrackingArea?
     private var idleGeneration = 0
+    private var animationGeneration = 0
 
     deinit {
         NotificationCenter.default.removeObserver(self)
@@ -647,16 +649,19 @@ private final class ThinOverlayScroller: NSScroller {
     }
 
     override func drawKnob() {
-        let isActive = isPointerInside || isRecentlyActive
-        let knobRect = rect(for: .knob).insetBy(dx: isActive ? 1.25 : 1.65, dy: isActive ? 2 : 3.5)
+        let progress = min(max(visualProgress, 0), 1)
+        let knobWidth = 0.72 + progress * 1.68
+        let verticalInset = 3.5 - progress * 1.7
+        let horizontalInset = max(0, (bounds.width - knobWidth) / 2)
+        let knobRect = rect(for: .knob).insetBy(dx: horizontalInset, dy: verticalInset)
         guard knobRect.height > 8 else { return }
-        NSColor.labelColor.withAlphaComponent(isActive ? 0.28 : 0.12).setFill()
+        NSColor.labelColor.withAlphaComponent(0.1 + progress * 0.2).setFill()
         NSBezierPath(roundedRect: knobRect, xRadius: knobRect.width / 2, yRadius: knobRect.width / 2).fill()
     }
 
     func markActive() {
         isRecentlyActive = true
-        needsDisplay = true
+        animateVisibility(to: targetVisualProgress)
         idleGeneration += 1
         let generation = idleGeneration
 
@@ -664,20 +669,53 @@ private final class ThinOverlayScroller: NSScroller {
             try? await Task.sleep(for: .seconds(1))
             guard let self, self.idleGeneration == generation else { return }
             self.isRecentlyActive = false
-            self.needsDisplay = true
+            self.animateVisibility(to: self.targetVisualProgress)
         }
     }
 
     private func setPointerInside(_ value: Bool) {
         isPointerInside = value
-        needsDisplay = true
+        animateVisibility(to: targetVisualProgress)
     }
 
     @objc private func updateIdleVisibility() {
         if !NSApp.isActive || window?.isKeyWindow != true {
             isRecentlyActive = false
         }
-        needsDisplay = true
+        animateVisibility(to: targetVisualProgress)
+    }
+
+    private var targetVisualProgress: CGFloat {
+        let windowIsActive = NSApp.isActive && (window?.isKeyWindow == true || window?.isMainWindow == true)
+        return windowIsActive && (isPointerInside || isRecentlyActive) ? 1 : 0
+    }
+
+    private func animateVisibility(to target: CGFloat) {
+        animationGeneration += 1
+        let generation = animationGeneration
+        let start = visualProgress
+        let distance = target - start
+
+        guard abs(distance) > 0.01 else {
+            visualProgress = target
+            needsDisplay = true
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            let frames = 12
+            for frame in 1...frames {
+                guard let self, self.animationGeneration == generation else { return }
+                let t = CGFloat(frame) / CGFloat(frames)
+                let eased = 1 - pow(1 - t, 3)
+                self.visualProgress = start + distance * eased
+                self.needsDisplay = true
+                try? await Task.sleep(for: .seconds(0.015))
+            }
+            guard let self, self.animationGeneration == generation else { return }
+            self.visualProgress = target
+            self.needsDisplay = true
+        }
     }
 }
 
