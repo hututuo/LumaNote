@@ -24,7 +24,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
+        let scrollView = MarkdownScrollView()
         let verticalScroller = ThinOverlayScroller()
         verticalScroller.controlSize = .mini
         scrollView.drawsBackground = false
@@ -557,7 +557,23 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
     }
 }
 
+private final class MarkdownScrollView: NSScrollView {
+    override func scrollWheel(with event: NSEvent) {
+        (verticalScroller as? ThinOverlayScroller)?.markActive()
+        super.scrollWheel(with: event)
+    }
+}
+
 private final class ThinOverlayScroller: NSScroller {
+    private var isPointerInside = false
+    private var isRecentlyActive = false
+    private var trackingAreaToken: NSTrackingArea?
+    private var idleGeneration = 0
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     override class func scrollerWidth(
         for controlSize: NSControl.ControlSize,
         scrollerStyle: NSScroller.Style
@@ -568,15 +584,100 @@ private final class ThinOverlayScroller: NSScroller {
         return super.scrollerWidth(for: controlSize, scrollerStyle: scrollerStyle)
     }
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        NotificationCenter.default.removeObserver(self)
+
+        if let window {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(updateIdleVisibility),
+                name: NSWindow.didBecomeKeyNotification,
+                object: window
+            )
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(updateIdleVisibility),
+                name: NSWindow.didResignKeyNotification,
+                object: window
+            )
+        }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateIdleVisibility),
+            name: NSApplication.didBecomeActiveNotification,
+            object: NSApp
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateIdleVisibility),
+            name: NSApplication.didResignActiveNotification,
+            object: NSApp
+        )
+    }
+
+    override func updateTrackingAreas() {
+        if let trackingAreaToken {
+            removeTrackingArea(trackingAreaToken)
+        }
+
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited],
+            owner: self
+        )
+        addTrackingArea(area)
+        trackingAreaToken = area
+        super.updateTrackingAreas()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        setPointerInside(true)
+        super.mouseEntered(with: event)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        setPointerInside(false)
+        super.mouseExited(with: event)
+    }
+
     override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {
         // Keep the note surface clean: only the floating thumb is drawn.
     }
 
     override func drawKnob() {
-        let knobRect = rect(for: .knob).insetBy(dx: 1.25, dy: 2)
+        let isActive = isPointerInside || isRecentlyActive
+        let knobRect = rect(for: .knob).insetBy(dx: isActive ? 1.25 : 1.65, dy: isActive ? 2 : 3.5)
         guard knobRect.height > 8 else { return }
-        NSColor.labelColor.withAlphaComponent(0.28).setFill()
+        NSColor.labelColor.withAlphaComponent(isActive ? 0.28 : 0.12).setFill()
         NSBezierPath(roundedRect: knobRect, xRadius: knobRect.width / 2, yRadius: knobRect.width / 2).fill()
+    }
+
+    func markActive() {
+        isRecentlyActive = true
+        needsDisplay = true
+        idleGeneration += 1
+        let generation = idleGeneration
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, self.idleGeneration == generation else { return }
+            self.isRecentlyActive = false
+            self.needsDisplay = true
+        }
+    }
+
+    private func setPointerInside(_ value: Bool) {
+        isPointerInside = value
+        needsDisplay = true
+    }
+
+    @objc private func updateIdleVisibility() {
+        if !NSApp.isActive || window?.isKeyWindow != true {
+            isRecentlyActive = false
+        }
+        needsDisplay = true
     }
 }
 
