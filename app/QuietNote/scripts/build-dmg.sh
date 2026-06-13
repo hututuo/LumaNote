@@ -109,6 +109,9 @@ tell application "Finder"
   set dmgFolder to (POSIX file "$MOUNT_POINT" as alias)
   open dmgFolder
   set dmgWindow to container window of dmgFolder
+  try
+    set collapsed of dmgWindow to true
+  end try
   set current view of dmgWindow to icon view
   try
     set toolbar visible of dmgWindow to false

@@ -33,7 +33,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Visual reference: `design/quiet-rail-note_reference_20260607-100100.png`
 - Debug app bundle: `app/QuietNote/build/LumaNote.app`
 - Build script: `app/QuietNote/scripts/build-app.sh` compiles, packages, ad-hoc signs with the explicit designated requirement `identifier "com.hututuo.lumanote"`, and verifies `build/LumaNote.app`.
-- DMG script: `app/QuietNote/scripts/build-dmg.sh` packages the signed app with an `/Applications` symlink and custom glass installer background into `build/LumaNote-<version>-macos-arm64.dmg`; the Finder window is `840x600` logical points and the background PNG is Retina `2x` at `1680x1200` pixels.
+- DMG script: `app/QuietNote/scripts/build-dmg.sh` packages the signed app with an `/Applications` symlink and custom glass installer background into `build/LumaNote-<version>-macos-arm64.dmg`; the Finder window is `840x600` logical points and the background PNG is Retina `2x` at `1680x1200` pixels. During the writable styling pass, the temporary Finder window is collapsed immediately after opening so the build is less visually distracting; the final DMG still opens normally for review.
 - Release script: `app/QuietNote/scripts/prepare-release.sh` builds the app, verifies the stable signing requirement, creates the DMG, Sparkle update zip, compatibility zip, and `SHA256SUMS-v<version>.txt` under `app/QuietNote/build/releases/v<version>/`.
 - Current release notes: `docs/releases/v0.1.2.md`.
 - Current release audit: `docs/releases/v0.1.2-audit.md`.
