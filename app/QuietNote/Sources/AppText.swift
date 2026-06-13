@@ -12,8 +12,9 @@ struct AppText {
     var glassHint: String { text("控制背景模糊、泛白和玻璃质感。", "Controls blur, haze, and the frosted glass feel.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }
     var shortcuts: String { text("快捷键", "Shortcuts") }
-    var showNoteShortcut: String { text("快捷呼出便签：", "Show note:") }
-    var hideNoteShortcut: String { text("快捷关闭便签：", "Hide note:") }
+    var toggleNoteShortcut: String { text("呼出/隐藏便签：", "Show/hide note:") }
+    var showNoteShortcut: String { text("只呼出便签：", "Show only:") }
+    var hideNoteShortcut: String { text("只隐藏便签：", "Hide only:") }
     var clipboardShortcut: String { text("打开剪切板库：", "Open clipboard library:") }
     var languageLabel: String { text("语言", "Language") }
     var clipboard: String { text("剪切板", "Clipboard") }

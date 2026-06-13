@@ -51,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.show(animated: false)
 
         hotKeyCenter = HotKeyCenter(
+            onToggleNote: { [weak controller] in controller?.toggle() },
             onShowNote: { [weak controller] in controller?.show() },
             onHideNote: { [weak controller] in controller?.hide() },
             onToggleClipboard: { [weak controller] in controller?.toggleClipboard() }
@@ -70,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: "LumaNote")
 
         let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "Show/Hide Note", action: #selector(toggleNoteFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Show Note", action: #selector(showNoteFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Hide Note", action: #selector(hideNoteFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Clipboard Library", action: #selector(toggleClipboardFromMenu), keyEquivalent: ""))
@@ -80,6 +82,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.menu = menu
 
         statusItem = item
+    }
+
+    @objc private func toggleNoteFromMenu() {
+        panelController?.toggle()
     }
 
     @objc private func showNoteFromMenu() {

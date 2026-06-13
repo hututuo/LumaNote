@@ -19,7 +19,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Markdown note editing with live save.
 - Markdown should render live inside the editable note body, not through separate edit/preview modes.
 - Adjustable note opacity. New default note opacity is 60%.
-- Customizable global shortcuts for showing the note, hiding the note, and opening the clipboard library.
+- Customizable global shortcuts for toggling the note, showing the note, hiding the note, and opening the clipboard library.
 - App-level Chinese/English UI language switch in Settings. This changes app chrome text, not the user's Markdown content.
 - Clipboard history saved locally after explicit app setting enables monitoring.
 - Clipboard detection suggestions for URL, email, phone, address-like text, labeled codes such as verification codes or order/tracking numbers, and labeled free text after a colon.
@@ -139,7 +139,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - The compact more menu now includes clipboard monitoring, stored item count, retention limit, clear-library action, launch-at-login, shortcuts, and update controls. The always-on-top control lives on the bottom rail pin button instead of inside Settings/More.
 - Settings now includes a Chinese/English segmented language control. `AppSettings.language` defaults to Chinese, and `AppText` provides app chrome strings for Settings, More, Clipboard Library, and extraction action menus.
 - Settings and the compact More menu include a Launch at Login toggle. It uses macOS `SMAppService.mainApp` rather than a custom LaunchAgent. If registration fails, the toggle reverts and shows the localized error message.
-- Global shortcuts are split: `showQuietNote` shows the note, `hideQuietNote` hides it, and `toggleClipboardLibrary` opens/toggles the clipboard library. `toggleQuietNote` remains only as an old-name migration source for the show shortcut and should not be shown as the primary setting.
+- Global shortcuts include `toggleQuietNote` for one-key show/hide, `showQuietNote` for show-only, `hideQuietNote` for hide-only, and `toggleClipboardLibrary` for the clipboard library. `toggleQuietNote` defaults to Option+Space; users who previously had the old Option+Space show-only default are migrated once so show-only moves to Option+Shift+Space and Option+Space becomes the true show/hide toggle.
 - If the app process is running but the window is not visible, `osascript -e 'tell application "QuietNote" to activate'` can bring the panel back.
 - `QuietNoteApp.swift` now handles macOS reopen events so opening an already-running `QuietNote.app` calls `panelController.show()`.
 - The app now runs as a regular macOS app (`LSUIElement=false`, activation policy `.regular`) so it appears in the Dock/任务栏.
