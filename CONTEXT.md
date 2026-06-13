@@ -75,6 +75,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 
 - The note opacity slider controls the glass/readability layers, not the whole NSWindow alpha. Text and controls intentionally stay readable.
 - The compact settings copy distinguishes the bottom opacity slider from the glass feel slider: opacity controls how visible the note shell is, while frosted glass controls blur, haze, and glass texture. New default frosted glass strength is 10%.
+- Settings and the compact More menu include a Markdown editor font-size slider. It persists under `editorFontSize`, defaults to 15.5 pt, clamps to 11-28 pt, and the live Markdown styler scales headings, inline code, code blocks, lists, and task checkboxes from that body size.
 - Markdown editing uses `MarkdownRenderingEditor.swift`, an editable `NSTextView` that live-styles the Markdown source. It saves plain Markdown.
 - Markdown compatibility notes for GitHub are documented in `docs/markdown-compatibility.md`. The app saves original Markdown text, but the live editor is a lightweight visual styler rather than a full CommonMark/GFM renderer.
 - Recent Markdown styling additions include underscore italic, bold italic, tilde fenced code blocks, nested quote/list indentation, GitHub Alert headers, email/autolink styling, reference/wiki link styling, image-reference styling, highlight syntax, and emoji shortcode token styling.

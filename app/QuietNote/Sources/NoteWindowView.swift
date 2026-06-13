@@ -342,7 +342,7 @@ struct NoteWindowView: View {
     }
 
     private var content: some View {
-        MarkdownRenderingEditor(text: $noteStore.markdown)
+        MarkdownRenderingEditor(text: $noteStore.markdown, fontSize: settings.editorFontSize)
             .mask {
                 markdownContentFadeMask
             }
@@ -823,7 +823,7 @@ struct NoteWindowView: View {
         let topClearance = topDragPassthroughHeight + 8
         let bottomClearance: CGFloat = 10
         let availableHeight = max(210, containerSize.height - topClearance - bottomClearance)
-        let height = min(430, availableHeight)
+        let height = min(470, availableHeight)
         let anchor = moreButtonFrame == .zero
             ? CGRect(x: containerSize.width - 44, y: containerSize.height - 34, width: 24, height: 24)
             : moreButtonFrame

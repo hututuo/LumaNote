@@ -6,6 +6,8 @@ struct AppText {
     var note: String { text("便签", "Note") }
     var opacity: String { text("便签透明度", "Note opacity") }
     var opacityHint: String { text("控制便签玻璃外壳有多明显。", "Controls how visible the note's glass shell is.") }
+    var editorFontSize: String { text("字体大小", "Font size") }
+    var editorFontSizeHint: String { text("控制正文 Markdown 的显示字号。", "Controls the Markdown editor text size.") }
     var glass: String { text("磨砂强度", "Frosted glass") }
     var glassHint: String { text("控制背景模糊、泛白和玻璃质感。", "Controls blur, haze, and the frosted glass feel.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }
@@ -20,7 +22,7 @@ struct AppText {
     var clear: String { text("清空", "Clear") }
     var clearClipboard: String { text("清空剪切板库", "Clear clipboard library") }
     var keyboardShortcutNote: String { text("快捷键会保存在本机；QuietNote 运行时全局生效。", "Shortcuts are stored locally and work globally while QuietNote is running.") }
-    var appearance: String { text("玻璃质感", "Glass feel") }
+    var appearance: String { text("外观", "Appearance") }
     var glassHintCompact: String { text("模糊 / 泛白 / 质感", "Blur / haze / texture") }
     var hideNote: String { text("隐藏便签", "Hide Note") }
     var launchAtLogin: String { text("开机自启", "Launch at login") }
