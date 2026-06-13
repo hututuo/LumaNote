@@ -1,4 +1,3 @@
-@preconcurrency import KeyboardShortcuts
 import Foundation
 import SwiftUI
 
@@ -86,7 +85,41 @@ struct MoreMenuView: View {
                 Button {
                     showShortcutSettings = true
                 } label: {
-                    Label(copy.shortcuts, systemImage: "keyboard")
+                    HStack(spacing: 10) {
+                        Image(systemName: "keyboard.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.78))
+                            .frame(width: 30, height: 30)
+                            .background {
+                                Circle()
+                                    .fill(Color.cyan.opacity(0.18))
+                                    .overlay(Circle().stroke(Color.white.opacity(0.46), lineWidth: 1))
+                            }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(copy.globalShortcuts)
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(copy.shortcutEntrySubtitle)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 9)
+                    .background {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white.opacity(0.12))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(Color.white.opacity(0.26), lineWidth: 1)
+                            }
+                    }
                 }
                 .buttonStyle(.plain)
 
@@ -122,30 +155,6 @@ struct MoreMenuView: View {
             }
 
             control()
-        }
-    }
-}
-
-struct ShortcutSettingsView: View {
-    @ObservedObject var settings: AppSettings
-
-    var body: some View {
-        let copy = AppText(language: settings.language)
-
-        VStack(alignment: .leading, spacing: 18) {
-            Text(copy.shortcuts)
-                .font(.title3.weight(.semibold))
-
-            VStack(alignment: .leading, spacing: 12) {
-                KeyboardShortcuts.Recorder(copy.toggleNoteShortcut, name: .toggleQuietNote)
-                KeyboardShortcuts.Recorder(copy.showNoteShortcut, name: .showQuietNote)
-                KeyboardShortcuts.Recorder(copy.hideNoteShortcut, name: .hideQuietNote)
-                KeyboardShortcuts.Recorder(copy.clipboardShortcut, name: .toggleClipboardLibrary)
-            }
-
-            Text(copy.keyboardShortcutNote)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
     }
 }

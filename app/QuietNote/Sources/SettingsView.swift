@@ -1,4 +1,3 @@
-@preconcurrency import KeyboardShortcuts
 import SwiftUI
 
 struct SettingsView: View {
@@ -69,10 +68,7 @@ struct SettingsView: View {
             }
 
             Section(copy.shortcuts) {
-                KeyboardShortcuts.Recorder(copy.toggleNoteShortcut, name: .toggleQuietNote)
-                KeyboardShortcuts.Recorder(copy.showNoteShortcut, name: .showQuietNote)
-                KeyboardShortcuts.Recorder(copy.hideNoteShortcut, name: .hideQuietNote)
-                KeyboardShortcuts.Recorder(copy.clipboardShortcut, name: .toggleClipboardLibrary)
+                ShortcutSettingsPanel(settings: settings, presentation: .settings)
             }
 
             Section(copy.checkForUpdates) {

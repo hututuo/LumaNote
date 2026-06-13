@@ -12,10 +12,10 @@ extension KeyboardShortcuts.Name {
 final class HotKeyCenter {
     private static let didMigrateToggleShortcutKey = "HotKeyCenter.didMigrateToggleShortcut.v1"
     private static let legacyShowDefaultShortcut = KeyboardShortcuts.Shortcut(.space, modifiers: [.option])
-    private static let toggleDefaultShortcut = KeyboardShortcuts.Shortcut(.space, modifiers: [.option])
-    private static let showOnlyDefaultShortcut = KeyboardShortcuts.Shortcut(.space, modifiers: [.option, .shift])
-    private static let hideDefaultShortcut = KeyboardShortcuts.Shortcut(.escape, modifiers: [.option])
-    private static let clipboardDefaultShortcut = KeyboardShortcuts.Shortcut(.v, modifiers: [.option])
+    static let toggleDefaultShortcut = KeyboardShortcuts.Shortcut(.space, modifiers: [.option])
+    static let showOnlyDefaultShortcut = KeyboardShortcuts.Shortcut(.space, modifiers: [.option, .shift])
+    static let hideDefaultShortcut = KeyboardShortcuts.Shortcut(.escape, modifiers: [.option])
+    static let clipboardDefaultShortcut = KeyboardShortcuts.Shortcut(.v, modifiers: [.option])
 
     init(
         onToggleNote: @escaping @MainActor () -> Void,
@@ -64,5 +64,12 @@ final class HotKeyCenter {
         if !didMigrate {
             defaults.set(true, forKey: didMigrateToggleShortcutKey)
         }
+    }
+
+    static func resetDefaultShortcuts() {
+        KeyboardShortcuts.setShortcut(toggleDefaultShortcut, for: .toggleQuietNote)
+        KeyboardShortcuts.setShortcut(showOnlyDefaultShortcut, for: .showQuietNote)
+        KeyboardShortcuts.setShortcut(hideDefaultShortcut, for: .hideQuietNote)
+        KeyboardShortcuts.setShortcut(clipboardDefaultShortcut, for: .toggleClipboardLibrary)
     }
 }
