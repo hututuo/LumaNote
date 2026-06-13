@@ -6,7 +6,7 @@ struct ShortcutSettingsView: View {
     @ObservedObject var settings: AppSettings
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 8) {
+        VStack(alignment: .trailing, spacing: 6) {
             Button {
                 dismiss()
             } label: {
@@ -44,7 +44,7 @@ struct ShortcutSettingsPanel: View {
         let conflicts = conflicts(in: rows)
         let conflictedShortcuts = Set(conflicts.map(\.shortcut))
 
-        VStack(alignment: .leading, spacing: presentation == .sheet ? 16 : 13) {
+        VStack(alignment: .leading, spacing: presentation == .sheet ? 12 : 13) {
             header(copy: copy, primaryShortcut: rows.first?.shortcut, hasConflict: !conflicts.isEmpty)
 
             if conflicts.isEmpty {
@@ -68,23 +68,23 @@ struct ShortcutSettingsPanel: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(presentation == .sheet ? 18 : 12)
+        .padding(presentation == .sheet ? 14 : 12)
         .background {
-            RoundedRectangle(cornerRadius: presentation == .sheet ? 18 : 12, style: .continuous)
+            RoundedRectangle(cornerRadius: presentation == .sheet ? 16 : 12, style: .continuous)
                 .fill(Color.white.opacity(presentation == .sheet ? 0.16 : 0.10))
                 .overlay {
-                    RoundedRectangle(cornerRadius: presentation == .sheet ? 18 : 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: presentation == .sheet ? 16 : 12, style: .continuous)
                         .stroke(Color.white.opacity(0.34), lineWidth: 1)
                 }
         }
     }
 
     private func header(copy: AppText, primaryShortcut: KeyboardShortcuts.Shortcut?, hasConflict: Bool) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: presentation == .sheet ? 9 : 12) {
             Image(systemName: "keyboard.fill")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: presentation == .sheet ? 19 : 22, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.82))
-                .frame(width: 44, height: 44)
+                .frame(width: presentation == .sheet ? 38 : 44, height: presentation == .sheet ? 38 : 44)
                 .background {
                     Circle()
                         .fill(Color.cyan.opacity(0.22))
@@ -93,17 +93,19 @@ struct ShortcutSettingsPanel: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(copy.globalShortcuts)
-                    .font(.system(size: presentation == .sheet ? 18 : 15, weight: .semibold))
+                    .font(.system(size: presentation == .sheet ? 16 : 15, weight: .semibold))
 
                 Text(verbatim: "\(displayShortcut(primaryShortcut, copy: copy)) · \(cleanLabel(copy.toggleNoteShortcut))")
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: presentation == .sheet ? 12 : 12.5, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 6)
 
-            statusBadge(copy: copy, hasConflict: hasConflict)
+            if presentation == .settings {
+                statusBadge(copy: copy, hasConflict: hasConflict)
+            }
 
             Button {
                 HotKeyCenter.resetDefaultShortcuts()
@@ -123,8 +125,8 @@ struct ShortcutSettingsPanel: View {
         )
         .font(.system(size: 12.5, weight: .semibold))
         .foregroundStyle(hasConflict ? Color.orange : Color.green)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, presentation == .sheet ? 9 : 10)
+        .padding(.vertical, presentation == .sheet ? 6 : 7)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             Capsule(style: .continuous)
@@ -174,11 +176,11 @@ struct ShortcutSettingsPanel: View {
     }
 
     private func shortcutRow(copy: AppText, row: ShortcutRowState, isConflicted: Bool) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: presentation == .sheet ? 8 : 10) {
             Image(systemName: row.icon)
-                .font(.system(size: 13.5, weight: .semibold))
+                .font(.system(size: presentation == .sheet ? 12.5 : 13.5, weight: .semibold))
                 .foregroundStyle(isConflicted ? Color.orange : Color.black.opacity(0.76))
-                .frame(width: 28, height: 28)
+                .frame(width: presentation == .sheet ? 24 : 28, height: presentation == .sheet ? 24 : 28)
                 .background {
                     Circle()
                         .fill((isConflicted ? Color.orange : Color.cyan).opacity(0.14))
@@ -186,11 +188,11 @@ struct ShortcutSettingsPanel: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(cleanLabel(row.title))
-                    .font(.system(size: 13.2, weight: row.isPrimary ? .semibold : .medium))
+                    .font(.system(size: presentation == .sheet ? 12.6 : 13.2, weight: row.isPrimary ? .semibold : .medium))
                     .foregroundStyle(Color.primary)
 
                 Text(verbatim: "\(copy.shortcutDefaultPrefix) \(row.defaultShortcut)")
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(.system(size: presentation == .sheet ? 10.8 : 11.5, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
@@ -199,10 +201,10 @@ struct ShortcutSettingsPanel: View {
             KeyboardShortcuts.Recorder(for: row.name, onChange: { _ in
                 refreshToken += 1
             })
-            .frame(width: 122)
+            .frame(width: presentation == .sheet ? 108 : 122)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, presentation == .sheet ? 8 : 10)
+        .padding(.vertical, presentation == .sheet ? 7 : 8)
         .background {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .fill(isConflicted ? Color.orange.opacity(0.11) : Color.white.opacity(0.12))
