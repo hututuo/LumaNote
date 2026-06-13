@@ -1,6 +1,8 @@
 import Foundation
 
 enum ClipboardDetector {
+    private static let maximumScanCharacters = 20_000
+
     private enum Regexes {
         static let labeledValue = regex(
             #"(?:[\s,，;；]*)([\p{Han}A-Za-z][\p{Han}A-Za-z0-9 _-]{0,14})\s*[:：]\s*(.+?)(?=(?:[\s,，;；]+[\p{Han}A-Za-z][\p{Han}A-Za-z0-9 _-]{0,14}\s*[:：])|[\n;；]|$)"#,
@@ -31,14 +33,18 @@ enum ClipboardDetector {
     }
 
     static func detect(in text: String) -> [ClipboardDetection] {
+        let detectionPrefix = text.prefix(maximumScanCharacters + 1)
+        let scanText = detectionPrefix.count > maximumScanCharacters
+            ? String(detectionPrefix.dropLast())
+            : text
         var matches: [DetectedMatch] = []
 
-        appendLabeledValueMatches(in: text, into: &matches)
-        appendMatches(kind: .url, regex: Regexes.url, in: text, into: &matches, excluding: matches.map(\.range))
-        appendMatches(kind: .email, regex: Regexes.email, in: text, into: &matches, excluding: matches.map(\.range))
-        appendPhoneMatches(in: text, into: &matches, excluding: matches.map(\.range))
-        appendLabeledNumberMatches(in: text, into: &matches, excluding: matches.map(\.range))
-        appendAddressMatches(in: text, into: &matches, excluding: matches.map(\.range))
+        appendLabeledValueMatches(in: scanText, into: &matches)
+        appendMatches(kind: .url, regex: Regexes.url, in: scanText, into: &matches, excluding: matches.map(\.range))
+        appendMatches(kind: .email, regex: Regexes.email, in: scanText, into: &matches, excluding: matches.map(\.range))
+        appendPhoneMatches(in: scanText, into: &matches, excluding: matches.map(\.range))
+        appendLabeledNumberMatches(in: scanText, into: &matches, excluding: matches.map(\.range))
+        appendAddressMatches(in: scanText, into: &matches, excluding: matches.map(\.range))
 
         let detections = matches.map {
             ClipboardDetection(id: UUID(), kind: $0.kind, value: $0.value)
@@ -55,8 +61,14 @@ enum ClipboardDetector {
 
     private static func appendLabeledValueMatches(in text: String, into matches: inout [DetectedMatch]) {
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        Regexes.labeledValue.matches(in: text, range: range).prefix(10).forEach { match in
-            guard match.numberOfRanges > 2,
+        var acceptedCount = 0
+        Regexes.labeledValue.enumerateMatches(in: text, range: range) { match, _, stop in
+            guard acceptedCount < 10 else {
+                stop.pointee = true
+                return
+            }
+            guard let match,
+                  match.numberOfRanges > 2,
                   let labelRange = Range(match.range(at: 1), in: text),
                   let valueRange = Range(match.range(at: 2), in: text)
             else { return }
@@ -69,6 +81,7 @@ enum ClipboardDetector {
             let valueNSRange = NSRange(valueRange, in: text)
             if let kind = kind(forLabel: label, value: value) {
                 matches.append(.init(kind: kind, value: value, range: valueNSRange))
+                acceptedCount += 1
                 return
             }
 
@@ -86,8 +99,10 @@ enum ClipboardDetector {
                 nested.forEach { nestedMatch in
                     matches.append(.init(kind: nestedMatch.kind, value: nestedMatch.value, range: valueNSRange))
                 }
+                acceptedCount += nested.count
             } else {
                 matches.append(.init(kind: .text, value: value, range: valueNSRange))
+                acceptedCount += 1
             }
         }
     }
@@ -103,13 +118,21 @@ enum ClipboardDetector {
         regex: NSRegularExpression,
         in text: String,
         into matches: inout [DetectedMatch],
-        excluding excludedRanges: [NSRange] = []
+        excluding excludedRanges: [NSRange] = [],
+        limit: Int = 8
     ) {
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        regex.matches(in: text, range: range).prefix(8).forEach { match in
+        var acceptedCount = 0
+        regex.enumerateMatches(in: text, range: range) { match, _, stop in
+            guard acceptedCount < limit else {
+                stop.pointee = true
+                return
+            }
+            guard let match else { return }
             guard !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
             guard let swiftRange = Range(match.range, in: text) else { return }
             matches.append(.init(kind: kind, value: String(text[swiftRange]), range: match.range))
+            acceptedCount += 1
         }
     }
 
@@ -119,7 +142,13 @@ enum ClipboardDetector {
         excluding excludedRanges: [NSRange] = []
     ) {
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        Regexes.labeledNumber.matches(in: text, range: range).prefix(6).forEach { match in
+        var acceptedCount = 0
+        Regexes.labeledNumber.enumerateMatches(in: text, range: range) { match, _, stop in
+            guard acceptedCount < 6 else {
+                stop.pointee = true
+                return
+            }
+            guard let match else { return }
             guard !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
             guard match.numberOfRanges > 1,
                   let valueRange = Range(match.range(at: 1), in: text)
@@ -131,6 +160,7 @@ enum ClipboardDetector {
             guard digitCount >= 3 else { return }
 
             matches.append(.init(kind: .number, value: value, range: match.range(at: 1)))
+            acceptedCount += 1
         }
     }
 
@@ -140,13 +170,20 @@ enum ClipboardDetector {
         excluding excludedRanges: [NSRange] = []
     ) {
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        Regexes.phone.matches(in: text, range: range).prefix(6).forEach { match in
+        var acceptedCount = 0
+        Regexes.phone.enumerateMatches(in: text, range: range) { match, _, stop in
+            guard acceptedCount < 6 else {
+                stop.pointee = true
+                return
+            }
+            guard let match else { return }
             guard !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
             guard let swiftRange = Range(match.range, in: text) else { return }
             let value = String(text[swiftRange])
             let digitCount = value.filter(\.isNumber).count
             guard (10...15).contains(digitCount), !looksLikeDate(value) else { return }
             matches.append(.init(kind: .phone, value: value, range: match.range))
+            acceptedCount += 1
         }
     }
 

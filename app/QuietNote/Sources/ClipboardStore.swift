@@ -62,6 +62,7 @@ final class ClipboardStore: ObservableObject {
     private var saveTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
     private var lastChangeCount = NSPasteboard.general.changeCount
+    private var itemFingerprints: [UUID: UInt64] = [:]
     private let fileURL: URL
 
     init() {
@@ -78,6 +79,7 @@ final class ClipboardStore: ObservableObject {
 
         settings.$monitorClipboard
             .removeDuplicates()
+            .dropFirst()
             .sink { [weak self] isEnabled in
                 guard let self else { return }
                 if isEnabled {
@@ -131,6 +133,7 @@ final class ClipboardStore: ObservableObject {
 
     func delete(_ item: ClipboardItem) {
         items.removeAll { $0.id == item.id }
+        itemFingerprints[item.id] = nil
         if latestDetectedItem?.id == item.id {
             latestDetectedItem = nil
             latestSuggestion = nil
@@ -140,6 +143,7 @@ final class ClipboardStore: ObservableObject {
 
     func clear() {
         items.removeAll()
+        itemFingerprints.removeAll()
         latestSuggestion = nil
         latestDetectedItem = nil
         save(debounce: false)
@@ -156,7 +160,10 @@ final class ClipboardStore: ObservableObject {
               !text.isEmpty
         else { return }
 
-        if let existingIndex = items.firstIndex(where: { $0.text == text }) {
+        let fingerprint = Self.contentFingerprint(for: text)
+        if let existingIndex = items.firstIndex(where: { item in
+            itemFingerprints[item.id] == fingerprint && item.text == text
+        }) {
             let refreshed = ClipboardItem(
                 id: items[existingIndex].id,
                 text: text,
@@ -165,6 +172,7 @@ final class ClipboardStore: ObservableObject {
             )
             items.remove(at: existingIndex)
             items.insert(refreshed, at: 0)
+            itemFingerprints[refreshed.id] = fingerprint
             latestSuggestion = refreshed.detections.first
             latestDetectedItem = refreshed.detections.isEmpty ? nil : refreshed
             save()
@@ -174,6 +182,7 @@ final class ClipboardStore: ObservableObject {
         let detections = ClipboardDetector.detect(in: text)
         let item = ClipboardItem(id: UUID(), text: text, createdAt: Date(), detections: detections)
         items.insert(item, at: 0)
+        itemFingerprints[item.id] = fingerprint
         latestSuggestion = detections.first
         latestDetectedItem = detections.isEmpty ? nil : item
 
@@ -184,11 +193,13 @@ final class ClipboardStore: ObservableObject {
     private func trim(to limit: Int) {
         guard items.count > limit else { return }
         items = Array(items.prefix(limit))
+        rebuildFingerprints()
         save()
     }
 
     private func load() {
         items = ClipboardPersistence.load(from: fileURL) ?? []
+        rebuildFingerprints()
     }
 
     private func save(debounce: Bool = true) {
@@ -202,6 +213,23 @@ final class ClipboardStore: ObservableObject {
             guard !Task.isCancelled else { return }
             _ = await ClipboardPersistence.saveOffMain(snapshot, to: fileURL)
         }
+    }
+
+    private func rebuildFingerprints() {
+        itemFingerprints = Dictionary(
+            uniqueKeysWithValues: items.map { item in
+                (item.id, Self.contentFingerprint(for: item.text))
+            }
+        )
+    }
+
+    private static func contentFingerprint(for text: String) -> UInt64 {
+        var hash: UInt64 = 1_469_598_103_934_665_603
+        for byte in text.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1_099_511_628_211
+        }
+        return hash
     }
 
 }
