@@ -2,25 +2,47 @@ import AppKit
 import SwiftUI
 
 private enum MarkdownTaskLayout {
-    static let baseFontSize: CGFloat = 15.5
-    static let checkboxSize: CGFloat = 13
-    static let checkboxTextGap: CGFloat = 5
-    static let slotWidth: CGFloat = checkboxSize + checkboxTextGap
+    static let defaultBaseFontSize: CGFloat = 15.5
 
-    static var baseFont: NSFont {
-        NSFont.systemFont(ofSize: baseFontSize)
+    static func normalizedFontSize(_ fontSize: CGFloat) -> CGFloat {
+        min(max(fontSize, 11), 28)
     }
 
-    static func textWidth(_ text: String) -> CGFloat {
-        NSAttributedString(string: text, attributes: [.font: baseFont]).size().width
+    static func baseFont(for fontSize: CGFloat) -> NSFont {
+        NSFont.systemFont(ofSize: normalizedFontSize(fontSize))
+    }
+
+    static func monoFontSize(for fontSize: CGFloat) -> CGFloat {
+        max(10, normalizedFontSize(fontSize) - 2)
+    }
+
+    static func markerFontSize(for fontSize: CGFloat) -> CGFloat {
+        max(10, normalizedFontSize(fontSize) - 2.5)
+    }
+
+    static func checkboxSize(for fontSize: CGFloat) -> CGFloat {
+        max(10, normalizedFontSize(fontSize) - 2.5)
+    }
+
+    static func checkboxTextGap(for fontSize: CGFloat) -> CGFloat {
+        max(4, normalizedFontSize(fontSize) * 0.32)
+    }
+
+    static func slotWidth(for fontSize: CGFloat) -> CGFloat {
+        checkboxSize(for: fontSize) + checkboxTextGap(for: fontSize)
+    }
+
+    static func textWidth(_ text: String, fontSize: CGFloat) -> CGFloat {
+        NSAttributedString(string: text, attributes: [.font: baseFont(for: fontSize)]).size().width
     }
 }
 
 struct MarkdownRenderingEditor: NSViewRepresentable {
     @Binding var text: String
+    var fontSize: Double = MarkdownTaskLayout.defaultBaseFontSize
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text)
+        Coordinator(text: $text, fontSize: CGFloat(fontSize))
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -56,6 +78,8 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
         textView.insertionPointColor = .systemCyan
+        textView.bodyFontSize = context.coordinator.fontSize
+        textView.typingAttributes = context.coordinator.baseTypingAttributes()
         textView.string = text
 
         scrollView.documentView = textView
@@ -68,13 +92,20 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
         var didReplaceText = false
+        let newFontSize = MarkdownTaskLayout.normalizedFontSize(CGFloat(fontSize))
+        let didChangeFontSize = abs(context.coordinator.fontSize - newFontSize) > 0.05
+        if didChangeFontSize {
+            context.coordinator.fontSize = newFontSize
+            (textView as? MarkdownTaskTextView)?.bodyFontSize = newFontSize
+            textView.typingAttributes = context.coordinator.baseTypingAttributes()
+        }
         if textView.string != text {
             let selectedRanges = textView.selectedRanges
             textView.string = text
             textView.selectedRanges = selectedRanges
             didReplaceText = true
         }
-        if didReplaceText {
+        if didReplaceText || didChangeFontSize {
             context.coordinator.applyMarkdownStyle()
             (scrollView as? MarkdownScrollView)?.invalidateDocumentHeight()
         }
@@ -84,33 +115,47 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         @Binding private var text: String
+        var fontSize: CGFloat
         weak var textView: NSTextView?
         private var isStyling = false
 
+        private enum InlineStyle {
+            case inlineCode
+            case boldItalic
+            case bold
+            case italic
+            case strikethrough
+            case highlight
+            case image
+            case link
+            case wikiLink
+            case shortcode
+        }
+
         private struct InlineRule {
             let regex: NSRegularExpression
-            let attributes: [NSAttributedString.Key: Any]
+            let style: InlineStyle
         }
 
         private static let inlineRules: [InlineRule] = [
-            InlineRule(regex: markdownRegex(#"`([^`]+)`"#), attributes: inlineCodeAttributes()),
-            InlineRule(regex: markdownRegex(#"\*\*\*([^*\n]+)\*\*\*"#), attributes: boldItalicAttributes()),
-            InlineRule(regex: markdownRegex(#"___([^_\n]+)___"#), attributes: boldItalicAttributes()),
-            InlineRule(regex: markdownRegex(#"\*\*([^*]+)\*\*"#), attributes: [.font: NSFont.boldSystemFont(ofSize: 15.5)]),
-            InlineRule(regex: markdownRegex(#"__([^_]+)__"#), attributes: [.font: NSFont.boldSystemFont(ofSize: 15.5)]),
-            InlineRule(regex: markdownRegex(#"(?<!\*)\*([^*\n]+)\*(?!\*)"#), attributes: [.obliqueness: 0.12]),
-            InlineRule(regex: markdownRegex(#"(?<!_)_([^_\n]+)_(?!_)"#), attributes: [.obliqueness: 0.12]),
-            InlineRule(regex: markdownRegex(#"~~([^~]+)~~"#), attributes: [.strikethroughStyle: NSUnderlineStyle.single.rawValue]),
-            InlineRule(regex: markdownRegex(#"==([^=\n]+)=="#), attributes: highlightAttributes()),
-            InlineRule(regex: markdownRegex(#"!\[([^\]]*)\]\(([^)]+)\)"#), attributes: imageAttributes()),
-            InlineRule(regex: markdownRegex(#"\[([^\]]+)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)"#), attributes: linkAttributes()),
-            InlineRule(regex: markdownRegex(#"\[[^\]]+\]\[[^\]]*\]"#), attributes: linkAttributes()),
-            InlineRule(regex: markdownRegex(#"\[\[[^\]\n]+\]\]"#), attributes: wikiLinkAttributes()),
-            InlineRule(regex: markdownRegex(#"<https?://[^>\s]+>"#), attributes: linkAttributes()),
-            InlineRule(regex: markdownRegex(#"<[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}>"#), attributes: linkAttributes()),
-            InlineRule(regex: markdownRegex(#"https?://[^\s<>"']+"#), attributes: linkAttributes()),
-            InlineRule(regex: markdownRegex(#"(?<![/\w.-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w.-])"#), attributes: linkAttributes()),
-            InlineRule(regex: markdownRegex(#":[a-zA-Z0-9_+-]+:"#), attributes: shortcodeAttributes())
+            InlineRule(regex: markdownRegex(#"`([^`]+)`"#), style: .inlineCode),
+            InlineRule(regex: markdownRegex(#"\*\*\*([^*\n]+)\*\*\*"#), style: .boldItalic),
+            InlineRule(regex: markdownRegex(#"___([^_\n]+)___"#), style: .boldItalic),
+            InlineRule(regex: markdownRegex(#"\*\*([^*]+)\*\*"#), style: .bold),
+            InlineRule(regex: markdownRegex(#"__([^_]+)__"#), style: .bold),
+            InlineRule(regex: markdownRegex(#"(?<!\*)\*([^*\n]+)\*(?!\*)"#), style: .italic),
+            InlineRule(regex: markdownRegex(#"(?<!_)_([^_\n]+)_(?!_)"#), style: .italic),
+            InlineRule(regex: markdownRegex(#"~~([^~]+)~~"#), style: .strikethrough),
+            InlineRule(regex: markdownRegex(#"==([^=\n]+)=="#), style: .highlight),
+            InlineRule(regex: markdownRegex(#"!\[([^\]]*)\]\(([^)]+)\)"#), style: .image),
+            InlineRule(regex: markdownRegex(#"\[([^\]]+)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)"#), style: .link),
+            InlineRule(regex: markdownRegex(#"\[[^\]]+\]\[[^\]]*\]"#), style: .link),
+            InlineRule(regex: markdownRegex(#"\[\[[^\]\n]+\]\]"#), style: .wikiLink),
+            InlineRule(regex: markdownRegex(#"<https?://[^>\s]+>"#), style: .link),
+            InlineRule(regex: markdownRegex(#"<[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}>"#), style: .link),
+            InlineRule(regex: markdownRegex(#"https?://[^\s<>"']+"#), style: .link),
+            InlineRule(regex: markdownRegex(#"(?<![/\w.-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w.-])"#), style: .link),
+            InlineRule(regex: markdownRegex(#":[a-zA-Z0-9_+-]+:"#), style: .shortcode)
         ]
 
         private static let alertRegex = markdownRegex(
@@ -123,8 +168,9 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         private static let imagePrefixRegex = markdownRegex(#"^\s*!\[[^\]]*\]\([^)]+\)"#)
         private static let taskRegex = markdownRegex(#"^([ \t]*)([-*]\s+\[)([ xX])(\])([ \t]*)"#)
 
-        init(text: Binding<String>) {
+        init(text: Binding<String>, fontSize: CGFloat) {
             _text = text
+            self.fontSize = MarkdownTaskLayout.normalizedFontSize(fontSize)
         }
 
         func textDidChange(_ notification: Notification) {
@@ -148,7 +194,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             }
 
             storage.beginEditing()
-            storage.setAttributes(Self.baseAttributes(), range: fullRange)
+            storage.setAttributes(baseAttributes(), range: fullRange)
             let taskItems = styleBlocks(in: storage)
             styleInline(in: storage)
             storage.endEditing()
@@ -161,6 +207,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             let fullRange = NSRange(location: 0, length: nsString.length)
             var codeFenceMarker: String?
             var taskItems: [MarkdownTaskTextView.TaskItem] = []
+            let currentFontSize = fontSize
 
             nsString.enumerateSubstrings(in: fullRange, options: [.byLines, .substringNotRequired]) { _, lineRange, _, _ in
                 let line = nsString.substring(with: lineRange)
@@ -169,58 +216,58 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
                 if let marker = codeFenceMarker {
                     if trimmed.hasPrefix(marker) {
-                        storage.addAttributes(Self.codeFenceAttributes(), range: lineRange)
+                        storage.addAttributes(self.codeFenceAttributes(), range: lineRange)
                         codeFenceMarker = nil
                     } else {
-                        storage.addAttributes(Self.codeBlockAttributes(), range: lineRange)
+                        storage.addAttributes(self.codeBlockAttributes(), range: lineRange)
                     }
                     return
                 }
 
                 if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
-                    storage.addAttributes(Self.codeFenceAttributes(), range: lineRange)
+                    storage.addAttributes(self.codeFenceAttributes(), range: lineRange)
                     codeFenceMarker = trimmed.hasPrefix("~~~") ? "~~~" : "```"
                     return
                 }
 
                 if trimmed == "---" || trimmed == "***" {
-                    storage.addAttributes(Self.ruleAttributes(), range: lineRange)
+                    storage.addAttributes(self.ruleAttributes(), range: lineRange)
                     return
                 }
 
                 if let heading = Self.headingLevel(in: line) {
-                    storage.addAttributes(Self.headingAttributes(level: heading.level), range: lineRange)
-                    storage.addAttributes(Self.markerAttributes(), range: NSRange(location: lineRange.location, length: heading.markerLength))
+                    storage.addAttributes(self.headingAttributes(level: heading.level), range: lineRange)
+                    storage.addAttributes(self.markerAttributes(), range: NSRange(location: lineRange.location, length: heading.markerLength))
                     return
                 }
 
                 if let alert = Self.alertPrefix(in: line, lineRange: lineRange) {
-                    storage.addAttributes(Self.alertAttributes(kind: alert.kind, level: alert.level), range: lineRange)
-                    storage.addAttributes(Self.markerAttributes(), range: alert.markerRange)
-                    storage.addAttributes(Self.alertKindAttributes(kind: alert.kind), range: alert.kindRange)
+                    storage.addAttributes(self.alertAttributes(kind: alert.kind, level: alert.level), range: lineRange)
+                    storage.addAttributes(self.markerAttributes(), range: alert.markerRange)
+                    storage.addAttributes(self.alertKindAttributes(kind: alert.kind), range: alert.kindRange)
                     return
                 }
 
                 if let quote = Self.quotePrefix(in: line, lineRange: lineRange) {
-                    storage.addAttributes(Self.quoteAttributes(level: quote.level), range: lineRange)
-                    storage.addAttributes(Self.markerAttributes(), range: quote.markerRange)
+                    storage.addAttributes(self.quoteAttributes(level: quote.level), range: lineRange)
+                    storage.addAttributes(self.markerAttributes(), range: quote.markerRange)
                     return
                 }
 
                 if let reference = Self.prefixRange(regex: Self.referenceDefinitionRegex, in: line, lineRange: lineRange) {
-                    storage.addAttributes(Self.referenceDefinitionAttributes(), range: lineRange)
-                    storage.addAttributes(Self.markerAttributes(), range: reference)
+                    storage.addAttributes(self.referenceDefinitionAttributes(), range: lineRange)
+                    storage.addAttributes(self.markerAttributes(), range: reference)
                     return
                 }
 
                 if let marker = Self.prefixRange(regex: Self.imagePrefixRegex, in: line, lineRange: lineRange) {
-                    storage.addAttributes(Self.imageAttributes(), range: lineRange)
-                    storage.addAttributes(Self.markerAttributes(), range: marker)
+                    storage.addAttributes(self.imageAttributes(), range: lineRange)
+                    storage.addAttributes(self.markerAttributes(), range: marker)
                     return
                 }
 
-                if let task = Self.taskPrefix(in: line, lineRange: lineRange) {
-                    storage.addAttributes(Self.taskAttributes(done: task.done, indentationWidth: task.indentationWidth), range: lineRange)
+                if let task = Self.taskPrefix(in: line, lineRange: lineRange, fontSize: currentFontSize) {
+                    storage.addAttributes(self.taskAttributes(done: task.done, indentationWidth: task.indentationWidth), range: lineRange)
                     storage.addAttributes(task.markerAttributes, range: task.markerRange)
                     taskItems.append(
                         MarkdownTaskTextView.TaskItem(
@@ -233,14 +280,14 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                     return
                 }
 
-                if let list = Self.listPrefix(in: line, lineRange: lineRange) {
-                    storage.addAttributes(Self.listAttributes(indentationWidth: list.indentationWidth), range: lineRange)
-                    storage.addAttributes(Self.markerAttributes(), range: list.markerRange)
+                if let list = Self.listPrefix(in: line, lineRange: lineRange, fontSize: currentFontSize) {
+                    storage.addAttributes(self.listAttributes(indentationWidth: list.indentationWidth), range: lineRange)
+                    storage.addAttributes(self.markerAttributes(), range: list.markerRange)
                     return
                 }
 
                 if Self.isTableLikeLine(line) {
-                    storage.addAttributes(Self.tableAttributes(), range: lineRange)
+                    storage.addAttributes(self.tableAttributes(), range: lineRange)
                 }
             }
 
@@ -256,7 +303,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
         private func apply(rule: InlineRule, in storage: NSTextStorage, range: NSRange) {
             rule.regex.matches(in: storage.string, range: range).forEach { match in
-                storage.addAttributes(rule.attributes, range: match.range)
+                storage.addAttributes(attributes(for: rule.style), range: match.range)
             }
         }
 
@@ -302,7 +349,8 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
         private static func listPrefix(
             in line: String,
-            lineRange: NSRange
+            lineRange: NSRange,
+            fontSize: CGFloat
         ) -> (markerRange: NSRange, indentationWidth: CGFloat)? {
             guard let match = listRegex.firstMatch(in: line, range: NSRange(location: 0, length: (line as NSString).length))
             else { return nil }
@@ -311,7 +359,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             let indentationText = (line as NSString).substring(with: indentation)
             return (
                 NSRange(location: lineRange.location + match.range.location, length: match.range.length),
-                MarkdownTaskLayout.textWidth(indentationText)
+                MarkdownTaskLayout.textWidth(indentationText, fontSize: fontSize)
             )
         }
 
@@ -328,7 +376,8 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
         private static func taskPrefix(
             in line: String,
-            lineRange: NSRange
+            lineRange: NSRange,
+            fontSize: CGFloat
         ) -> (
             markerRange: NSRange,
             stateRange: NSRange,
@@ -342,16 +391,16 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             let markerRange = NSRange(location: lineRange.location + match.range.location, length: match.range.length)
             let indentation = match.range(at: 1)
             let indentationText = (line as NSString).substring(with: indentation)
-            let indentationWidth = MarkdownTaskLayout.textWidth(indentationText)
+            let indentationWidth = MarkdownTaskLayout.textWidth(indentationText, fontSize: fontSize)
 
             let markerText = (line as NSString).substring(with: match.range)
-            let rawMarkerWidth = max(1, MarkdownTaskLayout.textWidth(markerText))
-            let desiredMarkerWidth = indentationWidth + MarkdownTaskLayout.slotWidth
+            let rawMarkerWidth = max(1, MarkdownTaskLayout.textWidth(markerText, fontSize: fontSize))
+            let desiredMarkerWidth = indentationWidth + MarkdownTaskLayout.slotWidth(for: fontSize)
             let markerLength = max(1, (markerText as NSString).length)
             let markerKern = (desiredMarkerWidth - rawMarkerWidth) / CGFloat(markerLength)
             let markerAttributes: [NSAttributedString.Key: Any] = [
                 .foregroundColor: NSColor.clear,
-                .font: MarkdownTaskLayout.baseFont,
+                .font: MarkdownTaskLayout.baseFont(for: fontSize),
                 .kern: markerKern
             ]
 
@@ -367,24 +416,53 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             )
         }
 
-        private static func baseAttributes() -> [NSAttributedString.Key: Any] {
+        func baseTypingAttributes() -> [NSAttributedString.Key: Any] {
+            baseAttributes()
+        }
+
+        private func attributes(for style: InlineStyle) -> [NSAttributedString.Key: Any] {
+            switch style {
+            case .inlineCode:
+                inlineCodeAttributes()
+            case .boldItalic:
+                boldItalicAttributes()
+            case .bold:
+                [.font: NSFont.boldSystemFont(ofSize: fontSize)]
+            case .italic:
+                [.obliqueness: 0.12]
+            case .strikethrough:
+                [.strikethroughStyle: NSUnderlineStyle.single.rawValue]
+            case .highlight:
+                highlightAttributes()
+            case .image:
+                imageAttributes()
+            case .link:
+                linkAttributes()
+            case .wikiLink:
+                wikiLinkAttributes()
+            case .shortcode:
+                shortcodeAttributes()
+            }
+        }
+
+        private func baseAttributes() -> [NSAttributedString.Key: Any] {
             let paragraph = NSMutableParagraphStyle()
             paragraph.lineSpacing = 3
             paragraph.paragraphSpacing = 7
             return [
-                .font: NSFont.systemFont(ofSize: 15.5),
+                .font: NSFont.systemFont(ofSize: fontSize),
                 .foregroundColor: NSColor.labelColor,
                 .paragraphStyle: paragraph
             ]
         }
 
-        private static func headingAttributes(level: Int) -> [NSAttributedString.Key: Any] {
+        private func headingAttributes(level: Int) -> [NSAttributedString.Key: Any] {
             let size: CGFloat
             switch level {
-            case 1: size = 24
-            case 2: size = 20
-            case 3: size = 17
-            default: size = 15.5
+            case 1: size = fontSize + 8.5
+            case 2: size = fontSize + 4.5
+            case 3: size = fontSize + 1.5
+            default: size = fontSize
             }
 
             let paragraph = NSMutableParagraphStyle()
@@ -397,36 +475,36 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             ]
         }
 
-        private static func quoteAttributes(level: Int) -> [NSAttributedString.Key: Any] {
+        private func quoteAttributes(level: Int) -> [NSAttributedString.Key: Any] {
             let paragraph = NSMutableParagraphStyle()
             let indent = CGFloat(max(1, level)) * 12
             paragraph.headIndent = indent
             paragraph.firstLineHeadIndent = indent
             paragraph.lineSpacing = 4
             return [
-                .font: NSFont.systemFont(ofSize: 15.5),
+                .font: NSFont.systemFont(ofSize: fontSize),
                 .foregroundColor: NSColor.secondaryLabelColor,
                 .obliqueness: 0.12,
                 .paragraphStyle: paragraph
             ]
         }
 
-        private static func alertAttributes(kind: String, level: Int) -> [NSAttributedString.Key: Any] {
+        private func alertAttributes(kind: String, level: Int) -> [NSAttributedString.Key: Any] {
             var attributes = quoteAttributes(level: level)
-            attributes[.backgroundColor] = alertColor(kind: kind).withAlphaComponent(0.08)
+            attributes[.backgroundColor] = Self.alertColor(kind: kind).withAlphaComponent(0.08)
             return attributes
         }
 
-        private static func alertKindAttributes(kind: String) -> [NSAttributedString.Key: Any] {
+        private func alertKindAttributes(kind: String) -> [NSAttributedString.Key: Any] {
             [
-                .font: NSFont.boldSystemFont(ofSize: 13),
-                .foregroundColor: alertColor(kind: kind)
+                .font: NSFont.boldSystemFont(ofSize: MarkdownTaskLayout.markerFontSize(for: fontSize)),
+                .foregroundColor: Self.alertColor(kind: kind)
             ]
         }
 
-        private static func taskAttributes(done: Bool, indentationWidth: CGFloat) -> [NSAttributedString.Key: Any] {
+        private func taskAttributes(done: Bool, indentationWidth: CGFloat) -> [NSAttributedString.Key: Any] {
             let paragraph = NSMutableParagraphStyle()
-            let contentIndent = indentationWidth + MarkdownTaskLayout.slotWidth
+            let contentIndent = indentationWidth + MarkdownTaskLayout.slotWidth(for: fontSize)
             paragraph.headIndent = contentIndent
             paragraph.firstLineHeadIndent = 0
             paragraph.lineSpacing = 3
@@ -449,105 +527,105 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             ]
         }
 
-        private static func listAttributes(indentationWidth: CGFloat) -> [NSAttributedString.Key: Any] {
+        private func listAttributes(indentationWidth: CGFloat) -> [NSAttributedString.Key: Any] {
             let paragraph = NSMutableParagraphStyle()
-            let contentIndent = indentationWidth + 18
+            let contentIndent = indentationWidth + fontSize + 2.5
             paragraph.headIndent = contentIndent
             paragraph.firstLineHeadIndent = indentationWidth
             paragraph.lineSpacing = 3
             return [.paragraphStyle: paragraph]
         }
 
-        private static func tableAttributes() -> [NSAttributedString.Key: Any] {
+        private func tableAttributes() -> [NSAttributedString.Key: Any] {
             [
-                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .regular),
+                .font: NSFont.monospacedSystemFont(ofSize: MarkdownTaskLayout.monoFontSize(for: fontSize), weight: .regular),
                 .backgroundColor: NSColor.controlAccentColor.withAlphaComponent(0.06)
             ]
         }
 
-        private static func codeFenceAttributes() -> [NSAttributedString.Key: Any] {
+        private func codeFenceAttributes() -> [NSAttributedString.Key: Any] {
             [
-                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .semibold),
+                .font: NSFont.monospacedSystemFont(ofSize: MarkdownTaskLayout.monoFontSize(for: fontSize), weight: .semibold),
                 .foregroundColor: NSColor.secondaryLabelColor
             ]
         }
 
-        private static func codeBlockAttributes() -> [NSAttributedString.Key: Any] {
+        private func codeBlockAttributes() -> [NSAttributedString.Key: Any] {
             let paragraph = NSMutableParagraphStyle()
             paragraph.lineSpacing = 2
             paragraph.paragraphSpacing = 2
             return [
-                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .regular),
+                .font: NSFont.monospacedSystemFont(ofSize: MarkdownTaskLayout.monoFontSize(for: fontSize), weight: .regular),
                 .foregroundColor: NSColor.labelColor,
                 .backgroundColor: NSColor.black.withAlphaComponent(0.07),
                 .paragraphStyle: paragraph
             ]
         }
 
-        private static func inlineCodeAttributes() -> [NSAttributedString.Key: Any] {
+        private func inlineCodeAttributes() -> [NSAttributedString.Key: Any] {
             [
-                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .regular),
+                .font: NSFont.monospacedSystemFont(ofSize: MarkdownTaskLayout.monoFontSize(for: fontSize), weight: .regular),
                 .backgroundColor: NSColor.black.withAlphaComponent(0.08)
             ]
         }
 
-        private static func boldItalicAttributes() -> [NSAttributedString.Key: Any] {
+        private func boldItalicAttributes() -> [NSAttributedString.Key: Any] {
             [
-                .font: NSFont.boldSystemFont(ofSize: 15.5),
+                .font: NSFont.boldSystemFont(ofSize: fontSize),
                 .obliqueness: 0.12
             ]
         }
 
-        private static func highlightAttributes() -> [NSAttributedString.Key: Any] {
+        private func highlightAttributes() -> [NSAttributedString.Key: Any] {
             [
                 .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.24)
             ]
         }
 
-        private static func linkAttributes() -> [NSAttributedString.Key: Any] {
+        private func linkAttributes() -> [NSAttributedString.Key: Any] {
             [
                 .foregroundColor: NSColor.systemBlue,
                 .underlineStyle: NSUnderlineStyle.single.rawValue
             ]
         }
 
-        private static func wikiLinkAttributes() -> [NSAttributedString.Key: Any] {
+        private func wikiLinkAttributes() -> [NSAttributedString.Key: Any] {
             [
                 .foregroundColor: NSColor.systemPurple,
                 .underlineStyle: NSUnderlineStyle.single.rawValue
             ]
         }
 
-        private static func imageAttributes() -> [NSAttributedString.Key: Any] {
+        private func imageAttributes() -> [NSAttributedString.Key: Any] {
             [
                 .foregroundColor: NSColor.systemTeal,
-                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .medium),
+                .font: NSFont.monospacedSystemFont(ofSize: MarkdownTaskLayout.monoFontSize(for: fontSize), weight: .medium),
                 .backgroundColor: NSColor.systemTeal.withAlphaComponent(0.08)
             ]
         }
 
-        private static func referenceDefinitionAttributes() -> [NSAttributedString.Key: Any] {
+        private func referenceDefinitionAttributes() -> [NSAttributedString.Key: Any] {
             [
-                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .regular),
+                .font: NSFont.monospacedSystemFont(ofSize: MarkdownTaskLayout.monoFontSize(for: fontSize), weight: .regular),
                 .foregroundColor: NSColor.secondaryLabelColor
             ]
         }
 
-        private static func shortcodeAttributes() -> [NSAttributedString.Key: Any] {
+        private func shortcodeAttributes() -> [NSAttributedString.Key: Any] {
             [
                 .foregroundColor: NSColor.systemOrange,
-                .font: NSFont.monospacedSystemFont(ofSize: 13.5, weight: .regular)
+                .font: NSFont.monospacedSystemFont(ofSize: MarkdownTaskLayout.monoFontSize(for: fontSize), weight: .regular)
             ]
         }
 
-        private static func markerAttributes() -> [NSAttributedString.Key: Any] {
+        private func markerAttributes() -> [NSAttributedString.Key: Any] {
             [
                 .foregroundColor: NSColor.tertiaryLabelColor,
-                .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+                .font: NSFont.monospacedSystemFont(ofSize: MarkdownTaskLayout.markerFontSize(for: fontSize), weight: .regular)
             ]
         }
 
-        private static func ruleAttributes() -> [NSAttributedString.Key: Any] {
+        private func ruleAttributes() -> [NSAttributedString.Key: Any] {
             [
                 .foregroundColor: NSColor.tertiaryLabelColor,
                 .strikethroughStyle: NSUnderlineStyle.thick.rawValue
@@ -855,6 +933,14 @@ private final class MarkdownTaskTextView: NSTextView {
         let done: Bool
     }
 
+    var bodyFontSize: CGFloat = MarkdownTaskLayout.defaultBaseFontSize {
+        didSet {
+            bodyFontSize = MarkdownTaskLayout.normalizedFontSize(bodyFontSize)
+            typingAttributes = baseTypingAttributes()
+            needsDisplay = true
+        }
+    }
+
     var taskItems: [TaskItem] = [] {
         didSet { needsDisplay = true }
     }
@@ -905,23 +991,23 @@ private final class MarkdownTaskTextView: NSTextView {
             textStorage?.replaceCharacters(in: contentLineRange, with: "")
             didChangeText()
             setSelectedRange(NSRange(location: lineRange.location, length: 0))
-            typingAttributes = Self.baseTypingAttributes()
+            typingAttributes = baseTypingAttributes()
             return true
         }
 
         let insertion = "\n\(indentation)- [ ] "
         guard shouldChangeText(in: selectedRange(), replacementString: insertion) else { return true }
         insertText(insertion, replacementRange: selectedRange())
-        typingAttributes = Self.baseTypingAttributes()
+        typingAttributes = baseTypingAttributes()
         return true
     }
 
-    private static func baseTypingAttributes() -> [NSAttributedString.Key: Any] {
+    private func baseTypingAttributes() -> [NSAttributedString.Key: Any] {
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 3
         paragraph.paragraphSpacing = 7
         return [
-            .font: NSFont.systemFont(ofSize: 15.5),
+            .font: NSFont.systemFont(ofSize: bodyFontSize),
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: paragraph
         ]
@@ -956,21 +1042,23 @@ private final class MarkdownTaskTextView: NSTextView {
 
         for item in taskItems {
             let rect = checkboxRect(for: item)
-            let box = NSBezierPath(roundedRect: rect, xRadius: 3.2, yRadius: 3.2)
+            let scale = rect.width / 13
+            let cornerRadius = max(2.6, rect.width * 0.25)
+            let box = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
             NSColor.controlBackgroundColor.withAlphaComponent(0.35).setFill()
             box.fill()
 
             (item.done ? NSColor.systemCyan : NSColor.tertiaryLabelColor).setStroke()
-            box.lineWidth = item.done ? 1.8 : 1.2
+            box.lineWidth = item.done ? max(1.5, 1.8 * scale) : max(1, 1.2 * scale)
             box.stroke()
 
             guard item.done else { continue }
             let check = NSBezierPath()
-            check.move(to: NSPoint(x: rect.minX + 3.4, y: rect.midY + 0.4))
-            check.line(to: NSPoint(x: rect.minX + 6.4, y: rect.maxY - 3.8))
-            check.line(to: NSPoint(x: rect.maxX - 3.2, y: rect.minY + 3.4))
+            check.move(to: NSPoint(x: rect.minX + 3.4 * scale, y: rect.midY + 0.4 * scale))
+            check.line(to: NSPoint(x: rect.minX + 6.4 * scale, y: rect.maxY - 3.8 * scale))
+            check.line(to: NSPoint(x: rect.maxX - 3.2 * scale, y: rect.minY + 3.4 * scale))
             NSColor.systemCyan.setStroke()
-            check.lineWidth = 1.8
+            check.lineWidth = max(1.5, 1.8 * scale)
             check.lineCapStyle = .round
             check.lineJoinStyle = .round
             check.stroke()
@@ -982,7 +1070,7 @@ private final class MarkdownTaskTextView: NSTextView {
         let firstGlyphIndex = layoutManager.glyphIndexForCharacter(at: item.markerRange.location)
         let lineRect = layoutManager.lineFragmentRect(forGlyphAt: firstGlyphIndex, effectiveRange: nil)
         let origin = textContainerOrigin
-        let size = MarkdownTaskLayout.checkboxSize
+        let size = MarkdownTaskLayout.checkboxSize(for: bodyFontSize)
         return NSRect(
             x: origin.x + lineRect.minX + textContainer.lineFragmentPadding + item.indentationWidth,
             y: origin.y + lineRect.midY - size / 2,

@@ -1,4 +1,5 @@
 @preconcurrency import KeyboardShortcuts
+import Foundation
 import SwiftUI
 
 struct MoreMenuView: View {
@@ -12,24 +13,34 @@ struct MoreMenuView: View {
 
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 15) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(copy.appearance)
-                            .font(.system(size: 13, weight: .semibold))
-                        Spacer()
-                        Text("\(Int(settings.glassStrength * 100))%")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
+                Text(copy.appearance)
+                    .font(.system(size: 13, weight: .semibold))
 
-                    Text(copy.glassHintCompact)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
+                compactSliderRow(
+                    title: copy.editorFontSize,
+                    value: String(format: "%.1fpt", settings.editorFontSize)
+                ) {
+                    Slider(
+                        value: $settings.editorFontSize,
+                        in: AppSettings.minimumEditorFontSize...AppSettings.maximumEditorFontSize,
+                        step: 0.5
+                    )
+                    .tint(.cyan)
                 }
 
-                Slider(value: $settings.glassStrength, in: 0...1)
-                    .tint(.cyan)
+                compactSliderRow(
+                    title: copy.glass,
+                    value: "\(Int(settings.glassStrength * 100))%"
+                ) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Slider(value: $settings.glassStrength, in: 0...1)
+                            .tint(.cyan)
+
+                        Text(copy.glassHintCompact)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
                 Toggle(copy.launchAtLogin, isOn: $settings.launchAtLogin)
                 if let error = settings.launchAtLoginError {
@@ -92,6 +103,26 @@ struct MoreMenuView: View {
         }
         .scrollIndicators(.hidden)
         .background(Color.clear)
+    }
+
+    private func compactSliderRow<Control: View>(
+        title: String,
+        value: String,
+        @ViewBuilder control: () -> Control
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 12.5, weight: .medium))
+                Spacer()
+                Text(value)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+
+            control()
+        }
     }
 }
 

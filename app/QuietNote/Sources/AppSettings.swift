@@ -20,6 +20,9 @@ final class AppSettings: ObservableObject {
     nonisolated static let minimumNoteOpacity = 0.01
     nonisolated static let defaultNoteOpacity = 0.60
     nonisolated static let defaultGlassStrength = 0.10
+    nonisolated static let minimumEditorFontSize = 11.0
+    nonisolated static let maximumEditorFontSize = 28.0
+    nonisolated static let defaultEditorFontSize = 15.5
 
     @Published var noteOpacity: Double {
         didSet {
@@ -32,6 +35,17 @@ final class AppSettings: ObservableObject {
 
     @Published var glassStrength: Double {
         didSet { defaults.set(glassStrength, forKey: Keys.glassStrength) }
+    }
+
+    @Published var editorFontSize: Double {
+        didSet {
+            if editorFontSize < Self.minimumEditorFontSize {
+                editorFontSize = Self.minimumEditorFontSize
+            } else if editorFontSize > Self.maximumEditorFontSize {
+                editorFontSize = Self.maximumEditorFontSize
+            }
+            defaults.set(editorFontSize, forKey: Keys.editorFontSize)
+        }
     }
 
     @Published var alwaysOnTop: Bool {
@@ -65,6 +79,8 @@ final class AppSettings: ObservableObject {
     init() {
         noteOpacity = max(Self.minimumNoteOpacity, defaults.object(forKey: Keys.noteOpacity) as? Double ?? Self.defaultNoteOpacity)
         glassStrength = defaults.object(forKey: Keys.glassStrength) as? Double ?? Self.defaultGlassStrength
+        let storedFontSize = defaults.object(forKey: Keys.editorFontSize) as? Double ?? Self.defaultEditorFontSize
+        editorFontSize = min(max(storedFontSize, Self.minimumEditorFontSize), Self.maximumEditorFontSize)
         alwaysOnTop = defaults.object(forKey: Keys.alwaysOnTop) as? Bool ?? true
         launchAtLogin = LaunchAtLoginController.isEnabled
         launchAtLoginError = nil
@@ -94,6 +110,7 @@ final class AppSettings: ObservableObject {
     private enum Keys {
         static let noteOpacity = "noteOpacity"
         static let glassStrength = "glassStrength"
+        static let editorFontSize = "editorFontSize"
         static let alwaysOnTop = "alwaysOnTop"
         static let monitorClipboard = "monitorClipboard"
         static let clipboardLimit = "clipboardLimit"

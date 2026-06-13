@@ -29,6 +29,22 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
+                LabeledContent(copy.editorFontSize) {
+                    HStack {
+                        Slider(
+                            value: $settings.editorFontSize,
+                            in: AppSettings.minimumEditorFontSize...AppSettings.maximumEditorFontSize,
+                            step: 0.5
+                        )
+                        Text("\(settings.editorFontSize, specifier: "%.1f")pt")
+                            .monospacedDigit()
+                            .frame(width: 54, alignment: .trailing)
+                    }
+                }
+                Text(copy.editorFontSizeHint)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
                 LabeledContent(copy.glass) {
                     HStack {
                         Slider(value: $settings.glassStrength, in: 0...1)
