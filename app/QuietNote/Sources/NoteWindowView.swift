@@ -880,7 +880,9 @@ struct NoteWindowView: View {
         let margin: CGFloat = 12
         let width = max(218, min(310, containerSize.width - margin * 2))
         let recentCount = max(1, min(noteStore.recentFileURLs.count, 7))
-        let maxHeight = max(178, containerSize.height - 48)
+        let topClearance = topDragPassthroughHeight + 8
+        let bottomClearance: CGFloat = 10
+        let maxHeight = max(150, containerSize.height - topClearance - bottomClearance)
         let height = min(maxHeight, 84 + CGFloat(recentCount) * 43)
         let anchor = fileSwitchButtonFrame == .zero
             ? CGRect(x: containerSize.width - 116, y: containerSize.height - 34, width: 24, height: 24)
@@ -892,8 +894,8 @@ struct NoteWindowView: View {
         let centerX = clamped(preferredX, min: minX, max: maxX)
 
         let preferredY = anchor.minY - 8 - height / 2
-        let minY = margin + height / 2
-        let maxY = containerSize.height - margin - height / 2
+        let minY = topClearance + height / 2
+        let maxY = containerSize.height - bottomClearance - height / 2
         let centerY = clamped(preferredY, min: minY, max: maxY)
 
         return (width, height, centerX, centerY)
