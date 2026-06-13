@@ -2,10 +2,29 @@
 import SwiftUI
 
 struct ShortcutSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject var settings: AppSettings
 
     var body: some View {
-        ShortcutSettingsPanel(settings: settings, presentation: .sheet)
+        VStack(alignment: .trailing, spacing: 8) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11.5, weight: .bold))
+                    .foregroundStyle(Color.black.opacity(0.72))
+                    .frame(width: 26, height: 26)
+                    .background {
+                        Circle()
+                            .fill(Color.white.opacity(0.28))
+                            .overlay(Circle().stroke(Color.white.opacity(0.48), lineWidth: 1))
+                    }
+            }
+            .buttonStyle(.plain)
+            .help(settings.language == .chinese ? "关闭" : "Close")
+
+            ShortcutSettingsPanel(settings: settings, presentation: .sheet)
+        }
     }
 }
 
