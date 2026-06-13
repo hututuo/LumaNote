@@ -36,14 +36,14 @@ LumaNote 是为那些需要一直放在手边的小内容做的：一个想法�
 
 推荐从 GitHub Releases 下载最新 DMG：
 
-- [LumaNote-0.1.1-macos-arm64.dmg](https://github.com/hututuo/LumaNote/releases/latest/download/LumaNote-0.1.1-macos-arm64.dmg)
+- [LumaNote-0.1.2-macos-arm64.dmg](https://github.com/hututuo/LumaNote/releases/latest/download/LumaNote-0.1.2-macos-arm64.dmg)
 
 先校验 release 页面提供的 SHA256：
 
 ```bash
-curl -fL https://github.com/hututuo/LumaNote/releases/latest/download/LumaNote-0.1.1-macos-arm64.dmg -o LumaNote-0.1.1-macos-arm64.dmg
-curl -fL https://github.com/hututuo/LumaNote/releases/latest/download/SHA256SUMS-v0.1.1.txt -o SHA256SUMS-v0.1.1.txt
-grep 'LumaNote-0.1.1-macos-arm64.dmg' SHA256SUMS-v0.1.1.txt | shasum -a 256 -c -
+curl -fL https://github.com/hututuo/LumaNote/releases/latest/download/LumaNote-0.1.2-macos-arm64.dmg -o LumaNote-0.1.2-macos-arm64.dmg
+curl -fL https://github.com/hututuo/LumaNote/releases/latest/download/SHA256SUMS-v0.1.2.txt -o SHA256SUMS-v0.1.2.txt
+grep 'LumaNote-0.1.2-macos-arm64.dmg' SHA256SUMS-v0.1.2.txt | shasum -a 256 -c -
 ```
 
 打开 DMG 后，把 `LumaNote.app` 拖到 `Applications` 即可。
