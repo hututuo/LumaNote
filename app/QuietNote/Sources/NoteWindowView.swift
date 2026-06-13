@@ -70,8 +70,8 @@ struct NoteWindowView: View {
         }
         .sheet(isPresented: $showShortcutSettings) {
             ShortcutSettingsView(settings: settings)
-                .frame(width: 420)
-                .padding(22)
+                .frame(width: 360)
+                .padding(16)
         }
         .onReceive(NotificationCenter.default.publisher(for: .quietNoteToggleClipboard)) { _ in
             withAnimation(.snappy(duration: 0.16)) {
