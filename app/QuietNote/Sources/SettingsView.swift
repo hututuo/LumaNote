@@ -41,7 +41,6 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
-                Toggle(copy.alwaysOnTop, isOn: $settings.alwaysOnTop)
                 Toggle(copy.launchAtLogin, isOn: $settings.launchAtLogin)
                 Text(copy.launchAtLoginHint)
                     .font(.footnote)

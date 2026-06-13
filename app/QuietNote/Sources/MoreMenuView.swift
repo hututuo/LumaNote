@@ -31,7 +31,6 @@ struct MoreMenuView: View {
                 Slider(value: $settings.glassStrength, in: 0...1)
                     .tint(.cyan)
 
-                Toggle(copy.alwaysOnTop, isOn: $settings.alwaysOnTop)
                 Toggle(copy.launchAtLogin, isOn: $settings.launchAtLogin)
                 if let error = settings.launchAtLoginError {
                     Text(copy.launchAtLoginFailed + error)
