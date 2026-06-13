@@ -438,11 +438,27 @@ struct NoteWindowView: View {
     }
 
     private var islandTextColor: Color {
-        Color.white.opacity(0.94)
+        Color.black.opacity(0.82)
     }
 
     private var islandIconColor: Color {
-        Color.white.opacity(0.98)
+        Color.black.opacity(0.86)
+    }
+
+    private var detectedIslandTextColor: Color {
+        Color.black.opacity(0.82)
+    }
+
+    private var detectedIslandIconColor: Color {
+        Color.black.opacity(0.86)
+    }
+
+    private var islandSoftShadowColor: Color {
+        Color.white.opacity(0.58)
+    }
+
+    private var detectedIslandHighlightColor: Color {
+        Color.white.opacity(0.58)
     }
 
     private var bottomRail: some View {
@@ -660,7 +676,7 @@ struct NoteWindowView: View {
             Text(noteStore.displayTitle)
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(islandTextColor)
-                .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
+                .shadow(color: islandSoftShadowColor, radius: 1.2, y: 0.5)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .multilineTextAlignment(.center)
@@ -691,14 +707,14 @@ struct NoteWindowView: View {
                 HStack(spacing: 7) {
                     Image(systemName: first.symbol)
                         .font(.system(size: 10, weight: .black))
-                        .foregroundStyle(islandIconColor)
-                        .shadow(color: .black.opacity(0.2), radius: 1, y: 0.5)
+                        .foregroundStyle(detectedIslandIconColor)
+                        .shadow(color: detectedIslandHighlightColor, radius: 1.4, y: 0.5)
                         .frame(width: 14, height: 22)
 
                     Text(first.value)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(islandTextColor)
-                        .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
+                        .font(.system(size: 11.5, weight: .heavy, design: .rounded))
+                        .foregroundStyle(detectedIslandTextColor)
+                        .shadow(color: detectedIslandHighlightColor, radius: 1.6, y: 0.5)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .frame(maxWidth: 122, alignment: .leading)
@@ -706,10 +722,15 @@ struct NoteWindowView: View {
                     if item.detections.count > 1 {
                         Text("+\(item.detections.count - 1)")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(islandTextColor)
+                            .foregroundStyle(detectedIslandTextColor)
+                            .shadow(color: detectedIslandHighlightColor, radius: 1.2, y: 0.4)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(.white.opacity(0.16), in: Capsule())
+                            .background(.white.opacity(0.28), in: Capsule())
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(.black.opacity(0.06), lineWidth: 0.5)
+                            )
                     }
                 }
                 .allowsHitTesting(false)
@@ -721,7 +742,7 @@ struct NoteWindowView: View {
             .frame(height: 26)
             .frame(maxWidth: 168, alignment: .leading)
 
-            clipboardIslandButton
+            detectedClipboardIslandButton
                 .padding(.trailing, 4)
         }
         .padding(.leading, 2)
@@ -739,6 +760,20 @@ struct NoteWindowView: View {
     }
 
     private var clipboardIslandButton: some View {
+        clipboardIslandButtonView(
+            foregroundColor: islandIconColor,
+            shadowColor: .black.opacity(0.2)
+        )
+    }
+
+    private var detectedClipboardIslandButton: some View {
+        clipboardIslandButtonView(
+            foregroundColor: detectedIslandIconColor,
+            shadowColor: detectedIslandHighlightColor
+        )
+    }
+
+    private func clipboardIslandButtonView(foregroundColor: Color, shadowColor: Color) -> some View {
         Button {
             withAnimation(.snappy(duration: 0.16)) {
                 showMore = false
@@ -753,8 +788,8 @@ struct NoteWindowView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(islandIconColor)
-        .shadow(color: .black.opacity(0.2), radius: 1, y: 0.5)
+        .foregroundStyle(foregroundColor)
+        .shadow(color: shadowColor, radius: 1, y: 0.5)
         .background(.white.opacity(0.03 + islandOpacity * 0.08), in: Circle())
         .help("Clipboard")
     }
