@@ -947,7 +947,7 @@ private final class MarkdownTaskTextView: NSTextView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        drawTaskCheckboxes()
+        drawTaskCheckboxes(in: dirtyRect)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -1036,11 +1036,11 @@ private final class MarkdownTaskTextView: NSTextView {
         trimmed == "- [ ]" || trimmed == "* [ ]" || trimmed == "- [x]" || trimmed == "- [X]" || trimmed == "* [x]" || trimmed == "* [X]"
     }
 
-    private func drawTaskCheckboxes() {
+    private func drawTaskCheckboxes(in dirtyRect: NSRect) {
         guard let layoutManager, let textContainer else { return }
-        layoutManager.ensureLayout(for: textContainer)
+        let visibleTasks = taskItemsForDrawing(in: dirtyRect, layoutManager: layoutManager, textContainer: textContainer)
 
-        for item in taskItems {
+        for item in visibleTasks {
             let rect = checkboxRect(for: item)
             let scale = rect.width / 13
             let cornerRadius = max(2.6, rect.width * 0.25)
@@ -1062,6 +1062,25 @@ private final class MarkdownTaskTextView: NSTextView {
             check.lineCapStyle = .round
             check.lineJoinStyle = .round
             check.stroke()
+        }
+    }
+
+    private func taskItemsForDrawing(
+        in dirtyRect: NSRect,
+        layoutManager: NSLayoutManager,
+        textContainer: NSTextContainer
+    ) -> [TaskItem] {
+        guard !taskItems.isEmpty else { return [] }
+
+        let origin = textContainerOrigin
+        let containerDirtyRect = dirtyRect.offsetBy(dx: -origin.x, dy: -origin.y).insetBy(dx: -16, dy: -8)
+        let glyphRange = layoutManager.glyphRange(forBoundingRect: containerDirtyRect, in: textContainer)
+        let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+        guard characterRange.length > 0 else { return [] }
+
+        return taskItems.filter { item in
+            NSIntersectionRange(item.markerRange, characterRange).length > 0
+                || NSLocationInRange(item.markerRange.location, characterRange)
         }
     }
 

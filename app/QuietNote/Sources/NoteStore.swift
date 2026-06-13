@@ -29,7 +29,7 @@ final class NoteStore: ObservableObject {
         }
     }
 
-    @Published private(set) var lastSavedText = "Saved"
+    private(set) var lastSavedText = "Saved"
     @Published private(set) var currentFileURL: URL
     @Published private(set) var recentFileURLs: [URL] = []
     @Published private(set) var displayTitle = ""
@@ -51,7 +51,12 @@ final class NoteStore: ObservableObject {
 
         let initialFileURL: URL
         if let savedPath = defaults.string(forKey: Keys.currentFilePath), !savedPath.isEmpty {
-            initialFileURL = URL(fileURLWithPath: savedPath)
+            if FileManager.default.fileExists(atPath: savedPath) {
+                initialFileURL = URL(fileURLWithPath: savedPath)
+            } else {
+                initialFileURL = defaultFileURL
+                defaults.set(defaultFileURL.path, forKey: Keys.currentFilePath)
+            }
         } else {
             initialFileURL = defaultFileURL
         }
@@ -146,19 +151,19 @@ final class NoteStore: ObservableObject {
     }
 
     private static func title(for markdown: String, currentFileURL: URL) -> String {
-        let lines = markdown.split(whereSeparator: \.isNewline)
-        if let heading = lines.first(where: { line in
-            line.trimmingCharacters(in: .whitespaces).hasPrefix("#")
-        }) {
-            let title = heading
+        var extractedTitle: String?
+        markdown.enumerateLines { line, stop in
+            guard line.trimmingCharacters(in: .whitespaces).hasPrefix("#") else { return }
+            let title = line
                 .trimmingCharacters(in: .whitespaces)
                 .trimmingCharacters(in: CharacterSet(charactersIn: "# "))
             if !title.isEmpty {
-                return title
+                extractedTitle = title
+                stop = true
             }
         }
 
-        return currentFileURL.lastPathComponent
+        return extractedTitle ?? currentFileURL.lastPathComponent
     }
 
     private func rememberRecentFile(_ url: URL) {
