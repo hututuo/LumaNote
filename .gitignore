@@ -10,6 +10,8 @@ DerivedData/
 *.app/
 /app/QuietNote/.build/
 /app/QuietNote/build/
+/appcast-test/*.zip
+/downloads/
 
 # Project run archives and scratch work
 /runs/
@@ -20,4 +22,3 @@ DerivedData/
 # Logs and temporary files
 *.log
 *.tmp
-
