@@ -12,6 +12,31 @@ BACKGROUND_PATH="$ROOT/support/dmg-background.png"
 VOLUME_NAME="LumaNote"
 DMG_PATH="$ROOT/build/LumaNote-$VERSION-macos-arm64.dmg"
 RW_DMG_PATH="$ROOT/build/LumaNote-$VERSION-macos-arm64-rw.dmg"
+DMG_WINDOW_LEFT=120
+DMG_WINDOW_TOP=120
+DMG_WINDOW_WIDTH=840
+DMG_WINDOW_HEIGHT=600
+DMG_BACKGROUND_SCALE=2
+EXPECTED_BACKGROUND_WIDTH=$((DMG_WINDOW_WIDTH * DMG_BACKGROUND_SCALE))
+EXPECTED_BACKGROUND_HEIGHT=$((DMG_WINDOW_HEIGHT * DMG_BACKGROUND_SCALE))
+EXPECTED_BACKGROUND_SIZE="${EXPECTED_BACKGROUND_WIDTH}x${EXPECTED_BACKGROUND_HEIGHT}"
+DMG_WINDOW_RIGHT=$((DMG_WINDOW_LEFT + DMG_WINDOW_WIDTH))
+DMG_WINDOW_BOTTOM=$((DMG_WINDOW_TOP + DMG_WINDOW_HEIGHT))
+
+background_size() {
+  local image_path="$1"
+  [ -f "$image_path" ] || return 1
+  /usr/bin/sips -g pixelWidth -g pixelHeight "$image_path" 2>/dev/null \
+    | awk '/pixelWidth:/ { width=$2 } /pixelHeight:/ { height=$2 } END { if (width && height) printf "%sx%s", width, height }'
+}
+
+generate_background() {
+  "$ROOT/scripts/generate-dmg-background.swift" \
+    "$BACKGROUND_PATH" \
+    "$DMG_WINDOW_WIDTH" \
+    "$DMG_WINDOW_HEIGHT" \
+    "$DMG_BACKGROUND_SCALE"
+}
 
 detach_existing_volumes() {
   hdiutil info | awk -F '\t' -v exact="/Volumes/$VOLUME_NAME" '
@@ -34,8 +59,15 @@ if [ ! -d "$APP_DIR" ]; then
   exit 1
 fi
 
-if [ ! -f "$BACKGROUND_PATH" ] || [ "$ROOT/scripts/generate-dmg-background.swift" -nt "$BACKGROUND_PATH" ]; then
-  "$ROOT/scripts/generate-dmg-background.swift" "$BACKGROUND_PATH"
+if [ ! -f "$BACKGROUND_PATH" ] \
+  || [ "$ROOT/scripts/generate-dmg-background.swift" -nt "$BACKGROUND_PATH" ] \
+  || [ "$(background_size "$BACKGROUND_PATH")" != "$EXPECTED_BACKGROUND_SIZE" ]; then
+  generate_background
+fi
+
+if [ "$(background_size "$BACKGROUND_PATH")" != "$EXPECTED_BACKGROUND_SIZE" ]; then
+  echo "DMG background size must be $EXPECTED_BACKGROUND_SIZE to match the Finder window." >&2
+  exit 1
 fi
 
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
@@ -84,13 +116,13 @@ tell application "Finder"
   try
     set statusbar visible of dmgWindow to false
   end try
-  set bounds of dmgWindow to {120, 120, 960, 720}
+  set bounds of dmgWindow to {$DMG_WINDOW_LEFT, $DMG_WINDOW_TOP, $DMG_WINDOW_RIGHT, $DMG_WINDOW_BOTTOM}
   set viewOptions to icon view options of dmgWindow
   set arrangement of viewOptions to not arranged
   set icon size of viewOptions to 96
   set background picture of viewOptions to (POSIX file "$MOUNT_POINT/.background/dmg-background.png" as alias)
-  set position of item "LumaNote.app" of dmgFolder to {184, 232}
-  set position of item "Applications" of dmgFolder to {538, 232}
+  set position of item "LumaNote.app" of dmgFolder to {214, 307}
+  set position of item "Applications" of dmgFolder to {627, 307}
   update dmgFolder without registering applications
   delay 1
   try
@@ -137,6 +169,10 @@ cleanup_final_mount() {
 trap cleanup_final_mount EXIT
 
 hdiutil attach -nobrowse -readonly -mountpoint "$FINAL_MOUNT" "$DMG_PATH" >/dev/null
+if [ "$(background_size "$FINAL_MOUNT/.background/dmg-background.png")" != "$EXPECTED_BACKGROUND_SIZE" ]; then
+  echo "Final DMG background size does not match the Finder window." >&2
+  exit 1
+fi
 if ! strings -a "$FINAL_MOUNT/.DS_Store" | grep -q "backgroundImageAlias"; then
   echo "Final DMG styling failed: .DS_Store does not contain backgroundImageAlias." >&2
   exit 1

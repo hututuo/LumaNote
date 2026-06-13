@@ -1,12 +1,43 @@
 #!/usr/bin/env swift
 import AppKit
 
-let outputPath = CommandLine.arguments.dropFirst().first ?? "support/dmg-background.png"
-let width = 720
-let height = 460
-let scale: CGFloat = 2
-let size = NSSize(width: width, height: height)
-let image = NSImage(size: size)
+let args = Array(CommandLine.arguments.dropFirst())
+let outputPath = args.indices.contains(0) ? args[0] : "support/dmg-background.png"
+
+func numericArgument(_ index: Int, fallback: CGFloat) -> CGFloat {
+    guard args.indices.contains(index), let value = Double(args[index]) else {
+        return fallback
+    }
+    return CGFloat(value)
+}
+
+// Finder icon-view coordinates use the same logical units as AppleScript window
+// bounds; the bitmap keeps that logical size while outputting Retina 2x pixels.
+let canvasWidth = numericArgument(1, fallback: 840)
+let canvasHeight = numericArgument(2, fallback: 600)
+let pixelScale = max(0.25, numericArgument(3, fallback: 2))
+let pixelWidth = max(1, Int((canvasWidth * pixelScale).rounded(.toNearestOrAwayFromZero)))
+let pixelHeight = max(1, Int((canvasHeight * pixelScale).rounded(.toNearestOrAwayFromZero)))
+
+guard let bitmap = NSBitmapImageRep(
+    bitmapDataPlanes: nil,
+    pixelsWide: pixelWidth,
+    pixelsHigh: pixelHeight,
+    bitsPerSample: 8,
+    samplesPerPixel: 4,
+    hasAlpha: true,
+    isPlanar: false,
+    colorSpaceName: .deviceRGB,
+    bytesPerRow: 0,
+    bitsPerPixel: 0
+) else {
+    fatalError("Unable to create bitmap")
+}
+bitmap.size = NSSize(width: canvasWidth, height: canvasHeight)
+
+guard let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
+    fatalError("Unable to create graphics context")
+}
 
 func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> NSColor {
     let r = CGFloat((hex >> 16) & 0xff) / 255
@@ -72,16 +103,27 @@ func drawArrow(from start: CGPoint, to end: CGPoint) {
     shine.stroke()
 }
 
-image.lockFocusFlipped(false)
-NSGraphicsContext.current?.imageInterpolation = .high
+NSGraphicsContext.saveGraphicsState()
+NSGraphicsContext.current = context
+context.imageInterpolation = .high
+context.shouldAntialias = true
 
-let bounds = NSRect(x: 0, y: 0, width: width, height: height)
+let bounds = NSRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight)
 let bg = NSGradient(colors: [
     color(0xF8FBFF),
     color(0xECF8F7),
     color(0xF7F2FF)
 ])!
 bg.draw(in: bounds, angle: 135)
+
+let baseWidth: CGFloat = 720
+let baseHeight: CGFloat = 460
+let contentScale = min(canvasWidth / baseWidth, canvasHeight / baseHeight)
+let contentOffsetX = (canvasWidth - baseWidth * contentScale) / 2
+let contentOffsetY = (canvasHeight - baseHeight * contentScale) / 2
+context.cgContext.saveGState()
+context.cgContext.translateBy(x: contentOffsetX, y: contentOffsetY)
+context.cgContext.scaleBy(x: contentScale, y: contentScale)
 
 for item in [
     (NSRect(x: -60, y: 250, width: 220, height: 220), color(0x7DD3FC, 0.18)),
@@ -149,11 +191,10 @@ for x in stride(from: 50, through: 670, by: 26) {
     p.stroke()
 }
 
-image.unlockFocus()
+context.cgContext.restoreGState()
+NSGraphicsContext.restoreGraphicsState()
 
-guard let tiff = image.tiffRepresentation,
-      let bitmap = NSBitmapImageRep(data: tiff),
-      let png = bitmap.representation(using: .png, properties: [.compressionFactor: 0.95]) else {
+guard let png = bitmap.representation(using: .png, properties: [.compressionFactor: 0.95]) else {
     fatalError("Unable to render PNG")
 }
 
