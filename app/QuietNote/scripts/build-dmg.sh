@@ -13,6 +13,22 @@ VOLUME_NAME="LumaNote"
 DMG_PATH="$ROOT/build/LumaNote-$VERSION-macos-arm64.dmg"
 RW_DMG_PATH="$ROOT/build/LumaNote-$VERSION-macos-arm64-rw.dmg"
 
+detach_existing_volumes() {
+  hdiutil info | awk -F '\t' -v exact="/Volumes/$VOLUME_NAME" '
+    /^\/dev\// { device=$1 }
+    $NF ~ /^\/Volumes\// {
+      mount=$NF
+      if (mount == exact || mount ~ ("^" exact " [0-9]+$")) {
+        print device
+      }
+    }
+  ' | while read -r device; do
+    if [ -n "$device" ]; then
+      hdiutil detach "$device" >/dev/null 2>&1 || true
+    fi
+  done
+}
+
 if [ ! -d "$APP_DIR" ]; then
   echo "Missing $APP_DIR. Run ./scripts/build-app.sh first." >&2
   exit 1
@@ -24,6 +40,7 @@ fi
 
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 
+detach_existing_volumes
 rm -rf "$DMG_DIR" "$DMG_PATH" "$RW_DMG_PATH"
 mkdir -p "$STAGING_DIR/.background"
 
@@ -55,7 +72,7 @@ cleanup_mount() {
 }
 trap cleanup_mount EXIT
 
-if ! osascript <<APPLESCRIPT
+osascript <<APPLESCRIPT
 tell application "Finder"
   set dmgFolder to (POSIX file "$MOUNT_POINT" as alias)
   open dmgFolder
@@ -67,7 +84,7 @@ tell application "Finder"
   try
     set statusbar visible of dmgWindow to false
   end try
-  set bounds of dmgWindow to {120, 120, 840, 580}
+  set bounds of dmgWindow to {120, 120, 960, 720}
   set viewOptions to icon view options of dmgWindow
   set arrangement of viewOptions to not arranged
   set icon size of viewOptions to 96
@@ -81,12 +98,25 @@ tell application "Finder"
   end try
 end tell
 APPLESCRIPT
-then
-  echo "Warning: Finder DMG styling failed; continuing with an unstyled but installable DMG." >&2
+
+if [ ! -f "$MOUNT_POINT/.DS_Store" ]; then
+  echo "Finder styling failed: .DS_Store was not written." >&2
+  exit 1
+fi
+
+if ! strings -a "$MOUNT_POINT/.DS_Store" | grep -q "backgroundImageAlias"; then
+  echo "Finder styling failed: .DS_Store does not contain backgroundImageAlias." >&2
+  exit 1
+fi
+
+if ! strings -a "$MOUNT_POINT/.DS_Store" | grep -q "dmg-background.png"; then
+  echo "Finder styling failed: .DS_Store does not reference dmg-background.png." >&2
+  exit 1
 fi
 
 sync
 sleep 1
+rm -rf "$MOUNT_POINT/.fseventsd" "$MOUNT_POINT/.Trashes" "$MOUNT_POINT/.TemporaryItems"
 hdiutil detach "$MOUNT_POINT" >/dev/null
 trap - EXIT
 
@@ -98,4 +128,24 @@ hdiutil convert "$RW_DMG_PATH" \
 rm -f "$RW_DMG_PATH"
 
 hdiutil verify "$DMG_PATH"
+
+FINAL_MOUNT="$(mktemp -d /tmp/lumanote-dmg-check.XXXXXX)"
+cleanup_final_mount() {
+  hdiutil detach "$FINAL_MOUNT" >/dev/null 2>&1 || true
+  rmdir "$FINAL_MOUNT" >/dev/null 2>&1 || true
+}
+trap cleanup_final_mount EXIT
+
+hdiutil attach -nobrowse -readonly -mountpoint "$FINAL_MOUNT" "$DMG_PATH" >/dev/null
+if ! strings -a "$FINAL_MOUNT/.DS_Store" | grep -q "backgroundImageAlias"; then
+  echo "Final DMG styling failed: .DS_Store does not contain backgroundImageAlias." >&2
+  exit 1
+fi
+if ! strings -a "$FINAL_MOUNT/.DS_Store" | grep -q "dmg-background.png"; then
+  echo "Final DMG styling failed: .DS_Store does not reference dmg-background.png." >&2
+  exit 1
+fi
+cleanup_final_mount
+trap - EXIT
+
 echo "$DMG_PATH"
