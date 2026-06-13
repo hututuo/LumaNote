@@ -12,6 +12,7 @@ struct AppText {
     var glassHint: String { text("控制背景模糊、泛白和玻璃质感。", "Controls blur, haze, and the frosted glass feel.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }
     var shortcuts: String { text("快捷键", "Shortcuts") }
+    var globalShortcuts: String { text("全局快捷键", "Global shortcuts") }
     var toggleNoteShortcut: String { text("呼出/隐藏便签：", "Show/hide note:") }
     var showNoteShortcut: String { text("只呼出便签：", "Show only:") }
     var hideNoteShortcut: String { text("只隐藏便签：", "Hide only:") }
@@ -22,7 +23,14 @@ struct AppText {
     var monitorLocally: String { text("本地监听", "Monitor locally") }
     var clear: String { text("清空", "Clear") }
     var clearClipboard: String { text("清空剪切板库", "Clear clipboard library") }
-    var keyboardShortcutNote: String { text("快捷键会保存在本机；QuietNote 运行时全局生效。", "Shortcuts are stored locally and work globally while QuietNote is running.") }
+    var keyboardShortcutNote: String { text("快捷键保存在本机；系统或菜单冲突会在录入时提醒。", "Shortcuts are stored locally; system or menu conflicts are shown while recording.") }
+    var resetShortcuts: String { text("恢复默认", "Reset Defaults") }
+    var shortcutNoConflict: String { text("无冲突", "No conflicts") }
+    var shortcutConflictDetected: String { text("发现冲突", "Conflict found") }
+    var shortcutEntrySubtitle: String { text("冲突检测 / 恢复默认", "Conflict check / reset") }
+    var shortcutDefaultPrefix: String { text("默认", "Default") }
+    var shortcutUnset: String { text("未设置", "Not set") }
+    var shortcutConflictHint: String { text("下面这些动作使用了同一个快捷键：", "These actions use the same shortcut:") }
     var appearance: String { text("外观", "Appearance") }
     var glassHintCompact: String { text("模糊 / 泛白 / 质感", "Blur / haze / texture") }
     var hideNote: String { text("隐藏便签", "Hide Note") }
@@ -56,6 +64,10 @@ struct AppText {
 
     func keepCompact(_ count: Int) -> String {
         text("保留 \(count)", "Keep \(count)")
+    }
+
+    func shortcutConflictLine(shortcut: String, actions: String) -> String {
+        text("\(shortcut)：\(actions)", "\(shortcut): \(actions)")
     }
 
     private func text(_ chinese: String, _ english: String) -> String {
