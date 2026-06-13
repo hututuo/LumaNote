@@ -165,13 +165,11 @@ struct NoteWindowView: View {
             let metrics = moreOverlayMetrics(in: proxy.size)
 
             ZStack(alignment: .topLeading) {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
+                dismissBackdropWithTopDragPassthrough {
                         withAnimation(.snappy(duration: 0.14)) {
                             showMore = false
                         }
-                    }
+                }
 
                 MoreMenuView(
                     settings: settings,
@@ -227,13 +225,11 @@ struct NoteWindowView: View {
             let metrics = fileSwitcherOverlayMetrics(in: proxy.size)
 
             ZStack(alignment: .topLeading) {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
+                dismissBackdropWithTopDragPassthrough {
                         withAnimation(.snappy(duration: 0.14)) {
                             showFileSwitcher = false
                         }
-                    }
+                }
 
                 FileSwitcherView(
                     settings: settings,
@@ -419,6 +415,19 @@ struct NoteWindowView: View {
 
     private var topDragPassthroughHeight: CGFloat {
         38
+    }
+
+    private func dismissBackdropWithTopDragPassthrough(onDismiss: @escaping () -> Void) -> some View {
+        VStack(spacing: 0) {
+            Color.clear
+                .frame(height: topDragPassthroughHeight)
+                .allowsHitTesting(false)
+
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onDismiss)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func closeClipboardOnFocusLoss() {
@@ -811,7 +820,10 @@ struct NoteWindowView: View {
     private func moreOverlayMetrics(in containerSize: CGSize) -> (width: CGFloat, height: CGFloat, centerX: CGFloat, centerY: CGFloat) {
         let margin: CGFloat = 12
         let width = max(210, min(286, containerSize.width - margin * 2))
-        let height = max(178, min(360, containerSize.height - 58))
+        let topClearance = topDragPassthroughHeight + 8
+        let bottomClearance: CGFloat = 10
+        let availableHeight = max(210, containerSize.height - topClearance - bottomClearance)
+        let height = min(430, availableHeight)
         let anchor = moreButtonFrame == .zero
             ? CGRect(x: containerSize.width - 44, y: containerSize.height - 34, width: 24, height: 24)
             : moreButtonFrame
@@ -822,8 +834,8 @@ struct NoteWindowView: View {
         let centerX = clamped(preferredX, min: minX, max: maxX)
 
         let preferredY = anchor.minY - 8 - height / 2
-        let minY = margin + height / 2
-        let maxY = containerSize.height - margin - height / 2
+        let minY = topClearance + height / 2
+        let maxY = containerSize.height - bottomClearance - height / 2
         let centerY = clamped(preferredY, min: minY, max: maxY)
 
         return (width, height, centerX, centerY)
