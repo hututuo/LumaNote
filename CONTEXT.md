@@ -27,6 +27,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 
 ## Current Build Entry
 
+- 2026-06-13 public release: v0.1.2 / build 3 was built in release mode, ad-hoc signed with stable requirement `identifier "com.hututuo.lumanote"`, uploaded to GitHub Releases at `https://github.com/hututuo/LumaNote/releases/tag/v0.1.2`, and marked latest. Assets uploaded: `LumaNote-0.1.2-macos-arm64.dmg`, `LumaNote-0.1.2-macos-arm64.zip`, `LumaNote.app.zip`, and `SHA256SUMS-v0.1.2.txt`. Remote asset SHA256 verification passed; remote appcast points to the v0.1.2 Sparkle zip and the downloaded zip signature verified with Sparkle account `com.hututuo.lumanote`. The final DMG was opened in Finder for visual inspection and passed the background/window-size gate (`840x600`).
 - 2026-06-11 local packaging review: DMG background copy now says `系统设置 → 隐私与安全 → 滑到最底下找到 LumaNote`, and `prepare-release.sh` keeps the GitHub Release download prefix ending in `/` so Sparkle appcast URLs stay correct. `LUMANOTE_ALLOW_DIRTY=1 app/QuietNote/scripts/prepare-release.sh` completed successfully and produced a reviewable v0.1.1 DMG/zip/checksum set under `app/QuietNote/build/releases/v0.1.1/`; mounted DMG verification found both `.DS_Store` and `.background/dmg-background.png`. No GitHub push/release was performed in this step.
 - App source: `app/QuietNote/`
 - Visual reference: `design/quiet-rail-note_reference_20260607-100100.png`
@@ -34,8 +35,8 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Build script: `app/QuietNote/scripts/build-app.sh` compiles, packages, ad-hoc signs with the explicit designated requirement `identifier "com.hututuo.lumanote"`, and verifies `build/LumaNote.app`.
 - DMG script: `app/QuietNote/scripts/build-dmg.sh` packages the signed app with an `/Applications` symlink and custom glass installer background into `build/LumaNote-<version>-macos-arm64.dmg`.
 - Release script: `app/QuietNote/scripts/prepare-release.sh` builds the app, verifies the stable signing requirement, creates the DMG, Sparkle update zip, compatibility zip, and `SHA256SUMS-v<version>.txt` under `app/QuietNote/build/releases/v<version>/`.
-- Current release notes: `docs/releases/v0.1.1.md`.
-- Current release audit: `docs/releases/v0.1.1-audit.md`.
+- Current release notes: `docs/releases/v0.1.2.md`.
+- Current release audit: `docs/releases/v0.1.2-audit.md`.
 - Current visual verification: `app/QuietNote/runs/20260607-101650_opacity-readability/screen.png`
 - Current live-render verification: `app/QuietNote/runs/20260607-102025_live-render-editor/screen.png`
 - Current drag-handle/display verification: `app/QuietNote/runs/20260607-102630_visible-drag-bars-display/screen.png`
