@@ -15,6 +15,7 @@ final class NotePanelController {
     private let clipboardStore: ClipboardStore
     private let panel: NSPanel
     private var cancellables: Set<AnyCancellable> = []
+    private var visibilityAnimationGeneration = 0
 
     init(settings: AppSettings, noteStore: NoteStore, clipboardStore: ClipboardStore) {
         self.settings = settings
@@ -55,7 +56,10 @@ final class NotePanelController {
             settings: settings,
             noteStore: noteStore,
             clipboardStore: clipboardStore,
-            onClose: { [weak panel] in panel?.orderOut(nil) }
+            onClose: { [weak noteStore, weak panel] in
+                noteStore?.saveNow()
+                panel?.orderOut(nil)
+            }
         )
         let hosting = NSHostingView(rootView: root)
         hosting.translatesAutoresizingMaskIntoConstraints = true
@@ -70,7 +74,9 @@ final class NotePanelController {
     }
 
     func show(animated: Bool = true) {
+        visibilityAnimationGeneration += 1
         guard !panel.isVisible else {
+            panel.alphaValue = 1
             panel.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -89,6 +95,8 @@ final class NotePanelController {
 
     func hide(animated: Bool = true) {
         guard panel.isVisible else { return }
+        visibilityAnimationGeneration += 1
+        let generation = visibilityAnimationGeneration
         noteStore.saveNow()
 
         guard animated else {
@@ -99,8 +107,9 @@ final class NotePanelController {
             context.duration = 0.16
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0
-        } completionHandler: { [weak panel] in
+        } completionHandler: { [weak self, weak panel] in
             Task { @MainActor in
+                guard self?.visibilityAnimationGeneration == generation else { return }
                 panel?.orderOut(nil)
                 panel?.alphaValue = 1
             }
