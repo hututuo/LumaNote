@@ -55,7 +55,7 @@ extract_appcast_signature() {
 require_clean_tree
 require_release_notes
 
-"$ROOT/scripts/build-app.sh"
+LUMANOTE_BUILD_CONFIGURATION=release "$ROOT/scripts/build-app.sh"
 codesign -d -r- "$ROOT/build/$APP_BUNDLE" 2>&1 | grep -F "designated => identifier \"$BUNDLE_ID\"" >/dev/null
 
 rm -rf "$RELEASE_DIR"
