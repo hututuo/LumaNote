@@ -39,4 +39,21 @@ final class ClipboardDetectorTests: XCTestCase {
         XCTAssertEqual(detections.first?.kind, .file)
         XCTAssertEqual(detections.first?.value, "/Users/ceshi/Applications/Codex Token Bar.app")
     }
+
+    func testConfidentDetectionsFollowOriginalTextOrder() {
+        let detections = ClipboardDetector.detect(in: "电话 13800138000，邮箱 person@example.com")
+
+        XCTAssertGreaterThanOrEqual(detections.count, 2)
+        XCTAssertEqual(detections[0].kind, .phone)
+        XCTAssertEqual(detections[0].value, "13800138000")
+        XCTAssertEqual(detections[1].kind, .email)
+        XCTAssertEqual(detections[1].value, "person@example.com")
+    }
+
+    func testColonFallbackTextMovesAfterConfidentDetections() {
+        let detections = ClipboardDetector.detect(in: "备注：明天下午 电话：13800138000 邮箱：person@example.com")
+
+        XCTAssertEqual(detections.map(\.kind), [.phone, .email, .text])
+        XCTAssertEqual(detections.map(\.value), ["13800138000", "person@example.com", "明天下午"])
+    }
 }
