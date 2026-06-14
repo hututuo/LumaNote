@@ -52,6 +52,10 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(alwaysOnTop, forKey: Keys.alwaysOnTop) }
     }
 
+    @Published var autoHideChrome: Bool {
+        didSet { defaults.set(autoHideChrome, forKey: Keys.autoHideChrome) }
+    }
+
     @Published var launchAtLogin: Bool {
         didSet {
             guard !isSyncingLaunchAtLogin, launchAtLogin != oldValue else { return }
@@ -82,6 +86,7 @@ final class AppSettings: ObservableObject {
         let storedFontSize = defaults.object(forKey: Keys.editorFontSize) as? Double ?? Self.defaultEditorFontSize
         editorFontSize = min(max(storedFontSize, Self.minimumEditorFontSize), Self.maximumEditorFontSize)
         alwaysOnTop = defaults.object(forKey: Keys.alwaysOnTop) as? Bool ?? true
+        autoHideChrome = defaults.object(forKey: Keys.autoHideChrome) as? Bool ?? true
         launchAtLogin = LaunchAtLoginController.isEnabled
         launchAtLoginError = nil
         monitorClipboard = defaults.object(forKey: Keys.monitorClipboard) as? Bool ?? true
@@ -112,6 +117,7 @@ final class AppSettings: ObservableObject {
         static let glassStrength = "glassStrength"
         static let editorFontSize = "editorFontSize"
         static let alwaysOnTop = "alwaysOnTop"
+        static let autoHideChrome = "autoHideChrome"
         static let monitorClipboard = "monitorClipboard"
         static let clipboardLimit = "clipboardLimit"
         static let language = "language"

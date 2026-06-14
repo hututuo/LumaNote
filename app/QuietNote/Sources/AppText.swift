@@ -11,6 +11,8 @@ struct AppText {
     var glass: String { text("磨砂强度", "Frosted glass") }
     var glassHint: String { text("控制背景模糊、泛白和玻璃质感。", "Controls blur, haze, and the frosted glass feel.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }
+    var autoHideControls: String { text("自动隐藏控件", "Auto-hide controls") }
+    var keepControlsVisible: String { text("固定显示控件", "Keep controls visible") }
     var shortcuts: String { text("快捷键", "Shortcuts") }
     var globalShortcuts: String { text("全局快捷键", "Global shortcuts") }
     var toggleNoteShortcut: String { text("呼出/隐藏便签：", "Show/hide note:") }
