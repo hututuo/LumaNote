@@ -40,6 +40,7 @@ private enum MarkdownTaskLayout {
 struct MarkdownRenderingEditor: NSViewRepresentable {
     @Binding var text: String
     var fontSize: Double = MarkdownTaskLayout.defaultBaseFontSize
+    var accentColor: NSColor = .systemCyan
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text, fontSize: CGFloat(fontSize))
@@ -77,8 +78,9 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
-        textView.insertionPointColor = .systemCyan
+        textView.insertionPointColor = accentColor
         textView.bodyFontSize = context.coordinator.fontSize
+        textView.taskAccentColor = accentColor
         textView.typingAttributes = context.coordinator.baseTypingAttributes()
         textView.string = text
 
@@ -94,10 +96,16 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         var didReplaceText = false
         let newFontSize = MarkdownTaskLayout.normalizedFontSize(CGFloat(fontSize))
         let didChangeFontSize = abs(context.coordinator.fontSize - newFontSize) > 0.05
+        let taskTextView = textView as? MarkdownTaskTextView
+        let didChangeAccentColor = taskTextView.map { !$0.taskAccentColor.isEqual(accentColor) } ?? false
         if didChangeFontSize {
             context.coordinator.fontSize = newFontSize
-            (textView as? MarkdownTaskTextView)?.bodyFontSize = newFontSize
+            taskTextView?.bodyFontSize = newFontSize
             textView.typingAttributes = context.coordinator.baseTypingAttributes()
+        }
+        if didChangeAccentColor {
+            textView.insertionPointColor = accentColor
+            taskTextView?.taskAccentColor = accentColor
         }
         if textView.string != text {
             let selectedRanges = textView.selectedRanges
@@ -108,6 +116,8 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         if didReplaceText || didChangeFontSize {
             context.coordinator.applyMarkdownStyle()
             (scrollView as? MarkdownScrollView)?.invalidateDocumentHeight()
+        } else if didChangeAccentColor {
+            textView.needsDisplay = true
         }
         (scrollView as? MarkdownScrollView)?.refreshScrollIndicator()
     }
@@ -941,6 +951,10 @@ private final class MarkdownTaskTextView: NSTextView {
         }
     }
 
+    var taskAccentColor: NSColor = .systemCyan {
+        didSet { needsDisplay = true }
+    }
+
     var taskItems: [TaskItem] = [] {
         didSet { needsDisplay = true }
     }
@@ -1048,7 +1062,7 @@ private final class MarkdownTaskTextView: NSTextView {
             NSColor.controlBackgroundColor.withAlphaComponent(0.35).setFill()
             box.fill()
 
-            (item.done ? NSColor.systemCyan : NSColor.tertiaryLabelColor).setStroke()
+            (item.done ? taskAccentColor : NSColor.tertiaryLabelColor).setStroke()
             box.lineWidth = item.done ? max(1.5, 1.8 * scale) : max(1, 1.2 * scale)
             box.stroke()
 
@@ -1057,7 +1071,7 @@ private final class MarkdownTaskTextView: NSTextView {
             check.move(to: NSPoint(x: rect.minX + 3.4 * scale, y: rect.midY + 0.4 * scale))
             check.line(to: NSPoint(x: rect.minX + 6.4 * scale, y: rect.maxY - 3.8 * scale))
             check.line(to: NSPoint(x: rect.maxX - 3.2 * scale, y: rect.minY + 3.4 * scale))
-            NSColor.systemCyan.setStroke()
+            taskAccentColor.setStroke()
             check.lineWidth = max(1.5, 1.8 * scale)
             check.lineCapStyle = .round
             check.lineJoinStyle = .round
