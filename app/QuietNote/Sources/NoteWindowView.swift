@@ -947,8 +947,8 @@ struct NoteWindowView: View {
     @ViewBuilder
     private var extractionIsland: some View {
         if let item = activeDetectedItem,
-           let first = item.detections.first {
-            extractionActionButton(item: item, first: first)
+           !item.detections.isEmpty {
+            extractionActionButton(item: item)
                 .transition(.asymmetric(
                     insertion: .scale(scale: 0.84, anchor: .center).combined(with: .opacity),
                     removal: .scale(scale: 0.92, anchor: .center).combined(with: .opacity)
@@ -1000,70 +1000,60 @@ struct NoteWindowView: View {
         .help(AppText(language: settings.language).dragNote)
     }
 
-    private func extractionActionButton(item: ClipboardItem, first: ClipboardDetection) -> some View {
-        HStack(spacing: 0) {
+    private func extractionActionButton(item: ClipboardItem) -> some View {
+        let summary = extractedKindSummary(for: item.detections)
+
+        return HStack(spacing: 0) {
             islandDragGrip()
 
             ZStack {
-                HStack(spacing: 7) {
-                    Image(systemName: first.symbol)
-                        .font(.system(size: 10, weight: .black))
-                        .foregroundStyle(detectedIslandIconColor)
-                        .shadow(color: detectedIslandHighlightColor, radius: 1.4, y: 0.5)
-                        .frame(width: 14, height: 22)
-
-                    Text(first.value)
-                        .font(.system(size: 11.5, weight: .heavy, design: .rounded))
-                        .foregroundStyle(detectedIslandTextColor)
-                        .shadow(color: detectedIslandHighlightColor, radius: 1.6, y: 0.5)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: 122, alignment: .leading)
-
-                    if item.detections.count > 1 {
-                        Text("+\(item.detections.count - 1)")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(detectedIslandTextColor)
-                            .shadow(color: detectedIslandHighlightColor, radius: 1.2, y: 0.4)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(.white.opacity(0.28), in: Capsule())
-                            .overlay(
-                                Capsule()
-                                    .strokeBorder(.black.opacity(0.06), lineWidth: 0.5)
-                            )
-                    }
-                }
-                .allowsHitTesting(false)
+                Text(summary)
+                    .font(.system(size: 11.5, weight: .heavy, design: .rounded))
+                    .foregroundStyle(detectedIslandTextColor)
+                    .shadow(color: detectedIslandHighlightColor, radius: 1.6, y: 0.5)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .allowsHitTesting(false)
 
                 WindowClickDragView {
                     showExtractionActions.toggle()
                 }
             }
             .frame(height: 26)
-            .frame(maxWidth: 168, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
 
             detectedClipboardIslandButton
+                .frame(width: 22, height: 22)
                 .padding(.trailing, 4)
         }
         .padding(.leading, 2)
         .padding(.trailing, 0)
-        .frame(height: 26, alignment: .leading)
-        .fixedSize(horizontal: true, vertical: false)
-        .frame(maxWidth: 226, alignment: .leading)
+        .frame(width: 226, height: 26)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity, accentColor: settings.accentColor, isHighlighted: true))
         .matchedGeometryEffect(id: "extractionIsland", in: extractionIslandNamespace)
         .help(AppText(language: settings.language).clipboardActions)
     }
 
+    private func extractedKindSummary(for detections: [ClipboardDetection]) -> String {
+        let copy = AppText(language: settings.language)
+        return kindSummary(for: detections, prefix: copy.extractedClipboardPrefix)
+    }
+
     private func detectedKindSummary(for detections: [ClipboardDetection]) -> String {
+        let copy = AppText(language: settings.language)
+        return kindSummary(for: detections, prefix: copy.detectedClipboardPrefix)
+    }
+
+    private func kindSummary(for detections: [ClipboardDetection], prefix: String) -> String {
         let copy = AppText(language: settings.language)
         var seen: Set<ClipboardDetection.Kind> = []
         let names = detections.compactMap { detection -> String? in
             guard seen.insert(detection.kind).inserted else { return nil }
             return copy.clipboardKindName(detection.kind)
         }
-        return copy.detectedClipboardPrefix + names.joined(separator: copy.listSeparator)
+        return prefix + names.joined(separator: copy.listSeparator)
     }
 
     private var clipboardIslandButton: some View {
