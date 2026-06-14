@@ -19,6 +19,7 @@ struct ClipboardDetection: Codable, Identifiable, Equatable, Sendable {
         case email = "Email"
         case phone = "Phone"
         case address = "Address"
+        case file = "File"
         case number = "Number"
         case text = "Text"
     }
@@ -127,6 +128,10 @@ final class ClipboardStore: ObservableObject {
     }
 
     func open(_ detection: ClipboardDetection) {
+        if detection.kind == .file, let url = detection.fileURL {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            return
+        }
         guard let url = detection.openURL else { return }
         NSWorkspace.shared.open(url)
     }
@@ -241,6 +246,7 @@ extension ClipboardDetection {
         case .email: "envelope"
         case .phone: "phone"
         case .address: "mappin.and.ellipse"
+        case .file: "folder"
         case .number: "number"
         case .text: "text.quote"
         }
@@ -252,6 +258,7 @@ extension ClipboardDetection {
         case .email: "Send Email"
         case .phone: "Call"
         case .address: "Open in Maps"
+        case .file: "Open in Finder"
         case .number: nil
         case .text: nil
         }
@@ -263,6 +270,7 @@ extension ClipboardDetection {
         case .email: "paperplane"
         case .phone: "phone.arrow.up.right"
         case .address: "map"
+        case .file: "folder"
         case .number: "arrow.up.right"
         case .text: "doc.on.doc"
         }
@@ -283,10 +291,19 @@ extension ClipboardDetection {
         case .address:
             guard let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
             return URL(string: "http://maps.apple.com/?q=\(encoded)")
+        case .file:
+            return fileURL
         case .number:
             return nil
         case .text:
             return nil
         }
+    }
+
+    var fileURL: URL? {
+        guard kind == .file else { return nil }
+        let expandedPath = (value as NSString).expandingTildeInPath
+        guard expandedPath.hasPrefix("/") else { return nil }
+        return URL(fileURLWithPath: expandedPath)
     }
 }
