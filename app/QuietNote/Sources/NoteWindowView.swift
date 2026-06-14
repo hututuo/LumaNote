@@ -661,7 +661,7 @@ struct NoteWindowView: View {
         .frame(width: width, height: 18)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity))
         .contentShape(Capsule(style: .continuous))
-        .help("Show controls")
+        .help(AppText(language: settings.language).showControls)
     }
 
     private var collapsedBottomChromeHandle: some View {
@@ -687,7 +687,7 @@ struct NoteWindowView: View {
         .frame(width: 58, height: collapsedBottomChromeHeight)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity))
         .contentShape(Capsule(style: .continuous))
-        .help("Show controls")
+        .help(AppText(language: settings.language).showControls)
     }
 
     private var collapsedHandlePulseOverlay: some View {
@@ -748,7 +748,11 @@ struct NoteWindowView: View {
                 railButton(symbol: "square.and.arrow.down", help: copy.saveAsNoteFile, size: buttonSize) {
                     saveNoteFileAs()
                 }
-                railButton(symbol: settings.alwaysOnTop ? "pin.fill" : "pin", help: "Pin", size: buttonSize) {
+                railButton(
+                    symbol: settings.alwaysOnTop ? "pin.fill" : "pin",
+                    help: settings.alwaysOnTop ? copy.disableAlwaysOnTop : copy.alwaysOnTop,
+                    size: buttonSize
+                ) {
                     settings.alwaysOnTop.toggle()
                 }
                 railButton(
@@ -763,7 +767,7 @@ struct NoteWindowView: View {
                         }
                     }
                 }
-                railButton(symbol: "ellipsis", help: "More", size: buttonSize, hitSize: max(30, buttonSize + 8)) {
+                railButton(symbol: "ellipsis", help: copy.more, size: buttonSize, hitSize: max(30, buttonSize + 8)) {
                     withAnimation(.snappy(duration: 0.14)) {
                         showClipboard = false
                         showExtractionActions = false
@@ -945,7 +949,7 @@ struct NoteWindowView: View {
         .frame(width: 190, height: 26)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity))
         .matchedGeometryEffect(id: "extractionIsland", in: extractionIslandNamespace)
-        .help("Drag note")
+        .help(AppText(language: settings.language).dragNote)
     }
 
     private func extractionActionButton(item: ClipboardItem, first: ClipboardDetection) -> some View {
@@ -1001,7 +1005,7 @@ struct NoteWindowView: View {
         .frame(maxWidth: 226, alignment: .leading)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity))
         .matchedGeometryEffect(id: "extractionIsland", in: extractionIslandNamespace)
-        .help("Clipboard actions")
+        .help(AppText(language: settings.language).clipboardActions)
         .popover(isPresented: $showExtractionActions, arrowEdge: .top) {
             extractionActionsPopover(item: item)
                 .frame(width: 310)
@@ -1040,7 +1044,7 @@ struct NoteWindowView: View {
         .foregroundStyle(foregroundColor)
         .shadow(color: shadowColor, radius: 1, y: 0.5)
         .background(.white.opacity(0.03 + islandOpacity * 0.08), in: Circle())
-        .help("Clipboard")
+        .help(AppText(language: settings.language).openClipboardLibrary)
     }
 
     private func extractionActionsPopover(item: ClipboardItem) -> some View {
@@ -1067,6 +1071,7 @@ struct NoteWindowView: View {
                         } label: {
                             Label(copy.copy, systemImage: "doc.on.doc")
                         }
+                        .help(copy.copyExtracted)
 
                         if let openTitle = detection.openTitle {
                             Button {
@@ -1075,6 +1080,7 @@ struct NoteWindowView: View {
                             } label: {
                                 Label(openTitle, systemImage: detection.openSymbol)
                             }
+                            .help(openTitle)
                         }
                     }
                     .font(.system(size: 11, weight: .medium))
@@ -1214,6 +1220,7 @@ private struct FileSwitcherView: View {
             }
             .buttonStyle(.plain)
             .background(.white.opacity(0.08 + settings.noteOpacity * 0.06), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .help(copy.openNewFile)
 
             Rectangle()
                 .fill(.white.opacity(0.16 + settings.noteOpacity * 0.16))
@@ -1284,6 +1291,7 @@ private struct FileSwitcherView: View {
             isCurrent(url) ? Color.cyan.opacity(0.08) : Color.white.opacity(0.04),
             in: RoundedRectangle(cornerRadius: 9, style: .continuous)
         )
+        .help(copy.switchToFile(url.lastPathComponent))
     }
 
     private func isCurrent(_ url: URL) -> Bool {

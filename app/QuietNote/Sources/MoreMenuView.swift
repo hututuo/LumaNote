@@ -78,6 +78,7 @@ struct MoreMenuView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(clipboardStore.items.isEmpty)
+                    .help(copy.clearClipboard)
                 }
 
                 Divider()
@@ -122,6 +123,7 @@ struct MoreMenuView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .help(copy.globalShortcuts)
 
                 Divider()
 
@@ -131,6 +133,7 @@ struct MoreMenuView: View {
                     Label(copy.hideNote, systemImage: "eye.slash")
                 }
                 .buttonStyle(.plain)
+                .help(copy.hideNote)
             }
             .padding(16)
         }

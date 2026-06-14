@@ -58,7 +58,7 @@ struct ClipboardLibraryView: View {
                 .buttonStyle(.plain)
                 .background(.white.opacity(0.08), in: Circle())
                 .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
-                .help(copy.clear)
+                .help(copy.clearClipboard)
                 .disabled(store.items.isEmpty)
             }
             .padding(.horizontal, 13)
@@ -177,11 +177,11 @@ private struct ClipboardRow: View {
             HStack(spacing: 7) {
                 Spacer(minLength: 0)
 
-                rowActionButton(symbol: "doc.on.doc", help: copy.copy) {
+                rowActionButton(symbol: "doc.on.doc", help: copy.copyClipboardItem) {
                     store.copy(item.text)
                 }
 
-                rowActionButton(symbol: "trash", help: "Delete", role: .destructive) {
+                rowActionButton(symbol: "trash", help: copy.deleteClipboardItem, role: .destructive) {
                     store.delete(item)
                 }
             }
@@ -291,6 +291,7 @@ private struct DetectionChip: View {
         .popover(isPresented: $showActions, arrowEdge: .top) {
             actionsPopover(copy: copy)
         }
+        .help(copy.showExtractedActions)
     }
 
     private var bubbleLabel: some View {
@@ -363,6 +364,7 @@ private struct DetectionChip: View {
             } label: {
                 Label(copy.copyExtracted, systemImage: "doc.on.doc")
             }
+            .help(copy.copyExtracted)
 
             if let openTitle = detection.openTitle {
                 Button {
@@ -371,6 +373,7 @@ private struct DetectionChip: View {
                 } label: {
                     Label(openTitle, systemImage: detection.openSymbol)
                 }
+                .help(openTitle)
             }
         }
         .font(.system(size: 12, weight: .medium))
