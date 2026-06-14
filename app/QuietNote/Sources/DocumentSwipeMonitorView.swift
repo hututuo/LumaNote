@@ -52,8 +52,9 @@ final class DocumentSwipeMonitorNSView: NSView {
     private var lastProgressUpdate = Date.distantPast
     private var idleFinishGeneration = 0
 
-    private let triggerThreshold: CGFloat = 120
-    private let lockThreshold: CGFloat = 12
+    private let triggerThreshold: CGFloat = 78
+    private let lockThreshold: CGFloat = 8
+    private let progressTravelThreshold: CGFloat = 156
     private let dominanceRatio: CGFloat = 1.55
     private let lockDominanceRatio: CGFloat = 1.22
     private let triggerCooldown: TimeInterval = 0.46
@@ -187,7 +188,7 @@ final class DocumentSwipeMonitorNSView: NSView {
     }
 
     private func publishProgressIfNeeded(force: Bool = false) {
-        let rawProgress = accumulatedX / triggerThreshold
+        let rawProgress = accumulatedX / progressTravelThreshold
         let progress = min(max(rawProgress, -1.12), 1.12)
         let now = Date()
         guard force
