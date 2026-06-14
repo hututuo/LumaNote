@@ -132,6 +132,10 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(language.rawValue, forKey: Keys.language) }
     }
 
+    @Published var hasCompletedOnboarding: Bool {
+        didSet { defaults.set(hasCompletedOnboarding, forKey: Keys.hasCompletedOnboarding) }
+    }
+
     private let defaults = UserDefaults.standard
     private var isSyncingLaunchAtLogin = false
 
@@ -156,6 +160,7 @@ final class AppSettings: ObservableObject {
         monitorClipboard = defaults.object(forKey: Keys.monitorClipboard) as? Bool ?? true
         clipboardLimit = defaults.object(forKey: Keys.clipboardLimit) as? Int ?? 200
         language = AppLanguage(rawValue: defaults.string(forKey: Keys.language) ?? "") ?? .chinese
+        hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding) as? Bool ?? false
     }
 
     func refreshLaunchAtLoginStatus() {
@@ -186,5 +191,6 @@ final class AppSettings: ObservableObject {
         static let monitorClipboard = "monitorClipboard"
         static let clipboardLimit = "clipboardLimit"
         static let language = "language"
+        static let hasCompletedOnboarding = "hasCompletedOnboarding.v1"
     }
 }

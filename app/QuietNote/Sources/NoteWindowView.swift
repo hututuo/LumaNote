@@ -75,6 +75,14 @@ struct NoteWindowView: View {
                 extractionActionsInlineOverlay(item: item)
             }
         }
+        .overlay {
+            if !settings.hasCompletedOnboarding {
+                OnboardingView(settings: settings) {
+                    markChromeActivity(forceReschedule: true)
+                }
+                .zIndex(80)
+            }
+        }
         .frame(
             minWidth: NoteWindowLayout.minimumSize.width,
             minHeight: NoteWindowLayout.minimumSize.height

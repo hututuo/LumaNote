@@ -2,6 +2,7 @@
 
 | 路径 | 创建时间 | 最近修改 | 类型 | 用途 | 是否可删除 | 关联任务 | 备注 |
 |---|---|---|---|---|---|---|---|
+| `app/QuietNote/Sources/OnboardingView.swift` / `app/QuietNote/Sources/AppSettings.swift` / `app/QuietNote/Sources/AppText.swift` / `app/QuietNote/Sources/NoteWindowView.swift` / `CONTEXT.md` | 2026-06-14 17:02 | 2026-06-14 17:02 | 启动引导页 | 首次启动显示玻璃风格引导，介绍 LumaNote、推荐自动更新和开机自启、并引导设置呼出/隐藏快捷键 | 不建议删除 | 启动引导页面 | 新增本地 `hasCompletedOnboarding.v1` 完成标记；引导完成或跳过后不再自动弹出；验证：`swift test`、`git diff --check`、`./scripts/build-app.sh` 通过，并已重启 `build/LumaNote.app` |
 | `app/QuietNote/Sources/ClipboardLibraryView.swift` / `PROJECT_INDEX.md` | 2026-06-14 16:12 | 2026-06-14 16:12 | 剪切板搜索框描边 | 给剪切板库搜索框外圈增加细黑描边，让搜索区域在玻璃背景上更清楚 | 不建议删除 | 搜索框外面需要细黑描边 | 搜索框边线从白色 1pt 改为黑色 0.75pt、18% 透明度；验证：`swift test`、`git diff --check`、`./scripts/build-app.sh` 通过，并已重启 `build/LumaNote.app` |
 | `app/QuietNote/Sources/ClipboardLibraryView.swift` / `app/QuietNote/Sources/NoteWindowView.swift` / `CONTEXT.md` | 2026-06-14 16:06 | 2026-06-14 16:06 | 剪切板文字可读性 | 将剪切板库、提取气泡和提取动作窗口里的文字从白色/系统 primary 改为深色墨水，提高玻璃面板里的可读性 | 不建议删除 | 剪切板里面白字看不清 | 保留玻璃高光和白色边线作为材质，不再用于文字前景；验证：`swift test`、`git diff --check`、`./scripts/build-app.sh` 通过，并已重启 `build/LumaNote.app` |
 | `app/QuietNote/Sources/NoteWindowView.swift` / `CONTEXT.md` | 2026-06-14 15:47 | 2026-06-14 15:47 | 提取动作浮窗描边 | 给点击顶部识别胶囊后弹出的提取动作窗口增加一圈淡蓝色外描边和轻微蓝色阴影，让它与底部 Markdown 正文区域区分开 | 不建议删除 | 智慧窗口与 Markdown 区分 | 保持窗口内统一玻璃材质和原有主题色提取值描边不变；验证：`swift test`、`git diff --check`、`./scripts/build-app.sh` 通过，并已重启 `build/LumaNote.app` |
