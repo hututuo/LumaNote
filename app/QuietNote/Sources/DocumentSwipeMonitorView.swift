@@ -52,7 +52,7 @@ final class DocumentSwipeMonitorNSView: NSView {
     private var lastProgressUpdate = Date.distantPast
     private var idleFinishGeneration = 0
 
-    private let triggerThreshold: CGFloat = 78
+    private let triggerThreshold: CGFloat = 55
     private let lockThreshold: CGFloat = 8
     private let progressTravelThreshold: CGFloat = 220
     private let dominanceRatio: CGFloat = 1.55

@@ -767,7 +767,7 @@ struct NoteWindowView: View {
                 : noteStore.switchToPreviousDocument()
 
             if didSwitch {
-                markChromeActivity(revealIfCollapsed: false, forceReschedule: true)
+                markChromeActivity(revealIfCollapsed: true, forceReschedule: true)
                 var transaction = Transaction(animation: nil)
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
