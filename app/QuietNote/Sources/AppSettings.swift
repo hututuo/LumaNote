@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -33,6 +34,17 @@ enum AppThemeColor: String, CaseIterable, Identifiable {
         case .violet: Color(red: 0.58, green: 0.42, blue: 0.95)
         case .rose: Color(red: 0.95, green: 0.34, blue: 0.58)
         case .amber: Color(red: 0.98, green: 0.58, blue: 0.16)
+        }
+    }
+
+    var nsColor: NSColor {
+        switch self {
+        case .aqua: NSColor(calibratedRed: 0.10, green: 0.72, blue: 0.86, alpha: 1)
+        case .sky: NSColor(calibratedRed: 0.28, green: 0.50, blue: 1.00, alpha: 1)
+        case .mint: NSColor(calibratedRed: 0.10, green: 0.72, blue: 0.48, alpha: 1)
+        case .violet: NSColor(calibratedRed: 0.58, green: 0.42, blue: 0.95, alpha: 1)
+        case .rose: NSColor(calibratedRed: 0.95, green: 0.34, blue: 0.58, alpha: 1)
+        case .amber: NSColor(calibratedRed: 0.98, green: 0.58, blue: 0.16, alpha: 1)
         }
     }
 
@@ -125,6 +137,10 @@ final class AppSettings: ObservableObject {
 
     var accentColor: Color {
         themeColor.color
+    }
+
+    var accentNSColor: NSColor {
+        themeColor.nsColor
     }
 
     init() {

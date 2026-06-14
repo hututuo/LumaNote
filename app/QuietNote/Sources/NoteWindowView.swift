@@ -435,7 +435,11 @@ struct NoteWindowView: View {
     }
 
     private var content: some View {
-        MarkdownRenderingEditor(text: $noteStore.markdown, fontSize: settings.editorFontSize)
+        MarkdownRenderingEditor(
+            text: $noteStore.markdown,
+            fontSize: settings.editorFontSize,
+            accentColor: settings.accentNSColor
+        )
             .mask {
                 markdownContentFadeMask
             }
@@ -1126,6 +1130,28 @@ struct NoteWindowView: View {
                         }
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.primary.opacity(0.82))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background {
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(settings.accentColor.opacity(0.035))
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [
+                                            settings.accentColor.opacity(0.36),
+                                            .white.opacity(0.20),
+                                            settings.accentColor.opacity(0.16)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 0.9
+                                )
+                        }
 
                         HStack(spacing: 8) {
                             Button {
