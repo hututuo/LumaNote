@@ -219,21 +219,39 @@ final class NoteStore: ObservableObject {
 
     @discardableResult
     func switchWorkspaceDocument(offset: Int) -> Bool {
-        let urls = activeWorkspaceFileURLs
-        guard urls.count > 1 else { return false }
-
-        let currentPath = currentFileURL.standardizedFileURL.path
-        guard let currentIndex = urls.firstIndex(where: { $0.standardizedFileURL.path == currentPath }) else {
-            rememberFileInActiveWorkspace(currentFileURL)
+        guard let nextURL = workspaceDocumentURL(offset: offset) else {
+            let currentPath = currentFileURL.standardizedFileURL.path
+            let urls = activeWorkspaceFileURLs
+            if !urls.contains(where: { $0.standardizedFileURL.path == currentPath }) {
+                rememberFileInActiveWorkspace(currentFileURL)
+            }
             return false
         }
 
-        let nextIndex = (currentIndex + offset + urls.count) % urls.count
-        let nextURL = urls[nextIndex]
-        guard nextURL.standardizedFileURL.path != currentPath else { return false }
-
         openWorkspaceDocument(at: nextURL)
         return true
+    }
+
+    func workspaceDocumentURL(offset: Int) -> URL? {
+        let urls = activeWorkspaceFileURLs
+        guard urls.count > 1 else { return nil }
+
+        let currentPath = currentFileURL.standardizedFileURL.path
+        guard let currentIndex = urls.firstIndex(where: { $0.standardizedFileURL.path == currentPath }) else { return nil }
+
+        let nextIndex = (currentIndex + offset + urls.count) % urls.count
+        let nextURL = urls[nextIndex]
+        guard nextURL.standardizedFileURL.path != currentPath else { return nil }
+
+        return nextURL
+    }
+
+    func workspaceDocumentPreview(offset: Int) -> (url: URL, text: String)? {
+        guard let url = workspaceDocumentURL(offset: offset),
+              let text = try? String(contentsOf: url, encoding: .utf8)
+        else { return nil }
+
+        return (url, text)
     }
 
     func createWorkspace(named rawName: String, includeCurrentFile: Bool = true) {

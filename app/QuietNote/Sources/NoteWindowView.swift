@@ -4,6 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct NoteWindowView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var settings: AppSettings
     @ObservedObject var noteStore: NoteStore
     @ObservedObject var clipboardStore: ClipboardStore
@@ -25,7 +26,16 @@ struct NoteWindowView: View {
     @State private var chromeHintPulse = false
     @State private var documentSwipeProgress: CGFloat = 0
     @State private var isDocumentSwipeAnimating = false
+    @State private var documentSwipePreview: DocumentSwipePreview?
+    @State private var documentSwipePreviewRevision = 0
     @Namespace private var extractionIslandNamespace
+
+    private struct DocumentSwipePreview: Identifiable, Equatable {
+        let id: String
+        let offset: Int
+        let text: String
+        let revision: Int
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -465,18 +475,32 @@ struct NoteWindowView: View {
 
     private var content: some View {
         GeometryReader { proxy in
-            MarkdownRenderingEditor(
-                text: $noteStore.markdown,
-                contentRevision: noteStore.markdownRevision,
-                fontSize: settings.editorFontSize,
-                accentColor: settings.accentNSColor
-            )
-            .frame(width: proxy.size.width, height: proxy.size.height)
+            ZStack {
+                MarkdownRenderingEditor(
+                    text: $noteStore.markdown,
+                    contentRevision: noteStore.markdownRevision,
+                    fontSize: settings.editorFontSize,
+                    accentColor: settings.accentNSColor
+                )
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .offset(x: documentSwipeCurrentOffset(for: proxy.size.width))
+
+                if let documentSwipePreview {
+                    MarkdownRenderingEditor(
+                        text: .constant(documentSwipePreview.text),
+                        contentRevision: documentSwipePreview.revision,
+                        fontSize: settings.editorFontSize,
+                        accentColor: settings.accentNSColor
+                    )
+                    .id(documentSwipePreview.id)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .offset(x: documentSwipePreviewOffset(for: proxy.size.width, preview: documentSwipePreview))
+                    .allowsHitTesting(false)
+                }
+            }
             .mask {
                 markdownContentFadeMask
             }
-            .offset(x: documentSwipeOffset(for: proxy.size.width))
-            .opacity(documentSwipeOpacity)
         }
         .clipped()
     }
@@ -693,6 +717,17 @@ struct NoteWindowView: View {
 
     private func updateDocumentSwipeProgress(_ progress: CGFloat) {
         guard !isDocumentSwipeAnimating else { return }
+        guard abs(progress) > 0.001 else {
+            cancelDocumentSwipe()
+            return
+        }
+
+        let direction = progress > 0 ? 1 : -1
+        prepareDocumentSwipePreview(offset: direction)
+        guard documentSwipePreview?.offset == direction else {
+            cancelDocumentSwipe()
+            return
+        }
 
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
@@ -706,6 +741,7 @@ struct NoteWindowView: View {
         withAnimation(.snappy(duration: 0.18)) {
             documentSwipeProgress = 0
         }
+        clearDocumentSwipePreviewAfterDelay(0.20)
     }
 
     private func commitDocumentSwipe(offset: Int) {
@@ -713,13 +749,19 @@ struct NoteWindowView: View {
 
         let direction = offset > 0 ? 1 : -1
         let signedDirection = CGFloat(direction)
-        isDocumentSwipeAnimating = true
-
-        withAnimation(.snappy(duration: 0.12)) {
-            documentSwipeProgress = signedDirection * 1.08
+        prepareDocumentSwipePreview(offset: direction)
+        guard documentSwipePreview?.offset == direction else {
+            cancelDocumentSwipe()
+            return
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
+        isDocumentSwipeAnimating = true
+
+        withAnimation(.snappy(duration: 0.16)) {
+            documentSwipeProgress = signedDirection
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
             let didSwitch = direction > 0
                 ? noteStore.switchToNextDocument()
                 : noteStore.switchToPreviousDocument()
@@ -729,30 +771,64 @@ struct NoteWindowView: View {
                 var transaction = Transaction(animation: nil)
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    documentSwipeProgress = -signedDirection * 0.42
-                }
-                withAnimation(.snappy(duration: 0.22)) {
                     documentSwipeProgress = 0
+                    documentSwipePreview = nil
                 }
             } else {
                 withAnimation(.snappy(duration: 0.18)) {
                     documentSwipeProgress = 0
                 }
+                clearDocumentSwipePreviewAfterDelay(0.20)
             }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
                 isDocumentSwipeAnimating = false
             }
         }
     }
 
-    private func documentSwipeOffset(for width: CGFloat) -> CGFloat {
-        let maxShift = min(max(width * 0.58, 80), 190)
-        return -documentSwipeProgress * maxShift
+    private func prepareDocumentSwipePreview(offset: Int) {
+        guard offset != 0 else { return }
+        if documentSwipePreview?.offset == offset {
+            return
+        }
+
+        guard let preview = noteStore.workspaceDocumentPreview(offset: offset) else {
+            documentSwipePreview = nil
+            return
+        }
+
+        documentSwipePreviewRevision &+= 1
+        documentSwipePreview = DocumentSwipePreview(
+            id: "\(preview.url.standardizedFileURL.path)#\(documentSwipePreviewRevision)",
+            offset: offset,
+            text: preview.text,
+            revision: documentSwipePreviewRevision
+        )
     }
 
-    private var documentSwipeOpacity: Double {
-        1 - min(abs(documentSwipeProgress), 1.15) * 0.18
+    private func clearDocumentSwipePreviewAfterDelay(_ delay: TimeInterval) {
+        let previewID = documentSwipePreview?.id
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard documentSwipePreview?.id == previewID,
+                  abs(documentSwipeProgress) <= 0.001,
+                  !isDocumentSwipeAnimating
+            else { return }
+            documentSwipePreview = nil
+        }
+    }
+
+    private func documentSwipeCurrentOffset(for width: CGFloat) -> CGFloat {
+        -documentSwipeProgress * documentSwipeDistance(for: width)
+    }
+
+    private func documentSwipePreviewOffset(for width: CGFloat, preview: DocumentSwipePreview) -> CGFloat {
+        let distance = documentSwipeDistance(for: width)
+        return CGFloat(preview.offset) * distance - documentSwipeProgress * distance
+    }
+
+    private func documentSwipeDistance(for width: CGFloat) -> CGFloat {
+        max(1, width)
     }
 
     private func scheduleChromeAutoCollapse() {
@@ -786,27 +862,39 @@ struct NoteWindowView: View {
     }
 
     private var islandTextColor: Color {
-        Color.black.opacity(0.82)
+        Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.82)
     }
 
     private var islandIconColor: Color {
-        Color.black.opacity(0.86)
+        Color.primary.opacity(colorScheme == .dark ? 0.92 : 0.86)
     }
 
     private var detectedIslandTextColor: Color {
-        Color.black.opacity(0.82)
+        Color.primary.opacity(colorScheme == .dark ? 0.92 : 0.82)
     }
 
     private var detectedIslandIconColor: Color {
-        Color.black.opacity(0.86)
+        Color.primary.opacity(colorScheme == .dark ? 0.94 : 0.86)
     }
 
     private var islandSoftShadowColor: Color {
-        Color.white.opacity(0.58)
+        colorScheme == .dark ? Color.black.opacity(0.46) : Color.white.opacity(0.58)
     }
 
     private var detectedIslandHighlightColor: Color {
-        Color.white.opacity(0.58)
+        colorScheme == .dark ? Color.black.opacity(0.42) : Color.white.opacity(0.58)
+    }
+
+    private var controlInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.84)
+    }
+
+    private var controlStrongInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.94 : 0.86)
+    }
+
+    private var controlSoftInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.76 : 0.76)
     }
 
     @ViewBuilder
@@ -1283,7 +1371,7 @@ struct NoteWindowView: View {
 
                 Text(summary)
                     .font(.system(size: 12.5, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Color.black.opacity(0.86))
+                    .foregroundStyle(controlStrongInkColor)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
@@ -1361,7 +1449,7 @@ struct NoteWindowView: View {
 
                     Text(wrappingExtractionValue(detection.value))
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.black.opacity(0.84))
+                        .foregroundStyle(controlInkColor)
                         .lineLimit(nil)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
@@ -1409,7 +1497,7 @@ struct NoteWindowView: View {
                     }
                 }
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.black.opacity(0.76))
+                .foregroundStyle(controlSoftInkColor)
                 .buttonStyle(.borderless)
             }
             .padding(.vertical, 8)
@@ -1532,6 +1620,7 @@ private struct FileSwitchButtonFramePreferenceKey: PreferenceKey {
 }
 
 private struct FileSwitcherView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var settings: AppSettings
     @ObservedObject var noteStore: NoteStore
 
@@ -1544,6 +1633,10 @@ private struct FileSwitcherView: View {
 
     private var copy: AppText {
         AppText(language: settings.language)
+    }
+
+    private var controlInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.84)
     }
 
     var body: some View {
@@ -1649,7 +1742,7 @@ private struct FileSwitcherView: View {
 
                     Text(noteStore.activeWorkspaceName)
                         .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(Color.black.opacity(0.84))
+                        .foregroundStyle(controlInkColor)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
@@ -1686,7 +1779,7 @@ private struct FileSwitcherView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(url.lastPathComponent)
                             .font(.system(size: 11.5, weight: .semibold))
-                            .foregroundStyle(Color.black.opacity(0.84))
+                            .foregroundStyle(controlInkColor)
                             .lineLimit(1)
                             .truncationMode(.middle)
 
