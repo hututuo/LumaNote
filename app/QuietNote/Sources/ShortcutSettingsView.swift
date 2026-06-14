@@ -74,10 +74,10 @@ struct ShortcutSettingsPanel: View {
 
             shape
                 .fill(.regularMaterial)
-                .opacity(presentation == .sheet ? 1 : 0)
+                .opacity(presentation == .sheet ? 0.60 : 0)
                 .overlay {
                     shape
-                        .fill(Color.white.opacity(presentation == .sheet ? 0.60 : 0.10))
+                        .fill(Color.white.opacity(presentation == .sheet ? 0.10 : 0.10))
                 }
                 .overlay {
                     shape

@@ -123,8 +123,12 @@ struct ClipboardLibraryView: View {
             )
             .blendMode(.plusLighter)
         }
-        .background(Color.white.opacity(0.60))
-        .background(.regularMaterial)
+        .background(Color.white.opacity(0.08))
+        .background {
+            Rectangle()
+                .fill(.regularMaterial)
+                .opacity(0.60)
+        }
     }
 
     private func emptyState(copy: AppText) -> some View {
