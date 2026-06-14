@@ -9,6 +9,7 @@ struct OnboardingView: View {
     @State private var automaticallyChecks = true
 
     private let pageCount = 3
+    private let topDragOverlayHeight: CGFloat = 56
 
     var body: some View {
         let copy = AppText(language: settings.language)
@@ -69,6 +70,10 @@ struct OnboardingView: View {
                     insertion: .scale(scale: 0.96, anchor: .center).combined(with: .opacity),
                     removal: .scale(scale: 0.985, anchor: .center).combined(with: .opacity)
                 ))
+
+                topWindowDragOverlay(windowWidth: proxy.size.width, cardWidth: cardWidth)
+                    .frame(width: proxy.size.width, height: topDragOverlayHeight)
+                    .frame(maxHeight: .infinity, alignment: .top)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -128,6 +133,28 @@ struct OnboardingView: View {
         }
         .padding(.horizontal, 14)
         .padding(.top, 13)
+    }
+
+    private func topWindowDragOverlay(windowWidth: CGFloat, cardWidth: CGFloat) -> some View {
+        let cardLeft = max(0, (windowWidth - cardWidth) / 2)
+        let protectedWidth: CGFloat = 62
+        let protectedMinX = min(windowWidth, max(0, cardLeft + cardWidth - protectedWidth - 4))
+        let leadingWidth = protectedMinX
+        let trailingWidth = max(0, windowWidth - protectedMinX - protectedWidth)
+
+        return HStack(spacing: 0) {
+            WindowDragView()
+                .frame(width: leadingWidth, height: topDragOverlayHeight)
+
+            Color.clear
+                .frame(width: protectedWidth, height: topDragOverlayHeight)
+                .allowsHitTesting(false)
+
+            WindowDragView()
+                .frame(width: trailingWidth, height: topDragOverlayHeight)
+        }
+        .frame(width: windowWidth, height: topDragOverlayHeight)
+        .help(AppText(language: settings.language).dragNote)
     }
 
     private func stepIndicator(copy: AppText) -> some View {
