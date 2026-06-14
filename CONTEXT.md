@@ -76,7 +76,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 ## Implementation Notes
 
 - The note opacity slider controls the glass/readability layers, not the whole NSWindow alpha. Text and controls intentionally stay readable.
-- The compact settings copy distinguishes shell visibility from glass texture: shell visibility controls how obvious the main note shell is, while glass texture only adjusts subtle highlights, edges, and refraction. The glass texture slider should not add broad white haze. New default glass texture strength is 10%.
+- The compact settings copy distinguishes shell visibility from glass texture: shell visibility controls the main shell and white haze strength, while glass texture controls frosted material, highlights, edges, and subtle refraction without adding broad white haze. Both sliders use curved visual mapping so low/mid values stay quiet while high values have a wider visible range. New default glass texture strength is 10%.
 - In-window floating panels are mutually exclusive. Opening the clipboard library, file switcher, more/settings panel, or top clipboard extraction actions should close the other floating panels; clicking outside a panel or leaving the note window should close any transient panel.
 - Settings and the compact More menu include a Markdown editor font-size slider. It persists under `editorFontSize`, defaults to 15.5 pt, clamps to 11-28 pt, and the live Markdown styler scales headings, inline code, code blocks, lists, and task checkboxes from that body size.
 - Markdown editing uses `MarkdownRenderingEditor.swift`, an editable `NSTextView` that live-styles the Markdown source. It saves plain Markdown.

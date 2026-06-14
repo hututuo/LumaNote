@@ -5,11 +5,11 @@ struct AppText {
 
     var note: String { text("便签", "Note") }
     var opacity: String { text("外壳可见度", "Shell visibility") }
-    var opacityHint: String { text("控制主便签外壳有多明显；数值越低越透明。", "Controls how visible the main note shell is; lower values are more transparent.") }
+    var opacityHint: String { text("控制主便签外壳和泛白底有多明显；数值越低越透明。", "Controls how visible the main note shell and white haze are; lower values are more transparent.") }
     var editorFontSize: String { text("字体大小", "Font size") }
     var editorFontSizeHint: String { text("控制正文 Markdown 的显示字号。", "Controls the Markdown editor text size.") }
     var glass: String { text("玻璃质感", "Glass texture") }
-    var glassHint: String { text("控制高光、边缘和轻微折射，不再增加大面积泛白。", "Controls highlights, edges, and subtle refraction without adding broad white haze.") }
+    var glassHint: String { text("控制磨砂材质、高光、边缘和轻微折射，不再大面积叠白。", "Controls frosted material, highlights, edges, and subtle refraction without adding broad white haze.") }
     var themeColor: String { text("主题色", "Theme color") }
     var themeColorHint: String { text("控制按钮、滑杆和剪切板提取气泡的强调色。", "Controls the accent color for buttons, sliders, and extracted clipboard bubbles.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }
@@ -44,7 +44,7 @@ struct AppText {
     var shortcutUnset: String { text("未设置", "Not set") }
     var shortcutConflictHint: String { text("下面这些动作使用了同一个快捷键：", "These actions use the same shortcut:") }
     var appearance: String { text("外观", "Appearance") }
-    var glassHintCompact: String { text("高光 / 边缘 / 轻微质感", "Highlights / edges / subtle texture") }
+    var glassHintCompact: String { text("磨砂 / 高光 / 边缘", "Frost / highlights / edges") }
     var hideNote: String { text("隐藏便签", "Hide Note") }
     var launchAtLogin: String { text("开机自启", "Launch at login") }
     var launchAtLoginHint: String { text("使用 macOS 登录项服务；可能需要系统确认。", "Uses macOS Login Items; macOS may ask for confirmation.") }
