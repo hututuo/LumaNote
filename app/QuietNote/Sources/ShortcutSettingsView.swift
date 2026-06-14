@@ -70,10 +70,22 @@ struct ShortcutSettingsPanel: View {
         }
         .padding(presentation == .sheet ? 14 : 12)
         .background {
-            RoundedRectangle(cornerRadius: presentation == .sheet ? 16 : 12, style: .continuous)
-                .fill(Color.white.opacity(presentation == .sheet ? 0.16 : 0.10))
+            let shape = RoundedRectangle(cornerRadius: presentation == .sheet ? 16 : 12, style: .continuous)
+
+            shape
+                .fill(.regularMaterial)
+                .opacity(presentation == .sheet ? 1 : 0)
                 .overlay {
-                    RoundedRectangle(cornerRadius: presentation == .sheet ? 16 : 12, style: .continuous)
+                    shape
+                        .fill(Color.white.opacity(presentation == .sheet ? 0.70 : 0.10))
+                }
+                .overlay {
+                    shape
+                        .fill(settings.accentColor.opacity(presentation == .sheet ? 0.035 : 0))
+                        .blendMode(.plusLighter)
+                }
+                .overlay {
+                    shape
                         .stroke(Color.white.opacity(0.34), lineWidth: 1)
                 }
         }

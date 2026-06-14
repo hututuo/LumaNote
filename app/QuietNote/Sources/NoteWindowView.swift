@@ -254,18 +254,7 @@ struct NoteWindowView: View {
                 )
                 .frame(width: metrics.width, height: metrics.height)
                 .background {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(.regularMaterial)
-                        .opacity(0.62 + settings.noteOpacity * 0.24)
-                }
-                .background {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(Color(nsColor: .windowBackgroundColor).opacity(0.12 + settings.noteOpacity * 0.18))
-                }
-                .background {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(Color.white.opacity(0.055 + settings.noteOpacity * 0.08))
-                        .blendMode(.plusLighter)
+                    readablePopupPanelBackground()
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                 .overlay(
@@ -339,14 +328,7 @@ struct NoteWindowView: View {
                 )
                 .frame(width: metrics.width, height: metrics.height)
                 .background {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(.regularMaterial)
-                        .opacity(0.1 + settings.noteOpacity * 0.78)
-                }
-                .background {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(Color.white.opacity(0.035 + settings.noteOpacity * 0.08))
-                        .blendMode(.plusLighter)
+                    readablePopupPanelBackground()
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                 .overlay(
@@ -1217,28 +1199,7 @@ struct NoteWindowView: View {
         }
         .padding(12)
         .background {
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(.regularMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(settings.accentColor.opacity(0.025))
-                        .blendMode(.plusLighter)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    .white.opacity(0.48),
-                                    settings.accentColor.opacity(0.18),
-                                    .white.opacity(0.08)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
+            readablePopupPanelBackground(whiteOpacity: 0.70, accentOpacity: 0.045)
         }
         .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         .overlay {
@@ -1246,6 +1207,41 @@ struct NoteWindowView: View {
                 .stroke(panelBlue.opacity(0.34), lineWidth: 1.1)
         }
         .shadow(color: panelBlue.opacity(0.10), radius: 8, y: 1)
+    }
+
+    private func readablePopupPanelBackground(
+        cornerRadius: CGFloat = 15,
+        whiteOpacity: Double = 0.68,
+        accentOpacity: Double = 0.035
+    ) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        return shape
+            .fill(.regularMaterial)
+            .overlay {
+                shape
+                    .fill(Color.white.opacity(whiteOpacity))
+            }
+            .overlay {
+                shape
+                    .fill(settings.accentColor.opacity(accentOpacity))
+                    .blendMode(.plusLighter)
+            }
+            .overlay {
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.18),
+                                .white.opacity(0.05),
+                                .black.opacity(0.025)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .blendMode(.plusLighter)
+            }
     }
 
     private func extractionDetectionRow(_ detection: ClipboardDetection, isLast: Bool, copy: AppText) -> some View {

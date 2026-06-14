@@ -114,14 +114,16 @@ struct ClipboardLibraryView: View {
         .background {
             LinearGradient(
                 colors: [
-                    Color.white.opacity(0.14),
-                    settings.accentColor.opacity(0.05),
-                    Color.black.opacity(0.04)
+                    Color.white.opacity(0.28),
+                    settings.accentColor.opacity(0.06),
+                    Color.black.opacity(0.025)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+            .blendMode(.plusLighter)
         }
+        .background(Color.white.opacity(0.68))
         .background(.regularMaterial)
     }
 
