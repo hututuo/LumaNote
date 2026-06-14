@@ -70,6 +70,13 @@ struct AppText {
     var recentFiles: String { text("最近打开", "Recent files") }
     var noRecentFiles: String { text("没有最近文件", "No recent files") }
     var saveAsNoteFile: String { text("另存为 Markdown 文件", "Save as Markdown file") }
+    var workspace: String { text("工作区", "Workspace") }
+    var switchWorkspace: String { text("切换工作区", "Switch workspace") }
+    var newWorkspace: String { text("新建工作区", "New workspace") }
+    var newWorkspacePrompt: String { text("输入一个工作区名称。当前文档会自动放进新工作区。", "Enter a workspace name. The current document will be added automatically.") }
+    var workspaceDocuments: String { text("工作区文档", "Workspace documents") }
+    var noWorkspaceDocuments: String { text("这个工作区还没有文档", "No documents in this workspace yet") }
+    var removeFromWorkspace: String { text("从工作区移除", "Remove from workspace") }
     var copyExtracted: String { text("复制提取内容", "Copy Extracted") }
     var showExtractedActions: String { text("显示提取内容动作", "Show extracted actions") }
     var noClipboardItems: String { text("没有剪切板记录", "No clipboard items") }
@@ -130,6 +137,14 @@ struct AppText {
 
     func switchToFile(_ filename: String) -> String {
         text("切换到 \(filename)", "Switch to \(filename)")
+    }
+
+    func workspaceDocumentCount(_ count: Int) -> String {
+        text("\(count) 个文档", "\(count) docs")
+    }
+
+    func workspaceDefaultName(_ number: Int) -> String {
+        text("工作区 \(number)", "Workspace \(number)")
     }
 
     func clipboardKindName(_ kind: ClipboardDetection.Kind) -> String {
