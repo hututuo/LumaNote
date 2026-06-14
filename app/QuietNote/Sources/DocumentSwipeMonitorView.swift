@@ -52,13 +52,13 @@ final class DocumentSwipeMonitorNSView: NSView {
     private var lastProgressUpdate = Date.distantPast
     private var idleFinishGeneration = 0
 
-    private let triggerThreshold: CGFloat = 78
-    private let lockThreshold: CGFloat = 8
+    private let triggerThreshold: CGFloat = 120
+    private let lockThreshold: CGFloat = 12
     private let dominanceRatio: CGFloat = 1.55
     private let lockDominanceRatio: CGFloat = 1.22
     private let triggerCooldown: TimeInterval = 0.46
-    private let progressUpdateInterval: TimeInterval = 1.0 / 90.0
-    private let progressEpsilon: CGFloat = 0.018
+    private let progressUpdateInterval: TimeInterval = 1.0 / 120.0
+    private let progressEpsilon: CGFloat = 0.012
     private let gestureIdleTimeout: TimeInterval = 0.18
 
     override func viewDidMoveToWindow() {
