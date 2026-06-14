@@ -1104,7 +1104,7 @@ struct NoteWindowView: View {
 
                 Text(summary)
                     .font(.system(size: 12.5, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.primary.opacity(0.86))
+                    .foregroundStyle(Color.black.opacity(0.86))
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
@@ -1120,7 +1120,7 @@ struct NoteWindowView: View {
                             Image(systemName: detection.symbol)
                         }
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.82))
+                        .foregroundStyle(Color.black.opacity(0.84))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1163,6 +1163,7 @@ struct NoteWindowView: View {
                             }
                         }
                         .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.black.opacity(0.76))
                         .buttonStyle(.borderless)
                     }
                     .padding(.vertical, 8)

@@ -6,6 +6,9 @@ struct ClipboardLibraryView: View {
     @ObservedObject var store: ClipboardStore
     @State private var query = ""
 
+    private let inkColor = Color.black.opacity(0.86)
+    private let softInkColor = Color.black.opacity(0.55)
+
     private var filteredItems: [ClipboardItem] {
         return store.items.filter { item in
             query.isEmpty
@@ -23,7 +26,7 @@ struct ClipboardLibraryView: View {
             HStack(spacing: 9) {
                 Image(systemName: "list.clipboard")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.92))
+                    .foregroundStyle(inkColor)
                     .frame(width: 24, height: 24)
                     .background(
                         LinearGradient(
@@ -41,9 +44,10 @@ struct ClipboardLibraryView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(copy.clipboard)
                         .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(inkColor)
                     Text("\(visibleItems.count)")
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(softInkColor)
                 }
 
                 Spacer()
@@ -68,11 +72,12 @@ struct ClipboardLibraryView: View {
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(softInkColor)
 
                 TextField(copy.searchClipboard, text: $query)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
+                    .foregroundStyle(inkColor)
             }
             .padding(.horizontal, 10)
             .frame(height: 30)
@@ -105,7 +110,7 @@ struct ClipboardLibraryView: View {
                 }
             }
         }
-        .foregroundStyle(.primary.opacity(0.92))
+        .foregroundStyle(inkColor)
         .background {
             LinearGradient(
                 colors: [
@@ -124,7 +129,7 @@ struct ClipboardLibraryView: View {
         VStack(spacing: 9) {
             Image(systemName: "clipboard")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(softInkColor)
                 .frame(width: 46, height: 46)
                 .background(.white.opacity(0.07), in: Circle())
                 .overlay(Circle().stroke(.white.opacity(0.16), lineWidth: 1))
@@ -134,7 +139,7 @@ struct ClipboardLibraryView: View {
 
             Text(copy.noClipboardDescription)
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(softInkColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
         }
@@ -147,6 +152,8 @@ private struct ClipboardRow: View {
     let item: ClipboardItem
     @ObservedObject var settings: AppSettings
     @ObservedObject var store: ClipboardStore
+    private let inkColor = Color.black.opacity(0.86)
+    private let softInkColor = Color.black.opacity(0.55)
 
     var body: some View {
         let copy = AppText(language: settings.language)
@@ -155,7 +162,7 @@ private struct ClipboardRow: View {
             HStack(alignment: .top, spacing: 8) {
                 Text(item.preview)
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.88))
+                    .foregroundStyle(inkColor)
                     .lineLimit(4)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -164,7 +171,7 @@ private struct ClipboardRow: View {
                 Text(item.createdAt, style: .time)
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(softInkColor)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(.white.opacity(0.07), in: Capsule())
@@ -215,6 +222,7 @@ private struct DetectionShelf: View {
     let detections: [ClipboardDetection]
     @ObservedObject var settings: AppSettings
     @ObservedObject var store: ClipboardStore
+    private let inkColor = Color.black.opacity(0.82)
 
     var body: some View {
         let copy = AppText(language: settings.language)
@@ -230,7 +238,7 @@ private struct DetectionShelf: View {
 
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(.white.opacity(0.84))
+            .foregroundStyle(inkColor)
 
             WrappingChipLayout(horizontalSpacing: 6, verticalSpacing: 6) {
                 ForEach(detections) { detection in
@@ -272,6 +280,9 @@ private struct DetectionChip: View {
         settings.accentColor
     }
 
+    private let inkColor = Color.black.opacity(0.86)
+    private let softInkColor = Color.black.opacity(0.58)
+
     var body: some View {
         let copy = AppText(language: settings.language)
 
@@ -291,7 +302,7 @@ private struct DetectionChip: View {
         HStack(spacing: 5) {
             Image(systemName: detection.symbol)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.94))
+                .foregroundStyle(Color.black.opacity(0.78))
                 .frame(width: 18, height: 18)
                 .background(
                     LinearGradient(
@@ -305,13 +316,13 @@ private struct DetectionChip: View {
 
             Text(detection.value)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.94))
+                .foregroundStyle(inkColor)
                 .lineLimit(1)
                 .truncationMode(.middle)
 
             Image(systemName: "chevron.down")
                 .font(.system(size: 7.5, weight: .black))
-                .foregroundStyle(.secondary.opacity(0.72))
+                .foregroundStyle(softInkColor)
         }
         .frame(maxWidth: 204, alignment: .leading)
         .padding(.leading, 5)
@@ -370,6 +381,7 @@ private struct DetectionChip: View {
             }
         }
         .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(inkColor)
         .buttonStyle(.borderless)
         .padding(12)
         .background(.regularMaterial)
