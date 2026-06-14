@@ -99,11 +99,11 @@ struct AppText {
             "Keep at least one show/hide shortcut so the note is always easy to bring back."
         )
     }
-    var onboardingReadyTitle: String { text("准备好了", "You're ready") }
+    var onboardingReadyTitle: String { text("两个常用入口", "Two everyday entry points") }
     var onboardingReadyBody: String {
         text(
-            "之后可以在底部工具栏继续调透明度、主题色、剪切板和更新设置。",
-            "You can adjust opacity, theme color, clipboard, and update settings later from the bottom toolbar."
+            "顶部主要负责剪切板识别和快速动作，底部负责便签的透明度、文件和设置。",
+            "The top handles clipboard detection and quick actions; the bottom controls opacity, files, and settings."
         )
     }
     var onboardingIntroStep: String { text("介绍", "Intro") }

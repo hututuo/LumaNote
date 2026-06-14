@@ -81,26 +81,34 @@ struct OnboardingView: View {
     private func header(copy: AppText) -> some View {
         HStack(spacing: 10) {
             ZStack {
-                Circle()
-                    .fill(settings.accentColor.opacity(0.18))
-                Circle()
-                    .strokeBorder(.white.opacity(0.56), lineWidth: 1)
-                Image(systemName: "note.text")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.82))
-            }
-            .frame(width: 36, height: 36)
+                WindowDragView()
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(copy.onboardingTitle)
-                    .font(.system(size: 16, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Color.black.opacity(0.88))
-                Text(stepTitle(copy: copy))
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.50))
-            }
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(settings.accentColor.opacity(0.18))
+                        Circle()
+                            .strokeBorder(.white.opacity(0.56), lineWidth: 1)
+                        Image(systemName: "note.text")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.82))
+                    }
+                    .frame(width: 36, height: 36)
 
-            Spacer(minLength: 0)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(copy.onboardingTitle)
+                            .font(.system(size: 16, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color.black.opacity(0.88))
+                        Text(stepTitle(copy: copy))
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.50))
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .allowsHitTesting(false)
+            }
+            .frame(height: 36)
 
             Button {
                 complete()
@@ -193,7 +201,7 @@ struct OnboardingView: View {
     }
 
     private func readyPage(copy: AppText) -> some View {
-        VStack(alignment: .leading, spacing: 13) {
+        VStack(alignment: .leading, spacing: 11) {
             VStack(alignment: .leading, spacing: 7) {
                 Text(copy.onboardingReadyTitle)
                     .font(.system(size: 18, weight: .heavy, design: .rounded))
@@ -206,23 +214,32 @@ struct OnboardingView: View {
             }
 
             VStack(spacing: 8) {
-                statusRow(
-                    icon: "arrow.triangle.2.circlepath",
-                    title: copy.automaticallyCheckForUpdates,
-                    isEnabled: automaticallyChecks,
-                    copy: copy
+                featureRow(
+                    icon: "list.clipboard",
+                    title: text("顶部剪切板胶囊", "Top clipboard capsule"),
+                    detail: text("复制内容里有电话、地址、邮箱或链接时，顶部胶囊会主动展开提示。", "When copied text contains a phone, address, email, or URL, the top capsule expands automatically.")
                 )
-                statusRow(
-                    icon: "power",
-                    title: copy.launchAtLogin,
-                    isEnabled: settings.launchAtLogin,
-                    copy: copy
+                featureRow(
+                    icon: "sparkles",
+                    title: text("自动提取与一键动作", "Extraction and one-click actions"),
+                    detail: text("点开提取提示后，可以一键复制，也可以直接打开链接、地图、邮件或电话动作。", "Open the extraction hint to copy with one click or open URLs, Maps, email, and phone actions.")
                 )
-                statusRow(
-                    icon: "keyboard.fill",
-                    title: copy.globalShortcuts,
-                    isEnabled: true,
-                    copy: copy
+            }
+
+            Text(text("底部工具栏", "Bottom toolbar"))
+                .font(.system(size: 12.5, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.black.opacity(0.70))
+
+            VStack(spacing: 8) {
+                featureRow(
+                    icon: "slider.horizontal.3",
+                    title: text("调透明度", "Adjust opacity"),
+                    detail: text("左侧滑杆控制便签玻璃外壳可见度，放在屏幕边上也不会太抢眼。", "The slider controls the note shell visibility so it can stay subtle at the screen edge.")
+                )
+                featureRow(
+                    icon: "arrow.left.arrow.right",
+                    title: text("切换文件与更多设置", "Switch files and settings"),
+                    detail: text("底部工具栏可以切换便签文件、另存为、置顶、固定控件、打开设置或关闭便签。", "Use it to switch files, save as, pin, keep controls visible, open settings, or hide the note.")
                 )
             }
         }
@@ -244,20 +261,24 @@ struct OnboardingView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(spacing: 7) {
-                Toggle(copy.automaticallyCheckForUpdates, isOn: Binding(
-                    get: { automaticallyChecks },
-                    set: { enabled in
-                        automaticallyChecks = enabled
-                        appDelegate?.setAutomaticallyChecksForUpdates(enabled)
-                        refreshUpdateState()
-                    }
-                ))
-                .font(.system(size: 12.3, weight: .semibold))
-                .help(copy.automaticallyCheckForUpdates)
+                recommendationToggleRow(
+                    title: copy.automaticallyCheckForUpdates,
+                    isOn: Binding(
+                        get: { automaticallyChecks },
+                        set: { enabled in
+                            automaticallyChecks = enabled
+                            appDelegate?.setAutomaticallyChecksForUpdates(enabled)
+                            refreshUpdateState()
+                        }
+                    ),
+                    help: copy.automaticallyCheckForUpdates
+                )
 
-                Toggle(copy.launchAtLogin, isOn: $settings.launchAtLogin)
-                    .font(.system(size: 12.3, weight: .semibold))
-                    .help(copy.launchAtLogin)
+                recommendationToggleRow(
+                    title: copy.launchAtLogin,
+                    isOn: $settings.launchAtLogin,
+                    help: copy.launchAtLogin
+                )
 
                 if let error = settings.launchAtLoginError {
                     Text(copy.launchAtLoginFailed + error)
@@ -307,6 +328,31 @@ struct OnboardingView: View {
                         )
                 )
         }
+    }
+
+    private func recommendationToggleRow(title: String, isOn: Binding<Bool>, help: String) -> some View {
+        HStack(spacing: 9) {
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .frame(width: 22, alignment: .leading)
+
+            Text(title)
+                .font(.system(size: 12.3, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.78))
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 9)
+        .frame(height: 30)
+        .background {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.white.opacity(0.38))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.045), lineWidth: 1)
+                )
+        }
+        .help(help)
     }
 
     private func featureRow(icon: String, title: String, detail: String) -> some View {
