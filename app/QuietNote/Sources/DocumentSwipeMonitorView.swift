@@ -51,12 +51,19 @@ final class DocumentSwipeMonitorNSView: NSView {
     private var lastPublishedProgress: CGFloat = 0
     private var lastProgressUpdate = Date.distantPast
     private var idleFinishGeneration = 0
+    private var gestureStartDate = Date.distantPast
+    private var gestureSampleCount = 0
+    private var didTriggerQuickSwipe = false
 
     private let triggerThreshold: CGFloat = 55
     private let lockThreshold: CGFloat = 8
     private let progressTravelThreshold: CGFloat = 220
     private let dominanceRatio: CGFloat = 1.55
     private let lockDominanceRatio: CGFloat = 1.22
+    private let quickSwipeInitialWindow: TimeInterval = 0.16
+    private let quickSwipeMaxSamples = 4
+    private let quickSwipeDeltaThreshold: CGFloat = 18
+    private let quickSwipeDominanceRatio: CGFloat = 2.1
     private let triggerCooldown: TimeInterval = 0.46
     private let progressUpdateInterval: TimeInterval = 1.0 / 120.0
     private let progressEpsilon: CGFloat = 0.012
@@ -108,15 +115,40 @@ final class DocumentSwipeMonitorNSView: NSView {
             resetGesture()
         }
 
+        if didTriggerQuickSwipe {
+            if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
+                resetGesture()
+            } else {
+                scheduleIdleFinish()
+            }
+            return true
+        }
+
         // AppKit's horizontal scroll delta is opposite to the page travel users expect here.
         // Keep the internal convention as: positive X means next document, current page moves left.
         let deltaX = -event.scrollingDeltaX
         let deltaY = event.scrollingDeltaY
 
         if abs(deltaX) > 0.1 || abs(deltaY) > 0.1 {
+            if gestureSampleCount == 0 {
+                gestureStartDate = Date()
+            }
+            gestureSampleCount += 1
             accumulatedX += deltaX
             accumulatedY += deltaY
             updateGestureModeIfNeeded()
+        }
+
+        if shouldTriggerQuickSwipe(deltaX: deltaX) {
+            let direction: Direction = accumulatedX > 0 ? .next : .previous
+            onProgress(direction.progress)
+            trigger(direction)
+            accumulatedX = 0
+            accumulatedY = 0
+            lastPublishedProgress = 0
+            gestureMode = .horizontal
+            didTriggerQuickSwipe = true
+            return true
         }
 
         if gestureMode == .horizontal {
@@ -177,10 +209,25 @@ final class DocumentSwipeMonitorNSView: NSView {
         }
     }
 
+    private func shouldTriggerQuickSwipe(deltaX: CGFloat) -> Bool {
+        guard gestureMode == .horizontal else { return false }
+        guard gestureSampleCount > 0, gestureSampleCount <= quickSwipeMaxSamples else { return false }
+        guard Date().timeIntervalSince(gestureStartDate) <= quickSwipeInitialWindow else { return false }
+
+        let horizontalDistance = abs(accumulatedX)
+        let verticalDistance = abs(accumulatedY)
+        guard horizontalDistance >= triggerThreshold else { return false }
+        guard abs(deltaX) >= quickSwipeDeltaThreshold else { return false }
+        guard horizontalDistance >= max(1, verticalDistance) * quickSwipeDominanceRatio else { return false }
+
+        return true
+    }
+
     private func finishScrollGesture() {
         defer { resetGesture() }
 
         guard gestureMode == .horizontal else { return }
+        guard !didTriggerQuickSwipe else { return }
 
         let horizontalDistance = abs(accumulatedX)
         let verticalDistance = abs(accumulatedY)
@@ -221,6 +268,9 @@ final class DocumentSwipeMonitorNSView: NSView {
         accumulatedY = 0
         gestureMode = .undecided
         lastPublishedProgress = 0
+        gestureStartDate = Date.distantPast
+        gestureSampleCount = 0
+        didTriggerQuickSwipe = false
     }
 
     private enum Direction {
