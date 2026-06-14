@@ -74,8 +74,8 @@ final class DocumentSwipeMonitorNSView: NSView {
     private func installEventMonitor() {
         guard eventMonitor == nil else { return }
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .swipe]) { [weak self] event in
-            self?.handle(event)
-            return event
+            guard let self else { return event }
+            return self.handle(event)
         }
     }
 
@@ -87,22 +87,22 @@ final class DocumentSwipeMonitorNSView: NSView {
         resetGesture()
     }
 
-    private func handle(_ event: NSEvent) {
-        guard isEnabled, event.window === window else { return }
+    private func handle(_ event: NSEvent) -> NSEvent? {
+        guard isEnabled, event.window === window else { return event }
 
         switch event.type {
         case .scrollWheel:
-            handleScrollWheel(event)
+            return handleScrollWheel(event) ? nil : event
         case .swipe:
-            handleSwipe(event)
+            return handleSwipe(event) ? nil : event
         default:
-            break
+            return event
         }
     }
 
-    private func handleScrollWheel(_ event: NSEvent) {
-        guard event.momentumPhase.isEmpty else { return }
-        guard event.hasPreciseScrollingDeltas || !event.phase.isEmpty else { return }
+    private func handleScrollWheel(_ event: NSEvent) -> Bool {
+        guard event.momentumPhase.isEmpty else { return gestureMode == .horizontal }
+        guard event.hasPreciseScrollingDeltas || !event.phase.isEmpty else { return false }
 
         if event.phase.contains(.began) || event.phase.contains(.mayBegin) {
             resetGesture()
@@ -123,20 +123,25 @@ final class DocumentSwipeMonitorNSView: NSView {
             publishProgressIfNeeded()
         }
 
+        let shouldConsume = gestureMode == .horizontal
+
         if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
             finishScrollGesture()
         } else if gestureMode == .horizontal {
             scheduleIdleFinish()
         }
+
+        return shouldConsume
     }
 
-    private func handleSwipe(_ event: NSEvent) {
+    private func handleSwipe(_ event: NSEvent) -> Bool {
         let deltaX = -event.deltaX
-        guard abs(deltaX) > 0.1 else { return }
+        guard abs(deltaX) > 0.1 else { return false }
         let direction: Direction = deltaX > 0 ? .next : .previous
         onProgress(direction.progress)
         trigger(direction)
         resetGesture()
+        return true
     }
 
     private func trigger(_ direction: Direction) {
