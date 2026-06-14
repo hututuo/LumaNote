@@ -75,6 +75,46 @@ struct AppText {
     var noClipboardItems: String { text("没有剪切板记录", "No clipboard items") }
     var noClipboardDescription: String { text("在任意地方复制文本，QuietNote 会在本地保存。", "Copy text anywhere and QuietNote will save it locally.") }
     var searchClipboard: String { text("搜索本地剪切板", "Search local clipboard") }
+    var onboardingTitle: String { text("欢迎使用 LumaNote", "Welcome to LumaNote") }
+    var onboardingSubtitle: String { text("一张透明、灵动、常驻屏幕边缘的 Markdown 便签。", "A translucent Markdown sticky note that stays at the edge of your screen.") }
+    var onboardingIntroTitle: String { text("它是什么", "What it is") }
+    var onboardingIntroBody: String {
+        text(
+            "LumaNote 把实时 Markdown、透明玻璃便签、本地剪切板识别和全局快捷键放进一个小窗口里，适合长期贴在屏幕边上。",
+            "LumaNote combines live Markdown, a glass sticky note, local clipboard detection, and global shortcuts in one small window."
+        )
+    }
+    var onboardingRecommendedTitle: String { text("推荐先开启", "Recommended first") }
+    var onboardingRecommendedBody: String {
+        text(
+            "自动更新保证你拿到最新修复；开机自启让便签不用每次手动打开。",
+            "Automatic updates keep fixes coming, and launch at login makes the note ready after every restart."
+        )
+    }
+    var onboardingEnableRecommended: String { text("开启推荐设置", "Enable recommended settings") }
+    var onboardingShortcutTitle: String { text("设置快捷呼出和隐藏", "Set show and hide shortcuts") }
+    var onboardingShortcutBody: String {
+        text(
+            "推荐至少保留一个“呼出/隐藏便签”的快捷键，这样窗口藏起来以后也能立刻找回。",
+            "Keep at least one show/hide shortcut so the note is always easy to bring back."
+        )
+    }
+    var onboardingReadyTitle: String { text("准备好了", "You're ready") }
+    var onboardingReadyBody: String {
+        text(
+            "之后可以在底部工具栏继续调透明度、主题色、剪切板和更新设置。",
+            "You can adjust opacity, theme color, clipboard, and update settings later from the bottom toolbar."
+        )
+    }
+    var onboardingIntroStep: String { text("介绍", "Intro") }
+    var onboardingShortcutStep: String { text("快捷键", "Shortcuts") }
+    var onboardingReadyStep: String { text("完成", "Ready") }
+    var onboardingBack: String { text("上一步", "Back") }
+    var onboardingNext: String { text("下一步", "Next") }
+    var onboardingFinish: String { text("开始使用", "Start using") }
+    var onboardingSkip: String { text("跳过引导", "Skip onboarding") }
+    var onboardingConfigured: String { text("已开启", "Enabled") }
+    var onboardingNotConfigured: String { text("未开启", "Off") }
 
     func keepLatest(_ count: Int) -> String {
         text("保留最近 \(count) 条", "Keep latest \(count) items")
