@@ -116,28 +116,25 @@ struct NoteWindowView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quietNoteToggleClipboard)) { _ in
             withAnimation(.snappy(duration: 0.16)) {
                 chromeControlsCollapsed = false
-                showMore = false
-                showFileSwitcher = false
-                showExtractionActions = false
-                showClipboard.toggle()
+                toggleClipboardOverlay()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
-            closeClipboardOnFocusLoss()
+            closeTransientOverlaysOnFocusLoss()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
-            closeClipboardOnFocusLoss()
+            closeTransientOverlaysOnFocusLoss()
         }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)) { notification in
             guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                   app.bundleIdentifier != Bundle.main.bundleIdentifier
             else { return }
-            closeClipboardOnFocusLoss()
+            closeTransientOverlaysOnFocusLoss()
         }
         .onChange(of: showShortcutSettings) { _, isPresented in
             if isPresented {
                 chromeControlsCollapsed = false
-                showMore = false
+                closeTransientOverlays()
             }
         }
         .onChange(of: clipboardStore.latestDetectedItem?.id) { _, itemID in
@@ -199,7 +196,7 @@ struct NoteWindowView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             withAnimation(.snappy(duration: 0.16)) {
-                                showClipboard = false
+                                closeTransientOverlays()
                             }
                         }
                 }
@@ -239,7 +236,7 @@ struct NoteWindowView: View {
             ZStack(alignment: .topLeading) {
                 dismissBackdropWithTopDragPassthrough {
                         withAnimation(.snappy(duration: 0.14)) {
-                            showMore = false
+                            closeTransientOverlays()
                         }
                 }
 
@@ -248,7 +245,7 @@ struct NoteWindowView: View {
                     clipboardStore: clipboardStore,
                     showShortcutSettings: $showShortcutSettings,
                     onClose: {
-                        showMore = false
+                        closeTransientOverlays()
                         onClose()
                     }
                 )
@@ -288,7 +285,7 @@ struct NoteWindowView: View {
             ZStack(alignment: .topLeading) {
                 dismissBackdropWithTopDragPassthrough {
                         withAnimation(.snappy(duration: 0.14)) {
-                            showFileSwitcher = false
+                            closeTransientOverlays()
                         }
                 }
 
@@ -297,13 +294,13 @@ struct NoteWindowView: View {
                     noteStore: noteStore,
                     createMarkdownFile: {
                         withAnimation(.snappy(duration: 0.14)) {
-                            showFileSwitcher = false
+                            closeTransientOverlays()
                         }
                         createMarkdownFile()
                     },
                     openExistingFile: {
                         withAnimation(.snappy(duration: 0.14)) {
-                            showFileSwitcher = false
+                            closeTransientOverlays()
                         }
                         openNoteFile()
                     },
@@ -312,13 +309,13 @@ struct NoteWindowView: View {
                     },
                     switchWorkspace: { workspaceID in
                         withAnimation(.snappy(duration: 0.14)) {
-                            showFileSwitcher = false
+                            closeTransientOverlays()
                         }
                         noteStore.switchWorkspace(to: workspaceID)
                     },
                     openWorkspaceFile: { url in
                         withAnimation(.snappy(duration: 0.14)) {
-                            showFileSwitcher = false
+                            closeTransientOverlays()
                         }
                         noteStore.openWorkspaceDocument(at: url)
                     },
@@ -362,7 +359,7 @@ struct NoteWindowView: View {
             ZStack(alignment: .top) {
                 dismissBackdropWithTopDragPassthrough {
                     withAnimation(.snappy(duration: 0.14)) {
-                        showExtractionActions = false
+                        closeTransientOverlays()
                     }
                 }
 
@@ -588,6 +585,10 @@ struct NoteWindowView: View {
         38
     }
 
+    private var hasTransientOverlay: Bool {
+        showClipboard || showMore || showFileSwitcher || showExtractionActions
+    }
+
     private func dismissBackdropWithTopDragPassthrough(onDismiss: @escaping () -> Void) -> some View {
         VStack(spacing: 0) {
             Color.clear
@@ -601,11 +602,42 @@ struct NoteWindowView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func closeClipboardOnFocusLoss() {
-        guard showClipboard else { return }
+    private func closeTransientOverlays() {
+        showClipboard = false
+        showMore = false
+        showFileSwitcher = false
+        showExtractionActions = false
+    }
+
+    private func closeTransientOverlaysOnFocusLoss() {
+        guard hasTransientOverlay else { return }
         withAnimation(.snappy(duration: 0.14)) {
-            showClipboard = false
+            closeTransientOverlays()
         }
+    }
+
+    private func toggleClipboardOverlay() {
+        let shouldShow = !showClipboard
+        closeTransientOverlays()
+        showClipboard = shouldShow
+    }
+
+    private func toggleMoreOverlay() {
+        let shouldShow = !showMore
+        closeTransientOverlays()
+        showMore = shouldShow
+    }
+
+    private func toggleFileSwitcherOverlay() {
+        let shouldShow = !showFileSwitcher
+        closeTransientOverlays()
+        showFileSwitcher = shouldShow
+    }
+
+    private func toggleExtractionActionsOverlay() {
+        let shouldShow = !showExtractionActions
+        closeTransientOverlays()
+        showExtractionActions = shouldShow
     }
 
     private func markChromeActivity(revealIfCollapsed: Bool = true, forceReschedule: Bool = false) {
@@ -821,10 +853,7 @@ struct NoteWindowView: View {
 
                 railButton(symbol: "arrow.left.arrow.right", help: copy.switchNoteFile, size: buttonSize) {
                     withAnimation(.snappy(duration: 0.14)) {
-                        showClipboard = false
-                        showMore = false
-                        showExtractionActions = false
-                        showFileSwitcher.toggle()
+                        toggleFileSwitcherOverlay()
                     }
                 }
                 .background(
@@ -859,10 +888,7 @@ struct NoteWindowView: View {
                 }
                 railButton(symbol: "ellipsis", help: copy.more, size: buttonSize, hitSize: max(30, buttonSize + 8)) {
                     withAnimation(.snappy(duration: 0.14)) {
-                        showClipboard = false
-                        showExtractionActions = false
-                        showFileSwitcher = false
-                        showMore.toggle()
+                        toggleMoreOverlay()
                     }
                 }
                 .background(
@@ -874,10 +900,7 @@ struct NoteWindowView: View {
                     }
                 )
                 railButton(symbol: "xmark", help: copy.close, size: buttonSize, hitSize: max(30, buttonSize + 8)) {
-                    showClipboard = false
-                    showMore = false
-                    showExtractionActions = false
-                    showFileSwitcher = false
+                    closeTransientOverlays()
                     onClose()
                 }
             }
@@ -1047,7 +1070,10 @@ struct NoteWindowView: View {
     private var activeDetectedItem: ClipboardItem? {
         guard let item = clipboardStore.latestDetectedItem,
               item.id != hiddenSuggestionID,
-              !showClipboard
+              !showClipboard,
+              !showMore,
+              !showFileSwitcher,
+              !showShortcutSettings
         else { return nil }
         return item
     }
@@ -1100,7 +1126,9 @@ struct NoteWindowView: View {
                     .allowsHitTesting(false)
 
                 WindowClickDragView {
-                    showExtractionActions.toggle()
+                    withAnimation(.snappy(duration: 0.16)) {
+                        toggleExtractionActionsOverlay()
+                    }
                 }
             }
             .frame(height: 26)
@@ -1155,10 +1183,7 @@ struct NoteWindowView: View {
     private func clipboardIslandButtonView(foregroundColor: Color, shadowColor: Color) -> some View {
         Button {
             withAnimation(.snappy(duration: 0.16)) {
-                showMore = false
-                showFileSwitcher = false
-                showExtractionActions = false
-                showClipboard.toggle()
+                toggleClipboardOverlay()
             }
         } label: {
             Image(systemName: "list.clipboard")
@@ -1304,7 +1329,7 @@ struct NoteWindowView: View {
 
                     if let openTitle = detection.openTitle {
                         Button {
-                            showExtractionActions = false
+                            closeTransientOverlays()
                             clipboardStore.open(detection)
                         } label: {
                             Label(openTitle, systemImage: detection.openSymbol)
