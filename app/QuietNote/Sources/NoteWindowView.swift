@@ -48,11 +48,25 @@ struct NoteWindowView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .background {
-            WindowActivityMonitorView { _ in
-                markChromeActivity(revealIfCollapsed: false)
+            ZStack {
+                WindowActivityMonitorView { _ in
+                    markChromeActivity(revealIfCollapsed: false)
+                }
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+
+                DocumentSwipeMonitorView(
+                    isEnabled: documentSwipeEnabled,
+                    onNext: {
+                        switchWorkspaceDocumentFromSwipe(offset: 1)
+                    },
+                    onPrevious: {
+                        switchWorkspaceDocumentFromSwipe(offset: -1)
+                    }
+                )
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
             }
-            .frame(width: 0, height: 0)
-            .allowsHitTesting(false)
         }
         .overlay {
             if showClipboard {
@@ -298,11 +312,23 @@ struct NoteWindowView: View {
                         }
                         openNoteFile()
                     },
-                    openRecentFile: { url in
+                    createWorkspace: {
+                        createWorkspaceFromPanel()
+                    },
+                    switchWorkspace: { workspaceID in
                         withAnimation(.snappy(duration: 0.14)) {
                             showFileSwitcher = false
                         }
-                        noteStore.openFile(at: url)
+                        noteStore.switchWorkspace(to: workspaceID)
+                    },
+                    openWorkspaceFile: { url in
+                        withAnimation(.snappy(duration: 0.14)) {
+                            showFileSwitcher = false
+                        }
+                        noteStore.openWorkspaceDocument(at: url)
+                    },
+                    removeWorkspaceFile: { url in
+                        noteStore.removeFileFromActiveWorkspace(url)
                     }
                 )
                 .frame(width: metrics.width, height: metrics.height)
@@ -550,6 +576,16 @@ struct NoteWindowView: View {
         showClipboard || showMore || showFileSwitcher || showShortcutSettings
     }
 
+    private var documentSwipeEnabled: Bool {
+        settings.hasCompletedOnboarding
+            && noteStore.canSwitchWorkspaceDocument
+            && !showClipboard
+            && !showMore
+            && !showFileSwitcher
+            && !showExtractionActions
+            && !showShortcutSettings
+    }
+
     private var topDragPassthroughHeight: CGFloat {
         38
     }
@@ -607,6 +643,15 @@ struct NoteWindowView: View {
 
     private func revealChromeControls() {
         markChromeActivity(revealIfCollapsed: true, forceReschedule: true)
+    }
+
+    private func switchWorkspaceDocumentFromSwipe(offset: Int) {
+        let didSwitch = offset > 0
+            ? noteStore.switchToNextDocument()
+            : noteStore.switchToPreviousDocument()
+        if didSwitch {
+            markChromeActivity(revealIfCollapsed: false, forceReschedule: true)
+        }
     }
 
     private func scheduleChromeAutoCollapse() {
@@ -943,6 +988,24 @@ struct NoteWindowView: View {
         }
     }
 
+    private func createWorkspaceFromPanel() {
+        let copy = AppText(language: settings.language)
+        let alert = NSAlert()
+        alert.messageText = copy.newWorkspace
+        alert.informativeText = copy.newWorkspacePrompt
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: copy.newWorkspace)
+        alert.addButton(withTitle: copy.close)
+
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        textField.stringValue = copy.workspaceDefaultName(noteStore.workspaces.count + 1)
+        alert.accessoryView = textField
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            noteStore.createWorkspace(named: textField.stringValue)
+        }
+    }
+
     private var markdownContentTypes: [UTType] {
         [
             UTType(filenameExtension: "md"),
@@ -1257,11 +1320,11 @@ struct NoteWindowView: View {
     private func fileSwitcherOverlayMetrics(in containerSize: CGSize) -> (width: CGFloat, height: CGFloat, centerX: CGFloat, centerY: CGFloat) {
         let margin: CGFloat = 12
         let width = max(218, min(310, containerSize.width - margin * 2))
-        let recentCount = max(1, min(noteStore.recentFileURLs.count, 7))
+        let documentCount = max(1, min(noteStore.activeWorkspaceFileURLs.count, 7))
         let topClearance = topDragPassthroughHeight + 8
         let bottomClearance: CGFloat = 10
         let maxHeight = max(150, containerSize.height - topClearance - bottomClearance)
-        let height = min(maxHeight, 84 + CGFloat(recentCount) * 43)
+        let height = min(maxHeight, 130 + CGFloat(documentCount) * 43)
         let anchor = fileSwitchButtonFrame == .zero
             ? CGRect(x: containerSize.width - 116, y: containerSize.height - 34, width: 24, height: 24)
             : fileSwitchButtonFrame
@@ -1318,7 +1381,10 @@ private struct FileSwitcherView: View {
     @ObservedObject var noteStore: NoteStore
 
     let openNewFile: () -> Void
-    let openRecentFile: (URL) -> Void
+    let createWorkspace: () -> Void
+    let switchWorkspace: (NoteWorkspace.ID) -> Void
+    let openWorkspaceFile: (URL) -> Void
+    let removeWorkspaceFile: (URL) -> Void
 
     private var copy: AppText {
         AppText(language: settings.language)
@@ -1326,6 +1392,8 @@ private struct FileSwitcherView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
+            workspacePicker
+
             Button(action: openNewFile) {
                 HStack(spacing: 9) {
                     Image(systemName: "folder.badge.plus")
@@ -1350,27 +1418,35 @@ private struct FileSwitcherView: View {
                 .frame(height: 1)
                 .padding(.horizontal, 2)
 
-            if noteStore.recentFileURLs.isEmpty {
+            if noteStore.activeWorkspaceFileURLs.isEmpty {
                 HStack(spacing: 8) {
-                    Image(systemName: "clock")
+                    Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 11, weight: .semibold))
-                    Text(copy.noRecentFiles)
+                    Text(copy.noWorkspaceDocuments)
                         .font(.system(size: 11, weight: .medium))
                 }
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
                 .frame(height: 36)
             } else {
-                Text(copy.recentFiles)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.top, 1)
+                HStack(spacing: 6) {
+                    Text(copy.workspaceDocuments)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Spacer(minLength: 0)
+
+                    Text(copy.workspaceDocumentCount(noteStore.activeWorkspaceFileURLs.count))
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 1)
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 3) {
-                        ForEach(noteStore.recentFileURLs, id: \.self) { url in
-                            recentFileButton(url)
+                        ForEach(noteStore.activeWorkspaceFileURLs, id: \.self) { url in
+                            workspaceFileRow(url)
                         }
                     }
                 }
@@ -1379,42 +1455,110 @@ private struct FileSwitcherView: View {
         .padding(9)
     }
 
-    private func recentFileButton(_ url: URL) -> some View {
-        Button {
-            openRecentFile(url)
+    private var workspacePicker: some View {
+        Menu {
+            ForEach(noteStore.workspaces) { workspace in
+                Button {
+                    switchWorkspace(workspace.id)
+                } label: {
+                    Label(
+                        workspace.name,
+                        systemImage: workspace.id == noteStore.activeWorkspaceID ? "checkmark.circle.fill" : "rectangle.stack"
+                    )
+                }
+            }
+            Divider()
+            Button(action: createWorkspace) {
+                Label(copy.newWorkspace, systemImage: "plus")
+            }
         } label: {
             HStack(spacing: 9) {
-                Image(systemName: isCurrent(url) ? "checkmark.circle.fill" : "doc.text")
+                Image(systemName: "rectangle.3.group")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(isCurrent(url) ? settings.accentColor : .secondary)
+                    .foregroundStyle(settings.accentColor)
                     .frame(width: 18)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(url.lastPathComponent)
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-
-                    Text(shortPath(for: url))
-                        .font(.system(size: 9.5, weight: .medium))
+                    Text(copy.workspace)
+                        .font(.system(size: 9.5, weight: .bold))
                         .foregroundStyle(.secondary)
+
+                    Text(noteStore.activeWorkspaceName)
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(Color.black.opacity(0.84))
                         .lineLimit(1)
-                        .truncationMode(.middle)
+                        .truncationMode(.tail)
                 }
 
                 Spacer(minLength: 0)
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 8)
-            .frame(height: 39)
-            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .padding(.horizontal, 10)
+            .frame(height: 38)
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
         .background(
-            isCurrent(url) ? settings.accentColor.opacity(0.08) : Color.white.opacity(0.04),
-            in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+            settings.accentColor.opacity(0.07),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
         )
-        .help(copy.switchToFile(url.lastPathComponent))
+        .help(copy.switchWorkspace)
+    }
+
+    private func workspaceFileRow(_ url: URL) -> some View {
+        HStack(spacing: 4) {
+            Button {
+                openWorkspaceFile(url)
+            } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: isCurrent(url) ? "checkmark.circle.fill" : "doc.text")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(isCurrent(url) ? settings.accentColor : .secondary)
+                        .frame(width: 18)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(url.lastPathComponent)
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.84))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+
+                        Text(shortPath(for: url))
+                            .font(.system(size: 9.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 8)
+                .frame(height: 39)
+                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .background(
+                isCurrent(url) ? settings.accentColor.opacity(0.08) : Color.white.opacity(0.04),
+                in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+            )
+            .help(copy.switchToFile(url.lastPathComponent))
+
+            if !isCurrent(url) {
+                Button {
+                    removeWorkspaceFile(url)
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 20, height: 28)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(copy.removeFromWorkspace)
+            }
+        }
     }
 
     private func isCurrent(_ url: URL) -> Bool {
