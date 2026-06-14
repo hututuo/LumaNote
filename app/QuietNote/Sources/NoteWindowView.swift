@@ -973,9 +973,10 @@ struct NoteWindowView: View {
 
     private var collapsedHandlePulseOverlay: some View {
         Capsule(style: .continuous)
-            .strokeBorder(.white.opacity(chromeHintPulse ? 0.42 : 0.16), lineWidth: 1)
-            .scaleEffect(chromeHintPulse ? 1.08 : 0.96)
-            .opacity(chromeHintPulse ? 0.95 : 0.42)
+            .fill(settings.accentColor.opacity(chromeHintPulse ? 0.10 : 0.035))
+            .scaleEffect(chromeHintPulse ? 1.04 : 0.98)
+            .blur(radius: chromeHintPulse ? 2.4 : 1.2)
+            .opacity(chromeHintPulse ? 0.62 : 0.28)
             .allowsHitTesting(false)
     }
 
@@ -1070,32 +1071,32 @@ struct NoteWindowView: View {
         .contentShape(Rectangle())
         .onTapGesture {}
         .background { bottomRailLiquidGlassBackground }
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(.white.opacity(0.08 + bottomRailOpacity * 0.14))
-                .frame(height: 1)
-        }
     }
 
     private var bottomRailLiquidGlassBackground: some View {
-        ZStack {
-            Rectangle()
+        let shape = RoundedRectangle(cornerRadius: bottomRailHeight / 2, style: .continuous)
+
+        return ZStack {
+            shape
                 .fill(.regularMaterial)
                 .opacity(0.08 + bottomRailOpacity * 0.72)
 
-            LinearGradient(
-                colors: [
-                    settings.accentColor.opacity(0.006 + bottomRailOpacity * 0.028),
-                    .white.opacity(0.025 + bottomRailOpacity * 0.075),
-                    .white.opacity(0.006 + bottomRailOpacity * 0.018),
-                    .black.opacity(0.012 + bottomRailOpacity * 0.028)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .blendMode(.plusLighter)
+            shape
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            settings.accentColor.opacity(0.006 + bottomRailOpacity * 0.028),
+                            .white.opacity(0.025 + bottomRailOpacity * 0.075),
+                            .white.opacity(0.006 + bottomRailOpacity * 0.018),
+                            .black.opacity(0.012 + bottomRailOpacity * 0.028)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .blendMode(.plusLighter)
 
-            Rectangle()
+            shape
                 .strokeBorder(
                     LinearGradient(
                         colors: [
@@ -1109,7 +1110,24 @@ struct NoteWindowView: View {
                     ),
                     lineWidth: 1
                 )
+
+            shape
+                .inset(by: 1)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.10 + bottomRailOpacity * 0.18),
+                            .white.opacity(0.02 + bottomRailOpacity * 0.05),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 0.65
+                )
+                .blendMode(.plusLighter)
         }
+        .clipShape(shape)
         .shadow(color: .white.opacity(0.04 + bottomRailOpacity * 0.12), radius: 3, x: -1, y: -1)
         .shadow(color: .black.opacity(0.04 + bottomRailOpacity * 0.12), radius: 10, y: 4)
     }
