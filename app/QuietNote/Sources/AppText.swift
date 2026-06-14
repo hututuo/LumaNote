@@ -58,6 +58,8 @@ struct AppText {
         )
     }
     var extracted: String { text("已提取", "Extracted") }
+    var detectedClipboardPrefix: String { text("提取到：", "Detected: ") }
+    var listSeparator: String { text("、", ", ") }
     var copy: String { text("复制", "Copy") }
     var copyClipboardItem: String { text("复制这条剪切板记录", "Copy this clipboard item") }
     var deleteClipboardItem: String { text("删除这条剪切板记录", "Delete this clipboard item") }
@@ -87,6 +89,18 @@ struct AppText {
 
     func switchToFile(_ filename: String) -> String {
         text("切换到 \(filename)", "Switch to \(filename)")
+    }
+
+    func clipboardKindName(_ kind: ClipboardDetection.Kind) -> String {
+        switch kind {
+        case .url: text("链接", "URL")
+        case .email: text("邮箱", "Email")
+        case .phone: text("电话", "Phone")
+        case .address: text("地址", "Address")
+        case .file: text("文件", "File")
+        case .number: text("编号", "Code")
+        case .text: text("文本", "Text")
+        }
     }
 
     private func text(_ chinese: String, _ english: String) -> String {

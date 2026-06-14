@@ -69,6 +69,12 @@ struct NoteWindowView: View {
                 fileSwitcherInlineOverlay
             }
         }
+        .overlay {
+            if showExtractionActions,
+               let item = activeDetectedItem {
+                extractionActionsInlineOverlay(item: item)
+            }
+        }
         .frame(
             minWidth: NoteWindowLayout.minimumSize.width,
             minHeight: NoteWindowLayout.minimumSize.height
@@ -323,6 +329,30 @@ struct NoteWindowView: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .zIndex(31)
+        }
+    }
+
+    private func extractionActionsInlineOverlay(item: ClipboardItem) -> some View {
+        GeometryReader { proxy in
+            let panelWidth = min(310, max(238, proxy.size.width - 24))
+
+            ZStack(alignment: .top) {
+                dismissBackdropWithTopDragPassthrough {
+                    withAnimation(.snappy(duration: 0.14)) {
+                        showExtractionActions = false
+                    }
+                }
+
+                extractionActionsPanel(item: item)
+                    .frame(width: panelWidth)
+                    .padding(.top, 39)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.985, anchor: .top).combined(with: .opacity)
+                    ))
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .zIndex(34)
         }
     }
 
@@ -1017,13 +1047,19 @@ struct NoteWindowView: View {
         .frame(height: 26, alignment: .leading)
         .fixedSize(horizontal: true, vertical: false)
         .frame(maxWidth: 226, alignment: .leading)
-        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity, accentColor: settings.accentColor))
+        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity, accentColor: settings.accentColor, isHighlighted: true))
         .matchedGeometryEffect(id: "extractionIsland", in: extractionIslandNamespace)
         .help(AppText(language: settings.language).clipboardActions)
-        .popover(isPresented: $showExtractionActions, arrowEdge: .top) {
-            extractionActionsPopover(item: item)
-                .frame(width: 310)
+    }
+
+    private func detectedKindSummary(for detections: [ClipboardDetection]) -> String {
+        let copy = AppText(language: settings.language)
+        var seen: Set<ClipboardDetection.Kind> = []
+        let names = detections.compactMap { detection -> String? in
+            guard seen.insert(detection.kind).inserted else { return nil }
+            return copy.clipboardKindName(detection.kind)
         }
+        return copy.detectedClipboardPrefix + names.joined(separator: copy.listSeparator)
     }
 
     private var clipboardIslandButton: some View {
@@ -1061,51 +1097,93 @@ struct NoteWindowView: View {
         .help(AppText(language: settings.language).openClipboardLibrary)
     }
 
-    private func extractionActionsPopover(item: ClipboardItem) -> some View {
+    private func extractionActionsPanel(item: ClipboardItem) -> some View {
         let copy = AppText(language: settings.language)
+        let summary = detectedKindSummary(for: item.detections)
 
         return VStack(alignment: .leading, spacing: 10) {
-            Text(copy.extracted)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 7) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(settings.accentColor)
 
-            ForEach(item.detections) { detection in
-                VStack(alignment: .leading, spacing: 7) {
-                    Label {
-                        Text(detection.value)
-                            .lineLimit(1)
-                    } icon: {
-                        Image(systemName: detection.symbol)
-                    }
-                    .font(.system(size: 12, weight: .medium))
+                Text(summary)
+                    .font(.system(size: 12.5, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.primary.opacity(0.86))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
 
-                    HStack(spacing: 8) {
-                        Button {
-                            clipboardStore.copy(detection.value)
-                        } label: {
-                            Label(copy.copy, systemImage: "doc.on.doc")
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(item.detections.enumerated()), id: \.element.id) { index, detection in
+                    VStack(alignment: .leading, spacing: 7) {
+                        Label {
+                            Text(detection.value)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        } icon: {
+                            Image(systemName: detection.symbol)
                         }
-                        .help(copy.copyExtracted)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.82))
 
-                        if let openTitle = detection.openTitle {
+                        HStack(spacing: 8) {
                             Button {
-                                showExtractionActions = false
-                                clipboardStore.open(detection)
+                                clipboardStore.copy(detection.value)
                             } label: {
-                                Label(openTitle, systemImage: detection.openSymbol)
+                                Label(copy.copy, systemImage: "doc.on.doc")
                             }
-                            .help(openTitle)
+                            .help(copy.copyExtracted)
+
+                            if let openTitle = detection.openTitle {
+                                Button {
+                                    showExtractionActions = false
+                                    clipboardStore.open(detection)
+                                } label: {
+                                    Label(openTitle, systemImage: detection.openSymbol)
+                                }
+                                .help(openTitle)
+                            }
                         }
+                        .font(.system(size: 11, weight: .medium))
+                        .buttonStyle(.borderless)
                     }
-                    .font(.system(size: 11, weight: .medium))
-                    .buttonStyle(.borderless)
+                    .padding(.vertical, 8)
+
+                    if index < item.detections.count - 1 {
+                        Rectangle()
+                            .fill(.white.opacity(0.16))
+                            .frame(height: 1)
+                    }
                 }
-                .padding(9)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             }
         }
         .padding(12)
-        .background(.regularMaterial)
+        .background {
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(settings.accentColor.opacity(0.025))
+                        .blendMode(.plusLighter)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    .white.opacity(0.48),
+                                    settings.accentColor.opacity(0.18),
+                                    .white.opacity(0.08)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
     }
 
     private func scheduleSuggestionReset(for itemID: ClipboardItem.ID?) {
@@ -1329,6 +1407,7 @@ private struct ExtractionIslandButtonModifier: ViewModifier {
     let isExpanded: Bool
     let opacity: Double
     let accentColor: Color
+    var isHighlighted = false
 
     func body(content: Content) -> some View {
         content
@@ -1349,24 +1428,68 @@ private struct ExtractionIslandButtonModifier: ViewModifier {
                     .fill(accentColor.opacity(0.004 + opacity * 0.024))
                     .blendMode(.plusLighter)
             )
+            .overlay {
+                if isHighlighted {
+                    DetectionIslandFlowLayer(
+                        shape: islandShape,
+                        accentColor: accentColor,
+                        opacity: opacity
+                    )
+                }
+            }
             .overlay(
                 islandShape
                     .strokeBorder(
                         LinearGradient(
-                            colors: [
-                                .white.opacity((isExpanded ? 0.18 : 0.22) + opacity * (isExpanded ? 0.56 : 0.6)),
-                                accentColor.opacity(0.045 + opacity * 0.11),
-                                .white.opacity(0.08 + opacity * 0.14),
-                                .white.opacity(0.02 + opacity * 0.04)
-                            ],
+                            colors: borderColors,
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1
+                        lineWidth: isHighlighted ? 1.35 : 1
                     )
             )
+            .overlay {
+                if isHighlighted {
+                    islandShape
+                        .inset(by: 1.5)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    accentColor.opacity(0.42),
+                                    .white.opacity(0.24),
+                                    accentColor.opacity(0.18)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.55
+                        )
+                        .blendMode(.plusLighter)
+                        .opacity(0.58 + opacity * 0.2)
+                }
+            }
+            .shadow(color: isHighlighted ? accentColor.opacity(0.12 + opacity * 0.12) : .clear, radius: 8, y: 1)
             .shadow(color: .white.opacity(0.04 + opacity * 0.12), radius: 3, x: -1, y: -1)
             .shadow(color: .black.opacity(0.04 + opacity * 0.12), radius: isExpanded ? 12 : 8, y: 4)
+    }
+
+    private var borderColors: [Color] {
+        if isHighlighted {
+            [
+                accentColor.opacity(0.48 + opacity * 0.2),
+                .white.opacity(0.30 + opacity * 0.24),
+                accentColor.opacity(0.28 + opacity * 0.18),
+                .white.opacity(0.12 + opacity * 0.1),
+                accentColor.opacity(0.44 + opacity * 0.18)
+            ]
+        } else {
+            [
+                .white.opacity((isExpanded ? 0.18 : 0.22) + opacity * (isExpanded ? 0.56 : 0.6)),
+                accentColor.opacity(0.045 + opacity * 0.11),
+                .white.opacity(0.08 + opacity * 0.14),
+                .white.opacity(0.02 + opacity * 0.04)
+            ]
+        }
     }
 
     private var islandShape: AnyInsettableShape {
@@ -1374,6 +1497,58 @@ private struct ExtractionIslandButtonModifier: ViewModifier {
             AnyInsettableShape(Capsule(style: .continuous))
         } else {
             AnyInsettableShape(Circle())
+        }
+    }
+}
+
+private struct DetectionIslandFlowLayer: View {
+    let shape: AnyInsettableShape
+    let accentColor: Color
+    let opacity: Double
+
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let height = proxy.size.height
+            let sweepWidth = max(44, width * 0.58)
+            let travel = width + sweepWidth
+
+            ZStack {
+                shape
+                    .fill(accentColor.opacity(0.025 + opacity * 0.035))
+
+                Capsule(style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                accentColor.opacity(0),
+                                accentColor.opacity(0.08 + opacity * 0.08),
+                                .white.opacity(0.11 + opacity * 0.06),
+                                accentColor.opacity(0.07 + opacity * 0.06),
+                                accentColor.opacity(0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: sweepWidth, height: max(34, height * 2.4))
+                    .rotationEffect(.degrees(10))
+                    .offset(x: -travel / 2 + travel * phase)
+                    .blur(radius: 6)
+            }
+            .frame(width: width, height: height)
+            .mask(shape)
+            .opacity(0.62 + opacity * 0.18)
+            .blendMode(.plusLighter)
+            .allowsHitTesting(false)
+            .onAppear {
+                phase = 0
+                withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
+            }
         }
     }
 }
