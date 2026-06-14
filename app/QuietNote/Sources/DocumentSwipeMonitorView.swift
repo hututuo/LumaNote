@@ -107,7 +107,9 @@ final class DocumentSwipeMonitorNSView: NSView {
             resetGesture()
         }
 
-        let deltaX = event.scrollingDeltaX
+        // AppKit's horizontal scroll delta is opposite to the page travel users expect here.
+        // Keep the internal convention as: positive X means next document, current page moves left.
+        let deltaX = -event.scrollingDeltaX
         let deltaY = event.scrollingDeltaY
 
         if abs(deltaX) > 0.1 || abs(deltaY) > 0.1 {
@@ -128,7 +130,7 @@ final class DocumentSwipeMonitorNSView: NSView {
     }
 
     private func handleSwipe(_ event: NSEvent) {
-        let deltaX = event.deltaX
+        let deltaX = -event.deltaX
         guard abs(deltaX) > 0.1 else { return }
         let direction: Direction = deltaX > 0 ? .next : .previous
         onProgress(direction.progress)
