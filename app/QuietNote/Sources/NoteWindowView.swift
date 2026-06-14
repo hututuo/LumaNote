@@ -708,12 +708,12 @@ struct NoteWindowView: View {
 
         return GeometryReader { proxy in
             let progress = railCompactProgress(for: proxy.size.width)
-            let spacing = 8 - progress * 3
-            let horizontalPadding = 14 - progress * 6
-            let sliderMinWidth = 96 - progress * 54
-            let buttonSize = 24 - progress * 2
-            let labelFontSize = 12 - progress
-            let percentWidth = 36 - progress * 4
+            let spacing = 7 - progress * 3.5
+            let horizontalPadding = 12 - progress * 6
+            let sliderMinWidth = 84 - progress * 56
+            let buttonSize = 23 - progress * 3
+            let labelFontSize = 11.5 - progress * 1.2
+            let percentWidth = 34 - progress * 5
 
             HStack(spacing: spacing) {
                 Text("1")
@@ -788,6 +788,13 @@ struct NoteWindowView: View {
                         )
                     }
                 )
+                railButton(symbol: "xmark", help: copy.close, size: buttonSize, hitSize: max(30, buttonSize + 8)) {
+                    showClipboard = false
+                    showMore = false
+                    showExtractionActions = false
+                    showFileSwitcher = false
+                    onClose()
+                }
             }
             .padding(.horizontal, horizontalPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
