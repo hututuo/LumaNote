@@ -2,10 +2,15 @@ import Foundation
 import SwiftUI
 
 struct MoreMenuView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var settings: AppSettings
     @ObservedObject var clipboardStore: ClipboardStore
     @Binding var showShortcutSettings: Bool
     let onClose: () -> Void
+
+    private var iconInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.88 : 0.78)
+    }
 
     var body: some View {
         let copy = AppText(language: settings.language)
@@ -91,7 +96,7 @@ struct MoreMenuView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "keyboard.fill")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.black.opacity(0.78))
+                            .foregroundStyle(iconInkColor)
                             .frame(width: 30, height: 30)
                             .background {
                                 Circle()

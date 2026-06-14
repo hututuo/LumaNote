@@ -2,12 +2,22 @@ import AppKit
 import SwiftUI
 
 struct ClipboardLibraryView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var settings: AppSettings
     @ObservedObject var store: ClipboardStore
     @State private var query = ""
 
-    private let inkColor = Color.black.opacity(0.86)
-    private let softInkColor = Color.black.opacity(0.55)
+    private var inkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.86)
+    }
+
+    private var softInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.62 : 0.55)
+    }
+
+    private var searchBorderColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.24 : 0.18)
+    }
 
     private var filteredItems: [ClipboardItem] {
         return store.items.filter { item in
@@ -84,7 +94,7 @@ struct ClipboardLibraryView: View {
             .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color.black.opacity(0.18), lineWidth: 0.75)
+                    .stroke(searchBorderColor, lineWidth: 0.75)
             )
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
@@ -155,11 +165,18 @@ struct ClipboardLibraryView: View {
 }
 
 private struct ClipboardRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let item: ClipboardItem
     @ObservedObject var settings: AppSettings
     @ObservedObject var store: ClipboardStore
-    private let inkColor = Color.black.opacity(0.86)
-    private let softInkColor = Color.black.opacity(0.55)
+
+    private var inkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.86)
+    }
+
+    private var softInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.62 : 0.55)
+    }
 
     var body: some View {
         let copy = AppText(language: settings.language)
@@ -225,10 +242,14 @@ private struct ClipboardRow: View {
 }
 
 private struct DetectionShelf: View {
+    @Environment(\.colorScheme) private var colorScheme
     let detections: [ClipboardDetection]
     @ObservedObject var settings: AppSettings
     @ObservedObject var store: ClipboardStore
-    private let inkColor = Color.black.opacity(0.82)
+
+    private var inkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.88 : 0.82)
+    }
 
     var body: some View {
         let copy = AppText(language: settings.language)
@@ -277,6 +298,7 @@ private struct DetectionShelf: View {
 }
 
 private struct DetectionChip: View {
+    @Environment(\.colorScheme) private var colorScheme
     let detection: ClipboardDetection
     @ObservedObject var settings: AppSettings
     @ObservedObject var store: ClipboardStore
@@ -286,8 +308,13 @@ private struct DetectionChip: View {
         settings.accentColor
     }
 
-    private let inkColor = Color.black.opacity(0.86)
-    private let softInkColor = Color.black.opacity(0.58)
+    private var inkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.86)
+    }
+
+    private var softInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.66 : 0.58)
+    }
 
     var body: some View {
         let copy = AppText(language: settings.language)
@@ -308,7 +335,7 @@ private struct DetectionChip: View {
         HStack(spacing: 5) {
             Image(systemName: detection.symbol)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.78))
+                .foregroundStyle(Color.primary.opacity(colorScheme == .dark ? 0.88 : 0.78))
                 .frame(width: 18, height: 18)
                 .background(
                     LinearGradient(

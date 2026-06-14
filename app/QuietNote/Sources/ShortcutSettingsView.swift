@@ -2,8 +2,13 @@
 import SwiftUI
 
 struct ShortcutSettingsView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var settings: AppSettings
+
+    private var closeIconColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.82 : 0.72)
+    }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
@@ -12,7 +17,7 @@ struct ShortcutSettingsView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 11.5, weight: .bold))
-                    .foregroundStyle(Color.black.opacity(0.72))
+                    .foregroundStyle(closeIconColor)
                     .frame(width: 26, height: 26)
                     .background {
                         Circle()
@@ -29,6 +34,8 @@ struct ShortcutSettingsView: View {
 }
 
 struct ShortcutSettingsPanel: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     enum Presentation {
         case settings
         case sheet
@@ -37,6 +44,14 @@ struct ShortcutSettingsPanel: View {
     @ObservedObject var settings: AppSettings
     let presentation: Presentation
     @State private var refreshToken = 0
+
+    private var iconInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.82)
+    }
+
+    private var rowIconInkColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.82 : 0.76)
+    }
 
     var body: some View {
         let copy = AppText(language: settings.language)
@@ -95,7 +110,7 @@ struct ShortcutSettingsPanel: View {
         HStack(spacing: presentation == .sheet ? 9 : 12) {
             Image(systemName: "keyboard.fill")
                 .font(.system(size: presentation == .sheet ? 19 : 22, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.82))
+                .foregroundStyle(iconInkColor)
                 .frame(width: presentation == .sheet ? 38 : 44, height: presentation == .sheet ? 38 : 44)
                 .background {
                     Circle()
@@ -192,7 +207,7 @@ struct ShortcutSettingsPanel: View {
         HStack(spacing: presentation == .sheet ? 8 : 10) {
             Image(systemName: row.icon)
                 .font(.system(size: presentation == .sheet ? 12.5 : 13.5, weight: .semibold))
-                .foregroundStyle(isConflicted ? Color.orange : Color.black.opacity(0.76))
+                .foregroundStyle(isConflicted ? Color.orange : rowIconInkColor)
                 .frame(width: presentation == .sheet ? 24 : 28, height: presentation == .sheet ? 24 : 28)
                 .background {
                     Circle()
