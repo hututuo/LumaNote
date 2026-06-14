@@ -19,6 +19,10 @@ struct NoteWindowView: View {
     @State private var fileSwitchButtonFrame: CGRect = .zero
     @State private var hiddenSuggestionID: ClipboardItem.ID?
     @State private var suggestionResetTask: Task<Void, Never>?
+    @State private var chromeControlsCollapsed = false
+    @State private var chromeCollapseTask: Task<Void, Never>?
+    @State private var lastChromeActivityAt = Date.distantPast
+    @State private var chromeHintPulse = false
     @Namespace private var extractionIslandNamespace
 
     var body: some View {
@@ -35,13 +39,20 @@ struct NoteWindowView: View {
                 content
                     .padding(.leading, 10)
                     .padding(.trailing, 5)
-                    .padding(.top, 10)
+                    .padding(.top, contentTopPadding)
                     .padding(.bottom, contentBottomInset)
             }
 
-            bottomRail
+            bottomChromeControl
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background {
+            WindowActivityMonitorView { _ in
+                markChromeActivity(revealIfCollapsed: false)
+            }
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
+        }
         .overlay {
             if showClipboard {
                 clipboardInlineOverlay
@@ -75,6 +86,7 @@ struct NoteWindowView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .quietNoteToggleClipboard)) { _ in
             withAnimation(.snappy(duration: 0.16)) {
+                chromeControlsCollapsed = false
                 showMore = false
                 showFileSwitcher = false
                 showExtractionActions = false
@@ -95,20 +107,51 @@ struct NoteWindowView: View {
         }
         .onChange(of: showShortcutSettings) { _, isPresented in
             if isPresented {
+                chromeControlsCollapsed = false
                 showMore = false
             }
         }
         .onChange(of: clipboardStore.latestDetectedItem?.id) { _, itemID in
             scheduleSuggestionReset(for: itemID)
+            markChromeActivity(revealIfCollapsed: false)
+        }
+        .onChange(of: bottomChromeShouldStayExpanded) { _, shouldStayExpanded in
+            if shouldStayExpanded {
+                chromeCollapseTask?.cancel()
+                withAnimation(.snappy(duration: 0.18)) {
+                    chromeControlsCollapsed = false
+                }
+            } else {
+                markChromeActivity(forceReschedule: true)
+            }
+        }
+        .onChange(of: settings.autoHideChrome) { _, shouldAutoHide in
+            if shouldAutoHide {
+                markChromeActivity(forceReschedule: true)
+            } else {
+                chromeCollapseTask?.cancel()
+                withAnimation(.snappy(duration: 0.18)) {
+                    chromeControlsCollapsed = false
+                }
+            }
+        }
+        .onChange(of: noteStore.markdown) { _, _ in
+            markChromeActivity(revealIfCollapsed: false)
+        }
+        .onAppear {
+            startChromeHintPulse()
+            markChromeActivity(forceReschedule: true)
         }
         .onDisappear {
             suggestionResetTask?.cancel()
+            chromeCollapseTask?.cancel()
         }
         .animation(.snappy(duration: 0.16), value: showClipboard)
         .animation(.snappy(duration: 0.16), value: showMore)
         .animation(.snappy(duration: 0.16), value: showFileSwitcher)
         .animation(.snappy(duration: 0.24), value: clipboardStore.latestDetectedItem?.id)
         .animation(.snappy(duration: 0.24), value: hiddenSuggestionID)
+        .animation(.snappy(duration: 0.24), value: chromeControlsCollapsed)
     }
 
     @ViewBuilder
@@ -306,11 +349,24 @@ struct NoteWindowView: View {
             WindowDragView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            extractionIsland
-                .padding(.top, 7)
+            if topChromeCollapsed {
+                collapsedTopChromeHandle
+                    .padding(.top, 5)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.72, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.92, anchor: .top).combined(with: .opacity)
+                    ))
+            } else {
+                extractionIsland
+                    .padding(.top, 7)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.92, anchor: .center).combined(with: .opacity),
+                        removal: .scale(scale: 0.82, anchor: .center).combined(with: .opacity)
+                    ))
+            }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 35)
+        .frame(height: topBarHeight)
         .contentShape(Rectangle())
     }
 
@@ -352,16 +408,28 @@ struct NoteWindowView: View {
         36
     }
 
+    private var collapsedBottomChromeHeight: CGFloat {
+        18
+    }
+
     private var markdownBottomFadeHeight: CGFloat {
-        26
+        bottomChromeCollapsed ? 8 : 26
     }
 
     private var markdownTopFadeHeight: CGFloat {
-        16
+        topChromeCollapsed ? 6 : 16
     }
 
     private var contentBottomInset: CGFloat {
-        bottomRailHeight
+        bottomChromeCollapsed ? 2 : bottomRailHeight
+    }
+
+    private var contentTopPadding: CGFloat {
+        topChromeCollapsed ? 0 : 10
+    }
+
+    private var topBarHeight: CGFloat {
+        topChromeCollapsed ? 12 : 35
     }
 
     private var markdownContentFadeMask: some View {
@@ -413,6 +481,26 @@ struct NoteWindowView: View {
         return 0.075 + clampedProgress * 0.425
     }
 
+    private var collapsedChromeOpacity: Double {
+        max(0.035, settings.noteOpacity * 0.18)
+    }
+
+    private var chromeAutoHideDelay: TimeInterval {
+        4.0
+    }
+
+    private var topChromeCollapsed: Bool {
+        settings.autoHideChrome && chromeControlsCollapsed && activeDetectedItem == nil && !showExtractionActions
+    }
+
+    private var bottomChromeCollapsed: Bool {
+        settings.autoHideChrome && chromeControlsCollapsed && !bottomChromeShouldStayExpanded
+    }
+
+    private var bottomChromeShouldStayExpanded: Bool {
+        showClipboard || showMore || showFileSwitcher || showShortcutSettings
+    }
+
     private var topDragPassthroughHeight: CGFloat {
         38
     }
@@ -434,6 +522,71 @@ struct NoteWindowView: View {
         guard showClipboard else { return }
         withAnimation(.snappy(duration: 0.14)) {
             showClipboard = false
+        }
+    }
+
+    private func markChromeActivity(revealIfCollapsed: Bool = true, forceReschedule: Bool = false) {
+        guard settings.autoHideChrome else {
+            chromeCollapseTask?.cancel()
+            if chromeControlsCollapsed {
+                chromeControlsCollapsed = false
+            }
+            return
+        }
+
+        let now = Date()
+        let wasCollapsed = chromeControlsCollapsed
+        let shouldReschedule = forceReschedule || now.timeIntervalSince(lastChromeActivityAt) > 0.22 || wasCollapsed
+        lastChromeActivityAt = now
+
+        if wasCollapsed {
+            guard revealIfCollapsed else { return }
+            withAnimation(.snappy(duration: 0.2)) {
+                chromeControlsCollapsed = false
+            }
+        }
+
+        if bottomChromeShouldStayExpanded {
+            chromeCollapseTask?.cancel()
+            return
+        }
+
+        if shouldReschedule {
+            scheduleChromeAutoCollapse()
+        }
+    }
+
+    private func revealChromeControls() {
+        markChromeActivity(revealIfCollapsed: true, forceReschedule: true)
+    }
+
+    private func scheduleChromeAutoCollapse() {
+        chromeCollapseTask?.cancel()
+        guard settings.autoHideChrome else { return }
+        guard !bottomChromeShouldStayExpanded else { return }
+
+        let delay = chromeAutoHideDelay
+        chromeCollapseTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            guard !bottomChromeShouldStayExpanded else { return }
+
+            let idleTime = Date().timeIntervalSince(lastChromeActivityAt)
+            guard idleTime >= delay - 0.18 else {
+                scheduleChromeAutoCollapse()
+                return
+            }
+
+            withAnimation(.snappy(duration: 0.26)) {
+                chromeControlsCollapsed = true
+            }
+        }
+    }
+
+    private func startChromeHintPulse() {
+        guard !chromeHintPulse else { return }
+        withAnimation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true)) {
+            chromeHintPulse = true
         }
     }
 
@@ -459,6 +612,90 @@ struct NoteWindowView: View {
 
     private var detectedIslandHighlightColor: Color {
         Color.white.opacity(0.58)
+    }
+
+    @ViewBuilder
+    private var bottomChromeControl: some View {
+        if bottomChromeCollapsed {
+            collapsedBottomChromeHandle
+                .padding(.bottom, 5)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .scale(scale: 0.88, anchor: .bottom).combined(with: .opacity)
+                ))
+        } else {
+            bottomRail
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .move(edge: .bottom).combined(with: .opacity)
+                ))
+        }
+    }
+
+    private var collapsedTopChromeHandle: some View {
+        let detection = activeDetectedItem?.detections.first
+        let width: CGFloat = detection == nil ? 42 : 50
+
+        return ZStack {
+            collapsedHandlePulseOverlay
+
+            HStack(spacing: 4) {
+                if let detection {
+                    Image(systemName: detection.symbol)
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundStyle(detectedIslandIconColor)
+                } else {
+                    ForEach(0..<3, id: \.self) { index in
+                        Capsule(style: .continuous)
+                            .fill(islandIconColor.opacity(0.7 - Double(index) * 0.14))
+                            .frame(width: index == 1 ? 7 : 5, height: 2)
+                    }
+                }
+            }
+            .allowsHitTesting(false)
+
+            WindowClickDragView {
+                revealChromeControls()
+            }
+        }
+        .frame(width: width, height: 18)
+        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity))
+        .contentShape(Capsule(style: .continuous))
+        .help("Show controls")
+    }
+
+    private var collapsedBottomChromeHandle: some View {
+        ZStack {
+            collapsedHandlePulseOverlay
+
+            HStack(spacing: 5) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 8.5, weight: .bold))
+
+                Text("\(Int(settings.noteOpacity * 100))%")
+                    .font(.system(size: 9.5, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+            }
+            .foregroundStyle(islandIconColor)
+            .shadow(color: islandSoftShadowColor, radius: 1, y: 0.4)
+            .allowsHitTesting(false)
+
+            WindowClickDragView {
+                revealChromeControls()
+            }
+        }
+        .frame(width: 58, height: collapsedBottomChromeHeight)
+        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity))
+        .contentShape(Capsule(style: .continuous))
+        .help("Show controls")
+    }
+
+    private var collapsedHandlePulseOverlay: some View {
+        Capsule(style: .continuous)
+            .strokeBorder(.white.opacity(chromeHintPulse ? 0.42 : 0.16), lineWidth: 1)
+            .scaleEffect(chromeHintPulse ? 1.08 : 0.96)
+            .opacity(chromeHintPulse ? 0.95 : 0.42)
+            .allowsHitTesting(false)
     }
 
     private var bottomRail: some View {
@@ -513,6 +750,18 @@ struct NoteWindowView: View {
                 }
                 railButton(symbol: settings.alwaysOnTop ? "pin.fill" : "pin", help: "Pin", size: buttonSize) {
                     settings.alwaysOnTop.toggle()
+                }
+                railButton(
+                    symbol: settings.autoHideChrome ? "eye.slash" : "eye",
+                    help: settings.autoHideChrome ? copy.autoHideControls : copy.keepControlsVisible,
+                    size: buttonSize
+                ) {
+                    withAnimation(.snappy(duration: 0.18)) {
+                        settings.autoHideChrome.toggle()
+                        if !settings.autoHideChrome {
+                            chromeControlsCollapsed = false
+                        }
+                    }
                 }
                 railButton(symbol: "ellipsis", help: "More", size: buttonSize, hitSize: max(30, buttonSize + 8)) {
                     withAnimation(.snappy(duration: 0.14)) {

@@ -1,4 +1,4 @@
-import AppKit
+@preconcurrency import AppKit
 import SwiftUI
 
 struct WindowDragView: NSViewRepresentable {
@@ -29,6 +29,88 @@ struct WindowClickDragView: NSViewRepresentable {
 
         init(onClick: @escaping () -> Void) {
             self.onClick = onClick
+        }
+    }
+}
+
+struct WindowActivityMonitorView: NSViewRepresentable {
+    var onActivity: (_ shouldRevealChrome: Bool) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onActivity: onActivity)
+    }
+
+    func makeNSView(context: Context) -> ActivityMonitorNSView {
+        let view = ActivityMonitorNSView(coordinator: context.coordinator)
+        context.coordinator.installMonitor()
+        return view
+    }
+
+    func updateNSView(_ nsView: ActivityMonitorNSView, context: Context) {
+        context.coordinator.onActivity = onActivity
+        context.coordinator.installMonitor()
+    }
+
+    static func dismantleNSView(_ nsView: ActivityMonitorNSView, coordinator: Coordinator) {
+        coordinator.removeMonitor()
+    }
+
+    final class Coordinator {
+        var onActivity: (_ shouldRevealChrome: Bool) -> Void
+        var windowNumber = 0
+
+        private var monitor: Any?
+        private var lastPointerActivityAt = Date.distantPast
+
+        init(onActivity: @escaping (_ shouldRevealChrome: Bool) -> Void) {
+            self.onActivity = onActivity
+        }
+
+        deinit {
+            removeMonitor()
+        }
+
+        func installMonitor() {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [
+                .leftMouseDown,
+                .rightMouseDown,
+                .otherMouseDown,
+                .leftMouseDragged,
+                .rightMouseDragged,
+                .otherMouseDragged,
+                .mouseMoved,
+                .scrollWheel,
+                .keyDown
+            ]) { [weak self] event in
+                self?.handle(event)
+                return event
+            }
+        }
+
+        func removeMonitor() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+            }
+            monitor = nil
+        }
+
+        private func handle(_ event: NSEvent) {
+            guard windowNumber != 0, event.windowNumber == windowNumber else {
+                return
+            }
+
+            if event.type == .mouseMoved {
+                let now = Date()
+                guard now.timeIntervalSince(lastPointerActivityAt) > 0.12 else {
+                    return
+                }
+                lastPointerActivityAt = now
+                onActivity(false)
+                return
+            }
+
+            onActivity(true)
         }
     }
 }
@@ -85,5 +167,28 @@ final class ClickDragNSView: NSView {
         if !didDrag {
             coordinator.onClick()
         }
+    }
+}
+
+final class ActivityMonitorNSView: NSView {
+    private let coordinator: WindowActivityMonitorView.Coordinator
+
+    init(coordinator: WindowActivityMonitorView.Coordinator) {
+        self.coordinator = coordinator
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        coordinator.windowNumber = window?.windowNumber ?? 0
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
     }
 }
