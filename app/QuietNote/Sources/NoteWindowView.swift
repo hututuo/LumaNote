@@ -369,6 +369,7 @@ struct NoteWindowView: View {
     private func extractionActionsInlineOverlay(item: ClipboardItem) -> some View {
         GeometryReader { proxy in
             let panelWidth = min(310, max(238, proxy.size.width - 24))
+            let panelMaxHeight = min(360, max(150, proxy.size.height - 54))
 
             ZStack(alignment: .top) {
                 dismissBackdropWithTopDragPassthrough {
@@ -377,8 +378,9 @@ struct NoteWindowView: View {
                     }
                 }
 
-                extractionActionsPanel(item: item)
+                extractionActionsPanel(item: item, maxHeight: panelMaxHeight)
                     .frame(width: panelWidth)
+                    .frame(maxHeight: panelMaxHeight)
                     .padding(.top, 39)
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity),
@@ -1162,10 +1164,11 @@ struct NoteWindowView: View {
         .help(AppText(language: settings.language).openClipboardLibrary)
     }
 
-    private func extractionActionsPanel(item: ClipboardItem) -> some View {
+    private func extractionActionsPanel(item: ClipboardItem, maxHeight: CGFloat) -> some View {
         let copy = AppText(language: settings.language)
         let summary = detectedKindSummary(for: item.detections)
         let panelBlue = Color(red: 0.36, green: 0.66, blue: 1.00)
+        let listMaxHeight = max(88, maxHeight - 54)
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
@@ -1180,72 +1183,18 @@ struct NoteWindowView: View {
                     .truncationMode(.tail)
             }
 
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(item.detections.enumerated()), id: \.element.id) { index, detection in
-                    VStack(alignment: .leading, spacing: 7) {
-                        Label {
-                            Text(detection.value)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        } icon: {
-                            Image(systemName: detection.symbol)
-                        }
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.black.opacity(0.84))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background {
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .fill(settings.accentColor.opacity(0.035))
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [
-                                            settings.accentColor.opacity(0.36),
-                                            .white.opacity(0.20),
-                                            settings.accentColor.opacity(0.16)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 0.9
-                                )
-                        }
-
-                        HStack(spacing: 8) {
-                            Button {
-                                clipboardStore.copy(detection.value)
-                            } label: {
-                                Label(copy.copy, systemImage: "doc.on.doc")
-                            }
-                            .help(copy.copyExtracted)
-
-                            if let openTitle = detection.openTitle {
-                                Button {
-                                    showExtractionActions = false
-                                    clipboardStore.open(detection)
-                                } label: {
-                                    Label(openTitle, systemImage: detection.openSymbol)
-                                }
-                                .help(openTitle)
-                            }
-                        }
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.black.opacity(0.76))
-                        .buttonStyle(.borderless)
-                    }
-                    .padding(.vertical, 8)
-
-                    if index < item.detections.count - 1 {
-                        Rectangle()
-                            .fill(.white.opacity(0.16))
-                            .frame(height: 1)
+            ScrollView(.vertical, showsIndicators: item.detections.count > 2) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(item.detections.enumerated()), id: \.element.id) { index, detection in
+                        extractionDetectionRow(
+                            detection,
+                            isLast: index == item.detections.count - 1,
+                            copy: copy
+                        )
                     }
                 }
             }
+            .frame(maxHeight: listMaxHeight)
         }
         .padding(12)
         .background {
@@ -1278,6 +1227,91 @@ struct NoteWindowView: View {
                 .stroke(panelBlue.opacity(0.34), lineWidth: 1.1)
         }
         .shadow(color: panelBlue.opacity(0.10), radius: 8, y: 1)
+    }
+
+    private func extractionDetectionRow(_ detection: ClipboardDetection, isLast: Bool, copy: AppText) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .top, spacing: 7) {
+                    Image(systemName: detection.symbol)
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 14, height: 16)
+                        .padding(.top, 1)
+
+                    Text(wrappingExtractionValue(detection.value))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.black.opacity(0.84))
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(settings.accentColor.opacity(0.035))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    settings.accentColor.opacity(0.36),
+                                    .white.opacity(0.20),
+                                    settings.accentColor.opacity(0.16)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.9
+                        )
+                }
+
+                HStack(spacing: 8) {
+                    Button {
+                        clipboardStore.copy(detection.value)
+                    } label: {
+                        Label(copy.copy, systemImage: "doc.on.doc")
+                    }
+                    .help(copy.copyExtracted)
+
+                    if let openTitle = detection.openTitle {
+                        Button {
+                            showExtractionActions = false
+                            clipboardStore.open(detection)
+                        } label: {
+                            Label(openTitle, systemImage: detection.openSymbol)
+                        }
+                        .help(openTitle)
+                    }
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.black.opacity(0.76))
+                .buttonStyle(.borderless)
+            }
+            .padding(.vertical, 8)
+
+            if !isLast {
+                Rectangle()
+                    .fill(.white.opacity(0.16))
+                    .frame(height: 1)
+            }
+        }
+    }
+
+    private func wrappingExtractionValue(_ value: String) -> String {
+        let breakScalars = Set("/\\?&=#:-_@.,，;； ".unicodeScalars)
+        var output = ""
+        output.reserveCapacity(value.count + value.count / 4)
+        for scalar in value.unicodeScalars {
+            output.unicodeScalars.append(scalar)
+            if breakScalars.contains(scalar) {
+                output.unicodeScalars.append("\u{200B}")
+            }
+        }
+        return output
     }
 
     private func scheduleSuggestionReset(for itemID: ClipboardItem.ID?) {
