@@ -31,6 +31,7 @@ struct NoteWindowView: View {
                 .fill(.ultraThinMaterial)
                 .opacity(shellOpacity)
                 .overlay(readabilityLayer)
+                .overlay(themeTintLayer)
                 .overlay(borderLayer)
 
             VStack(spacing: 0) {
@@ -328,6 +329,12 @@ struct NoteWindowView: View {
     private var readabilityLayer: some View {
         RoundedRectangle(cornerRadius: 20, style: .continuous)
             .fill(Color.white.opacity(0.025 + settings.noteOpacity * (0.14 + settings.glassStrength * 0.16)))
+            .blendMode(.plusLighter)
+    }
+
+    private var themeTintLayer: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(settings.accentColor.opacity(0.004 + settings.noteOpacity * (0.014 + settings.glassStrength * 0.026)))
             .blendMode(.plusLighter)
     }
 
@@ -659,7 +666,7 @@ struct NoteWindowView: View {
             }
         }
         .frame(width: width, height: 18)
-        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity))
+        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity, accentColor: settings.accentColor))
         .contentShape(Capsule(style: .continuous))
         .help(AppText(language: settings.language).showControls)
     }
@@ -685,7 +692,7 @@ struct NoteWindowView: View {
             }
         }
         .frame(width: 58, height: collapsedBottomChromeHeight)
-        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity))
+        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity, accentColor: settings.accentColor))
         .contentShape(Capsule(style: .continuous))
         .help(AppText(language: settings.language).showControls)
     }
@@ -716,7 +723,7 @@ struct NoteWindowView: View {
                     .foregroundStyle(.secondary)
 
                 Slider(value: $settings.noteOpacity, in: AppSettings.minimumNoteOpacity...1)
-                    .tint(.cyan)
+                    .tint(settings.accentColor)
                     .frame(minWidth: sliderMinWidth)
                     .layoutPriority(1)
 
@@ -806,6 +813,7 @@ struct NoteWindowView: View {
 
             LinearGradient(
                 colors: [
+                    settings.accentColor.opacity(0.006 + bottomRailOpacity * 0.028),
                     .white.opacity(0.025 + bottomRailOpacity * 0.075),
                     .white.opacity(0.006 + bottomRailOpacity * 0.018),
                     .black.opacity(0.012 + bottomRailOpacity * 0.028)
@@ -820,6 +828,7 @@ struct NoteWindowView: View {
                     LinearGradient(
                         colors: [
                             .white.opacity(0.18 + bottomRailOpacity * 0.56),
+                            settings.accentColor.opacity(0.06 + bottomRailOpacity * 0.12),
                             .white.opacity(0.08 + bottomRailOpacity * 0.14),
                             .white.opacity(0.02 + bottomRailOpacity * 0.04)
                         ],
@@ -947,7 +956,7 @@ struct NoteWindowView: View {
             .padding(.trailing, 4)
         }
         .frame(width: 190, height: 26)
-        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity))
+        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity, accentColor: settings.accentColor))
         .matchedGeometryEffect(id: "extractionIsland", in: extractionIslandNamespace)
         .help(AppText(language: settings.language).dragNote)
     }
@@ -1003,7 +1012,7 @@ struct NoteWindowView: View {
         .frame(height: 26, alignment: .leading)
         .fixedSize(horizontal: true, vertical: false)
         .frame(maxWidth: 226, alignment: .leading)
-        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity))
+        .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity, accentColor: settings.accentColor))
         .matchedGeometryEffect(id: "extractionIsland", in: extractionIslandNamespace)
         .help(AppText(language: settings.language).clipboardActions)
         .popover(isPresented: $showExtractionActions, arrowEdge: .top) {
@@ -1263,7 +1272,7 @@ private struct FileSwitcherView: View {
             HStack(spacing: 9) {
                 Image(systemName: isCurrent(url) ? "checkmark.circle.fill" : "doc.text")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(isCurrent(url) ? Color.cyan : .secondary)
+                    .foregroundStyle(isCurrent(url) ? settings.accentColor : .secondary)
                     .frame(width: 18)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -1288,7 +1297,7 @@ private struct FileSwitcherView: View {
         }
         .buttonStyle(.plain)
         .background(
-            isCurrent(url) ? Color.cyan.opacity(0.08) : Color.white.opacity(0.04),
+            isCurrent(url) ? settings.accentColor.opacity(0.08) : Color.white.opacity(0.04),
             in: RoundedRectangle(cornerRadius: 9, style: .continuous)
         )
         .help(copy.switchToFile(url.lastPathComponent))
@@ -1314,6 +1323,7 @@ private struct FileSwitcherView: View {
 private struct ExtractionIslandButtonModifier: ViewModifier {
     let isExpanded: Bool
     let opacity: Double
+    let accentColor: Color
 
     func body(content: Content) -> some View {
         content
@@ -1329,12 +1339,18 @@ private struct ExtractionIslandButtonModifier: ViewModifier {
                     .fill(Color.white.opacity((isExpanded ? 0.025 : 0.04) + opacity * (isExpanded ? 0.075 : 0.1)))
                     .blendMode(.plusLighter)
             )
+            .background(
+                islandShape
+                    .fill(accentColor.opacity(0.004 + opacity * 0.024))
+                    .blendMode(.plusLighter)
+            )
             .overlay(
                 islandShape
                     .strokeBorder(
                         LinearGradient(
                             colors: [
                                 .white.opacity((isExpanded ? 0.18 : 0.22) + opacity * (isExpanded ? 0.56 : 0.6)),
+                                accentColor.opacity(0.045 + opacity * 0.11),
                                 .white.opacity(0.08 + opacity * 0.14),
                                 .white.opacity(0.02 + opacity * 0.04)
                             ],

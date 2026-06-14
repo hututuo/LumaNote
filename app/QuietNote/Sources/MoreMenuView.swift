@@ -15,6 +15,8 @@ struct MoreMenuView: View {
                 Text(copy.appearance)
                     .font(.system(size: 13, weight: .semibold))
 
+                compactThemeRow(copy: copy)
+
                 compactSliderRow(
                     title: copy.editorFontSize,
                     value: String(format: "%.1fpt", settings.editorFontSize)
@@ -24,7 +26,7 @@ struct MoreMenuView: View {
                         in: AppSettings.minimumEditorFontSize...AppSettings.maximumEditorFontSize,
                         step: 0.5
                     )
-                    .tint(.cyan)
+                    .tint(settings.accentColor)
                 }
 
                 compactSliderRow(
@@ -33,7 +35,7 @@ struct MoreMenuView: View {
                 ) {
                     VStack(alignment: .leading, spacing: 5) {
                         Slider(value: $settings.glassStrength, in: 0...1)
-                            .tint(.cyan)
+                            .tint(settings.accentColor)
 
                         Text(copy.glassHintCompact)
                             .font(.system(size: 11, weight: .medium))
@@ -93,7 +95,7 @@ struct MoreMenuView: View {
                             .frame(width: 30, height: 30)
                             .background {
                                 Circle()
-                                    .fill(Color.cyan.opacity(0.18))
+                                    .fill(settings.accentColor.opacity(0.18))
                                     .overlay(Circle().stroke(Color.white.opacity(0.46), lineWidth: 1))
                             }
 
@@ -158,6 +160,21 @@ struct MoreMenuView: View {
             }
 
             control()
+        }
+    }
+
+    private func compactThemeRow(copy: AppText) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(copy.themeColor)
+                    .font(.system(size: 12.5, weight: .medium))
+                Spacer()
+                Text(settings.themeColor.displayName(language: settings.language))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            ThemeColorPicker(selection: $settings.themeColor, language: settings.language, compact: true)
         }
     }
 }

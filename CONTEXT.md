@@ -19,6 +19,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Markdown note editing with live save.
 - Markdown should render live inside the editable note body, not through separate edit/preview modes.
 - Adjustable note opacity. New default note opacity is 60%.
+- Adjustable theme color for the app's accent tone.
 - Customizable global shortcuts for toggling the note, showing the note, hiding the note, and opening the clipboard library.
 - App-level Chinese/English UI language switch in Settings. This changes app chrome text, not the user's Markdown content.
 - Clipboard history saved locally after explicit app setting enables monitoring.
@@ -139,6 +140,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Clipboard paste UI should be labeled as pasting to the current app, because the action targets whichever app/input had focus before LumaNote.
 - The compact more menu now includes clipboard monitoring, stored item count, retention limit, clear-library action, launch-at-login, shortcuts, and update controls. The always-on-top control lives on the bottom rail pin button instead of inside Settings/More.
 - Settings now includes a Chinese/English segmented language control. `AppSettings.language` defaults to Chinese, and `AppText` provides app chrome strings for Settings, More, Clipboard Library, and extraction action menus.
+- Settings and the compact More menu include a theme color selector. `AppSettings.themeColor` persists as `themeColor`, defaults to aqua, and currently offers aqua, sky, mint, violet, rose, and amber presets. Treat it as a lightweight accent/tint setting: sliders, selected-file emphasis, shortcut accent circles, clipboard library glass highlights, and extracted clipboard bubbles follow it, while semantic warning/success colors remain orange/green.
 - Buttons in the note chrome, clipboard library, file switcher, shortcuts panel, update section, settings/more menus, and status menu should carry hover help text. Prefer localized `AppText` strings for SwiftUI `.help(...)`; status bar menu items use AppKit `toolTip`.
 - Settings and the compact More menu include a Launch at Login toggle. It uses macOS `SMAppService.mainApp` rather than a custom LaunchAgent. If registration fails, the toggle reverts and shows the localized error message.
 - Global shortcuts include `toggleQuietNote` for one-key show/hide, `showQuietNote` for show-only, `hideQuietNote` for hide-only, and `toggleClipboardLibrary` for the clipboard library. `toggleQuietNote` defaults to Option+Space; users who previously had the old Option+Space show-only default are migrated once so show-only moves to Option+Shift+Space and Option+Space becomes the true show/hide toggle. The shortcut UI uses a prominent shared panel in Settings and the note sheet, shows the main shortcut and internal duplicate conflicts, and includes a reset-to-defaults button.

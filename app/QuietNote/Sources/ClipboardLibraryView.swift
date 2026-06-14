@@ -27,7 +27,7 @@ struct ClipboardLibraryView: View {
                     .frame(width: 24, height: 24)
                     .background(
                         LinearGradient(
-                            colors: [.cyan.opacity(0.26), .white.opacity(0.12)],
+                            colors: [settings.accentColor.opacity(0.26), .white.opacity(0.12)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -110,7 +110,7 @@ struct ClipboardLibraryView: View {
             LinearGradient(
                 colors: [
                     Color.white.opacity(0.14),
-                    Color.cyan.opacity(0.05),
+                    settings.accentColor.opacity(0.05),
                     Color.black.opacity(0.04)
                 ],
                 startPoint: .topLeading,
@@ -241,7 +241,7 @@ private struct DetectionShelf: View {
         .padding(8)
         .background(
             LinearGradient(
-                colors: [.cyan.opacity(0.08), .white.opacity(0.05), .purple.opacity(0.04)],
+                colors: [settings.accentColor.opacity(0.08), .white.opacity(0.05), settings.accentColor.opacity(0.04)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
@@ -251,14 +251,14 @@ private struct DetectionShelf: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [.white.opacity(0.26), .cyan.opacity(0.14), .black.opacity(0.04)],
+                        colors: [.white.opacity(0.26), settings.accentColor.opacity(0.14), .black.opacity(0.04)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
                 )
         )
-        .shadow(color: .cyan.opacity(0.05), radius: 6, y: 1)
+        .shadow(color: settings.accentColor.opacity(0.05), radius: 6, y: 1)
     }
 }
 
@@ -269,14 +269,7 @@ private struct DetectionChip: View {
     @State private var showActions = false
 
     private var tint: Color {
-        switch detection.kind {
-        case .url: .cyan
-        case .email: .blue
-        case .phone: .green
-        case .address: .orange
-        case .number: .purple
-        case .text: .pink
-        }
+        settings.accentColor
     }
 
     var body: some View {
