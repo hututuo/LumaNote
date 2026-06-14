@@ -29,7 +29,7 @@ struct NoteWindowView: View {
         ZStack(alignment: .bottom) {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .opacity(shellOpacity)
+                .opacity(shellMaterialOpacity)
                 .overlay(readabilityLayer)
                 .overlay(themeTintLayer)
                 .overlay(borderLayer)
@@ -382,13 +382,13 @@ struct NoteWindowView: View {
 
     private var readabilityLayer: some View {
         RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(Color.white.opacity(0.025 + settings.noteOpacity * (0.14 + settings.glassStrength * 0.16)))
+            .fill(Color.white.opacity(shellHazeOpacity))
             .blendMode(.plusLighter)
     }
 
     private var themeTintLayer: some View {
         RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(settings.accentColor.opacity(0.004 + settings.noteOpacity * (0.014 + settings.glassStrength * 0.026)))
+            .fill(settings.accentColor.opacity(shellTintOpacity))
             .blendMode(.plusLighter)
     }
 
@@ -531,8 +531,16 @@ struct NoteWindowView: View {
         }
     }
 
-    private var shellOpacity: Double {
-        max(0.08, settings.noteOpacity)
+    private var shellMaterialOpacity: Double {
+        0.08 + settings.noteOpacity * 0.44
+    }
+
+    private var shellHazeOpacity: Double {
+        0.012 + settings.noteOpacity * 0.028 + settings.glassStrength * 0.010
+    }
+
+    private var shellTintOpacity: Double {
+        0.004 + settings.noteOpacity * 0.010 + settings.glassStrength * 0.010
     }
 
     private var islandOpacity: Double {
