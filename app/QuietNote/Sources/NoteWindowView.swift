@@ -598,6 +598,10 @@ struct NoteWindowView: View {
         4.0
     }
 
+    private var topChromeHelpDelay: TimeInterval {
+        1.5
+    }
+
     private var topChromeCollapsed: Bool {
         settings.autoHideChrome && chromeControlsCollapsed && activeDetectedItem == nil && !showExtractionActions
     }
@@ -942,7 +946,7 @@ struct NoteWindowView: View {
         .frame(width: width, height: 14)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity, accentColor: settings.accentColor))
         .contentShape(Capsule(style: .continuous))
-        .help(AppText(language: settings.language).showControls)
+        .delayedInlineHelp(AppText(language: settings.language).showControls, delay: topChromeHelpDelay, yOffset: 24)
     }
 
     private var collapsedBottomChromeHandle: some View {
@@ -1282,7 +1286,7 @@ struct NoteWindowView: View {
         .frame(width: 190, height: 26)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: islandOpacity, accentColor: settings.accentColor))
         .matchedGeometryEffect(id: "extractionIsland", in: extractionIslandNamespace)
-        .help(AppText(language: settings.language).dragNote)
+        .delayedInlineHelp(AppText(language: settings.language).dragNote, delay: topChromeHelpDelay, yOffset: 28)
     }
 
     private func extractionActionButton(item: ClipboardItem) -> some View {
@@ -1948,6 +1952,65 @@ private struct ExtractionIslandButtonModifier: ViewModifier {
         } else {
             AnyInsettableShape(Circle())
         }
+    }
+}
+
+private extension View {
+    func delayedInlineHelp(_ text: String, delay: TimeInterval, yOffset: CGFloat) -> some View {
+        modifier(DelayedInlineHelpModifier(text: text, delay: delay, yOffset: yOffset))
+    }
+}
+
+private struct DelayedInlineHelpModifier: ViewModifier {
+    let text: String
+    let delay: TimeInterval
+    let yOffset: CGFloat
+
+    @State private var isVisible = false
+    @State private var showTask: Task<Void, Never>?
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .bottom) {
+                if isVisible {
+                    Text(text)
+                        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.primary.opacity(0.84))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(.regularMaterial, in: Capsule(style: .continuous))
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .strokeBorder(.white.opacity(0.34), lineWidth: 0.7)
+                        )
+                        .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+                        .offset(y: yOffset)
+                        .transition(.scale(scale: 0.94, anchor: .top).combined(with: .opacity))
+                        .allowsHitTesting(false)
+                }
+            }
+            .onHover { isHovering in
+                showTask?.cancel()
+                if isHovering {
+                    showTask = Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                        guard !Task.isCancelled else { return }
+                        withAnimation(.snappy(duration: 0.14)) {
+                            isVisible = true
+                        }
+                    }
+                } else {
+                    withAnimation(.snappy(duration: 0.10)) {
+                        isVisible = false
+                    }
+                }
+            }
+            .onDisappear {
+                showTask?.cancel()
+                isVisible = false
+            }
     }
 }
 
