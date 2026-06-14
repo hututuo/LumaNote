@@ -58,6 +58,7 @@ struct AppText {
         )
     }
     var extracted: String { text("已提取", "Extracted") }
+    var extractedClipboardPrefix: String { text("已提取：", "Extracted: ") }
     var detectedClipboardPrefix: String { text("提取到：", "Detected: ") }
     var listSeparator: String { text("、", ", ") }
     var copy: String { text("复制", "Copy") }
