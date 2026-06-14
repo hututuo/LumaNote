@@ -84,7 +84,7 @@ struct ClipboardLibraryView: View {
             .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(.white.opacity(0.18), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.18), lineWidth: 0.75)
             )
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
