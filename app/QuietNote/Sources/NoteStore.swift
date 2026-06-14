@@ -36,6 +36,7 @@ private enum NoteFileWriter {
 final class NoteStore: ObservableObject {
     @Published var markdown: String {
         didSet {
+            markdownRevision &+= 1
             refreshDisplayTitle()
             if !isReplacingText {
                 scheduleSave()
@@ -49,6 +50,7 @@ final class NoteStore: ObservableObject {
     @Published private(set) var workspaces: [NoteWorkspace] = []
     @Published private(set) var activeWorkspaceID = UUID()
     @Published private(set) var displayTitle = ""
+    @Published private(set) var markdownRevision = 0
 
     private let defaultFileURL: URL
     private let defaults: UserDefaults

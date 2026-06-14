@@ -39,11 +39,12 @@ private enum MarkdownTaskLayout {
 
 struct MarkdownRenderingEditor: NSViewRepresentable {
     @Binding var text: String
+    var contentRevision: Int = 0
     var fontSize: Double = MarkdownTaskLayout.defaultBaseFontSize
     var accentColor: NSColor = .systemCyan
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, fontSize: CGFloat(fontSize))
+        Coordinator(text: $text, contentRevision: contentRevision, fontSize: CGFloat(fontSize))
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -96,8 +97,12 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         var didReplaceText = false
         let newFontSize = MarkdownTaskLayout.normalizedFontSize(CGFloat(fontSize))
         let didChangeFontSize = abs(context.coordinator.fontSize - newFontSize) > 0.05
+        let didChangeTextRevision = context.coordinator.contentRevision != contentRevision
         let taskTextView = textView as? MarkdownTaskTextView
         let didChangeAccentColor = taskTextView.map { !$0.taskAccentColor.isEqual(accentColor) } ?? false
+        if didChangeTextRevision {
+            context.coordinator.contentRevision = contentRevision
+        }
         if didChangeFontSize {
             context.coordinator.fontSize = newFontSize
             taskTextView?.bodyFontSize = newFontSize
@@ -107,7 +112,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             textView.insertionPointColor = accentColor
             taskTextView?.taskAccentColor = accentColor
         }
-        if textView.string != text {
+        if didChangeTextRevision, textView.string != text {
             let selectedRanges = textView.selectedRanges
             textView.string = text
             textView.selectedRanges = selectedRanges
@@ -116,15 +121,17 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         if didReplaceText || didChangeFontSize {
             context.coordinator.applyMarkdownStyle()
             (scrollView as? MarkdownScrollView)?.invalidateDocumentHeight()
+            (scrollView as? MarkdownScrollView)?.refreshScrollIndicator()
         } else if didChangeAccentColor {
             textView.needsDisplay = true
+            (scrollView as? MarkdownScrollView)?.refreshScrollIndicator()
         }
-        (scrollView as? MarkdownScrollView)?.refreshScrollIndicator()
     }
 
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         @Binding private var text: String
+        var contentRevision: Int
         var fontSize: CGFloat
         weak var textView: NSTextView?
         private var isStyling = false
@@ -178,8 +185,9 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         private static let imagePrefixRegex = markdownRegex(#"^\s*!\[[^\]]*\]\([^)]+\)"#)
         private static let taskRegex = markdownRegex(#"^([ \t]*)([-*]\s+\[)([ xX])(\])([ \t]*)"#)
 
-        init(text: Binding<String>, fontSize: CGFloat) {
+        init(text: Binding<String>, contentRevision: Int, fontSize: CGFloat) {
             _text = text
+            self.contentRevision = contentRevision
             self.fontSize = MarkdownTaskLayout.normalizedFontSize(fontSize)
         }
 

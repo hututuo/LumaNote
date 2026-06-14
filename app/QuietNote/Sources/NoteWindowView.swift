@@ -23,6 +23,8 @@ struct NoteWindowView: View {
     @State private var chromeCollapseTask: Task<Void, Never>?
     @State private var lastChromeActivityAt = Date.distantPast
     @State private var chromeHintPulse = false
+    @State private var documentSwipeProgress: CGFloat = 0
+    @State private var isDocumentSwipeAnimating = false
     @Namespace private var extractionIslandNamespace
 
     var body: some View {
@@ -57,11 +59,17 @@ struct NoteWindowView: View {
 
                 DocumentSwipeMonitorView(
                     isEnabled: documentSwipeEnabled,
+                    onProgress: { progress in
+                        updateDocumentSwipeProgress(progress)
+                    },
+                    onCancel: {
+                        cancelDocumentSwipe()
+                    },
                     onNext: {
-                        switchWorkspaceDocumentFromSwipe(offset: 1)
+                        commitDocumentSwipe(offset: 1)
                     },
                     onPrevious: {
-                        switchWorkspaceDocumentFromSwipe(offset: -1)
+                        commitDocumentSwipe(offset: -1)
                     }
                 )
                 .frame(width: 0, height: 0)
@@ -456,14 +464,21 @@ struct NoteWindowView: View {
     }
 
     private var content: some View {
-        MarkdownRenderingEditor(
-            text: $noteStore.markdown,
-            fontSize: settings.editorFontSize,
-            accentColor: settings.accentNSColor
-        )
+        GeometryReader { proxy in
+            MarkdownRenderingEditor(
+                text: $noteStore.markdown,
+                contentRevision: noteStore.markdownRevision,
+                fontSize: settings.editorFontSize,
+                accentColor: settings.accentNSColor
+            )
+            .frame(width: proxy.size.width, height: proxy.size.height)
             .mask {
                 markdownContentFadeMask
             }
+            .offset(x: documentSwipeOffset(for: proxy.size.width))
+            .opacity(documentSwipeOpacity)
+        }
+        .clipped()
     }
 
     private var bottomRailHeight: CGFloat {
@@ -574,6 +589,7 @@ struct NoteWindowView: View {
     private var documentSwipeEnabled: Bool {
         settings.hasCompletedOnboarding
             && noteStore.canSwitchWorkspaceDocument
+            && !isDocumentSwipeAnimating
             && !showClipboard
             && !showMore
             && !showFileSwitcher
@@ -675,13 +691,68 @@ struct NoteWindowView: View {
         markChromeActivity(revealIfCollapsed: true, forceReschedule: true)
     }
 
-    private func switchWorkspaceDocumentFromSwipe(offset: Int) {
-        let didSwitch = offset > 0
-            ? noteStore.switchToNextDocument()
-            : noteStore.switchToPreviousDocument()
-        if didSwitch {
-            markChromeActivity(revealIfCollapsed: false, forceReschedule: true)
+    private func updateDocumentSwipeProgress(_ progress: CGFloat) {
+        guard !isDocumentSwipeAnimating else { return }
+
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            documentSwipeProgress = progress
         }
+    }
+
+    private func cancelDocumentSwipe() {
+        guard abs(documentSwipeProgress) > 0.001 else { return }
+        withAnimation(.snappy(duration: 0.18)) {
+            documentSwipeProgress = 0
+        }
+    }
+
+    private func commitDocumentSwipe(offset: Int) {
+        guard !isDocumentSwipeAnimating else { return }
+
+        let direction = offset > 0 ? 1 : -1
+        let signedDirection = CGFloat(direction)
+        isDocumentSwipeAnimating = true
+
+        withAnimation(.snappy(duration: 0.12)) {
+            documentSwipeProgress = signedDirection * 1.08
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
+            let didSwitch = direction > 0
+                ? noteStore.switchToNextDocument()
+                : noteStore.switchToPreviousDocument()
+
+            if didSwitch {
+                markChromeActivity(revealIfCollapsed: false, forceReschedule: true)
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    documentSwipeProgress = -signedDirection * 0.42
+                }
+                withAnimation(.snappy(duration: 0.22)) {
+                    documentSwipeProgress = 0
+                }
+            } else {
+                withAnimation(.snappy(duration: 0.18)) {
+                    documentSwipeProgress = 0
+                }
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+                isDocumentSwipeAnimating = false
+            }
+        }
+    }
+
+    private func documentSwipeOffset(for width: CGFloat) -> CGFloat {
+        let maxShift = min(max(width * 0.58, 80), 190)
+        return -documentSwipeProgress * maxShift
+    }
+
+    private var documentSwipeOpacity: Double {
+        1 - min(abs(documentSwipeProgress), 1.15) * 0.18
     }
 
     private func scheduleChromeAutoCollapse() {
