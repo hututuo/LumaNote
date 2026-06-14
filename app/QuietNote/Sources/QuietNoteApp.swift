@@ -19,6 +19,7 @@ struct QuietNoteApp: App {
                 Button("Check for Updates...") {
                     appDelegate.checkForUpdates()
                 }
+                .help("Check for updates")
             }
         }
     }
@@ -73,19 +74,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: "LumaNote")
+        item.button?.toolTip = "LumaNote"
 
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Show/Hide Note", action: #selector(toggleNoteFromMenu), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Show Note", action: #selector(showNoteFromMenu), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Hide Note", action: #selector(hideNoteFromMenu), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Clipboard Library", action: #selector(toggleClipboardFromMenu), keyEquivalent: ""))
+        menu.addItem(menuItem(title: "Show/Hide Note", action: #selector(toggleNoteFromMenu), toolTip: "Show or hide LumaNote"))
+        menu.addItem(menuItem(title: "Show Note", action: #selector(showNoteFromMenu), toolTip: "Show LumaNote"))
+        menu.addItem(menuItem(title: "Hide Note", action: #selector(hideNoteFromMenu), toolTip: "Hide LumaNote"))
+        menu.addItem(menuItem(title: "Clipboard Library", action: #selector(toggleClipboardFromMenu), toolTip: "Open clipboard library"))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Check for Updates...", action: #selector(checkForUpdatesFromMenu), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ","))
-        menu.addItem(NSMenuItem(title: "Quit LumaNote", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(menuItem(title: "Check for Updates...", action: #selector(checkForUpdatesFromMenu), toolTip: "Check for updates"))
+        menu.addItem(menuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ",", toolTip: "Open settings"))
+        menu.addItem(menuItem(title: "Quit LumaNote", action: #selector(quit), keyEquivalent: "q", toolTip: "Quit LumaNote"))
         item.menu = menu
 
         statusItem = item
+    }
+
+    private func menuItem(title: String, action: Selector, keyEquivalent: String = "", toolTip: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        item.toolTip = toolTip
+        return item
     }
 
     @objc private func toggleNoteFromMenu() {

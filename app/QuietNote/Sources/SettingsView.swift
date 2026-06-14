@@ -81,6 +81,7 @@ struct SettingsView: View {
                 Button(copy.clearClipboard) {
                     clipboardStore.clear()
                 }
+                .help(copy.clearClipboard)
             }
         }
         .formStyle(.grouped)

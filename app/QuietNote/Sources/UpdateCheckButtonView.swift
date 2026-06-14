@@ -31,6 +31,7 @@ struct UpdateCheckButtonView: View {
             }
             .buttonStyle(.plain)
             .disabled(!canCheck)
+            .help(copy.checkForUpdates)
 
             Text(copy.checkForUpdatesHint)
                 .font(.system(size: compact ? 10.8 : 11.5, weight: .regular))

@@ -11,8 +11,16 @@ struct AppText {
     var glass: String { text("磨砂强度", "Frosted glass") }
     var glassHint: String { text("控制背景模糊、泛白和玻璃质感。", "Controls blur, haze, and the frosted glass feel.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }
+    var disableAlwaysOnTop: String { text("取消置顶", "Disable always on top") }
     var autoHideControls: String { text("自动隐藏控件", "Auto-hide controls") }
     var keepControlsVisible: String { text("固定显示控件", "Keep controls visible") }
+    var showControls: String { text("显示控件", "Show controls") }
+    var dragNote: String { text("拖动便签", "Drag note") }
+    var more: String { text("更多设置", "More settings") }
+    var close: String { text("关闭", "Close") }
+    var delete: String { text("删除", "Delete") }
+    var openClipboardLibrary: String { text("打开剪切板库", "Open clipboard library") }
+    var clipboardActions: String { text("剪切板识别动作", "Clipboard detection actions") }
     var shortcuts: String { text("快捷键", "Shortcuts") }
     var globalShortcuts: String { text("全局快捷键", "Global shortcuts") }
     var toggleNoteShortcut: String { text("呼出/隐藏便签：", "Show/hide note:") }
@@ -49,6 +57,8 @@ struct AppText {
     }
     var extracted: String { text("已提取", "Extracted") }
     var copy: String { text("复制", "Copy") }
+    var copyClipboardItem: String { text("复制这条剪切板记录", "Copy this clipboard item") }
+    var deleteClipboardItem: String { text("删除这条剪切板记录", "Delete this clipboard item") }
     var openNoteFile: String { text("打开 Markdown 文件", "Open Markdown file") }
     var switchNoteFile: String { text("切换便签文件", "Switch note file") }
     var openNewFile: String { text("打开新文件", "Open new file") }
@@ -56,6 +66,7 @@ struct AppText {
     var noRecentFiles: String { text("没有最近文件", "No recent files") }
     var saveAsNoteFile: String { text("另存为 Markdown 文件", "Save as Markdown file") }
     var copyExtracted: String { text("复制提取内容", "Copy Extracted") }
+    var showExtractedActions: String { text("显示提取内容动作", "Show extracted actions") }
     var noClipboardItems: String { text("没有剪切板记录", "No clipboard items") }
     var noClipboardDescription: String { text("在任意地方复制文本，QuietNote 会在本地保存。", "Copy text anywhere and QuietNote will save it locally.") }
     var searchClipboard: String { text("搜索本地剪切板", "Search local clipboard") }
@@ -70,6 +81,10 @@ struct AppText {
 
     func shortcutConflictLine(shortcut: String, actions: String) -> String {
         text("\(shortcut)：\(actions)", "\(shortcut): \(actions)")
+    }
+
+    func switchToFile(_ filename: String) -> String {
+        text("切换到 \(filename)", "Switch to \(filename)")
     }
 
     private func text(_ chinese: String, _ english: String) -> String {

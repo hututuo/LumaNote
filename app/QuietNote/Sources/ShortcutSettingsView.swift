@@ -115,6 +115,7 @@ struct ShortcutSettingsPanel: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+            .help(copy.resetShortcuts)
         }
     }
 
