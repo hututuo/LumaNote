@@ -123,7 +123,7 @@ struct ClipboardLibraryView: View {
             )
             .blendMode(.plusLighter)
         }
-        .background(Color.white.opacity(0.68))
+        .background(Color.white.opacity(0.52))
         .background(.regularMaterial)
     }
 
