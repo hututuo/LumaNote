@@ -19,7 +19,7 @@ struct OnboardingView: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.black.opacity(0.035))
+                    .fill(.white.opacity(0.08))
                     .contentShape(Rectangle())
 
                 VStack(spacing: 10) {
@@ -36,14 +36,18 @@ struct OnboardingView: View {
                 }
                 .frame(width: cardWidth, height: cardHeight)
                 .background {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.regularMaterial)
-                        .opacity(0.72 + settings.noteOpacity * 0.18)
-                }
-                .background {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.08 + settings.noteOpacity * 0.06))
-                        .blendMode(.plusLighter)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(.regularMaterial)
+                            .opacity(0.18)
+
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.white.opacity(0.91))
+
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(settings.accentColor.opacity(0.018))
+                            .blendMode(.plusLighter)
+                    }
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -286,7 +290,7 @@ struct OnboardingView: View {
         .padding(12)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.15))
+                .fill(settings.accentColor.opacity(0.045))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(
@@ -331,7 +335,7 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.10))
+                .fill(Color.black.opacity(0.035))
         }
     }
 
@@ -366,10 +370,10 @@ struct OnboardingView: View {
         .padding(.vertical, 8)
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.11))
+                .fill(Color.black.opacity(0.035))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.24), lineWidth: 1)
+                        .strokeBorder(Color.black.opacity(0.055), lineWidth: 1)
                 )
         }
     }
