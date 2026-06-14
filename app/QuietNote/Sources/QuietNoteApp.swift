@@ -40,6 +40,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotKeyCenter: HotKeyCenter?
     private var statusItem: NSStatusItem?
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        configureTooltipTiming()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
 
@@ -94,6 +98,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
         item.toolTip = toolTip
         return item
+    }
+
+    private func configureTooltipTiming() {
+        UserDefaults.standard.set(150, forKey: "NSInitialToolTipDelay")
     }
 
     @objc private func toggleNoteFromMenu() {

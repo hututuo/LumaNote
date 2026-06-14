@@ -2,6 +2,7 @@
 
 | 路径 | 创建时间 | 最近修改 | 类型 | 用途 | 是否可删除 | 关联任务 | 备注 |
 |---|---|---|---|---|---|---|---|
+| `app/QuietNote/Sources/QuietNoteApp.swift` / `CONTEXT.md` / `PROJECT_INDEX.md` | 2026-06-14 17:29 | 2026-06-14 17:29 | Tooltip 延迟优化 | 将应用内鼠标悬停说明文本的初始弹出延迟缩短到 150ms | 不建议删除 | 说明文本弹出太慢 | 通过应用域 `NSInitialToolTipDelay=150` 生效，不修改 macOS 全局设置；验证：`swift test`、`git diff --check`、`./scripts/build-app.sh` 通过，`defaults read com.hututuo.lumanote NSInitialToolTipDelay` 返回 `150`，并已重启 `build/LumaNote.app` |
 | `app/QuietNote/Sources/OnboardingView.swift` / `CONTEXT.md` / `PROJECT_INDEX.md` | 2026-06-14 17:27 | 2026-06-14 17:27 | 引导页拖动修复 | 给启动引导层顶部增加独立窗口拖动热区，避免引导层遮住主窗口原本顶部拖动区域 | 不建议删除 | 引导界面开着时不能移动窗口 | 顶部 56px 覆盖主窗口拖动区域，并为引导页右上角关闭按钮保留不拦截点击的保护区；验证：`swift test`、`git diff --check`、`./scripts/build-app.sh` 通过，并已重启 `build/LumaNote.app` 且重置引导标记 |
 | `app/QuietNote/Sources/OnboardingView.swift` / `app/QuietNote/Sources/AppText.swift` / `CONTEXT.md` / `PROJECT_INDEX.md` | 2026-06-14 17:17 | 2026-06-14 17:17 | 引导页交互与文案 | 修复欢迎界面打开时无法从顶部移动窗口、推荐开关错位，并重写第三页强调顶部剪切板自动提取与一键复制/打开 | 不建议删除 | 启动引导页细化 | 引导页 header 左中区域使用 `WindowDragView`；自动更新和开机自启使用统一开关行；第三页介绍顶部剪切板胶囊检测电话/地址/邮箱/链接并支持复制或打开，底部再介绍透明度、文件和设置工具栏；验证：`swift test`、`git diff --check`、`./scripts/build-app.sh` 通过，并已重启 `build/LumaNote.app` |
 | `app/QuietNote/Sources/OnboardingView.swift` / `CONTEXT.md` / `PROJECT_INDEX.md` | 2026-06-14 17:13 | 2026-06-14 17:13 | 启动引导可读性 | 将首次启动引导从较重毛玻璃改为接近白底的清晰卡片，只保留轻微材质和主题色边缘 | 不建议删除 | 引导页太朦胧 | 降低背景雾感，增强文字和模块可读性；验证：`swift test`、`git diff --check`、`./scripts/build-app.sh` 通过，并已重启 `build/LumaNote.app` |
