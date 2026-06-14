@@ -23,7 +23,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Customizable global shortcuts for toggling the note, showing the note, hiding the note, and opening the clipboard library.
 - App-level Chinese/English UI language switch in Settings. This changes app chrome text, not the user's Markdown content.
 - Clipboard history saved locally after explicit app setting enables monitoring.
-- Clipboard detection suggestions for URL, email, phone, address-like text, labeled codes such as verification codes or order/tracking numbers, and labeled free text after a colon.
+- Clipboard detection suggestions for URL, email, phone, address-like text, macOS local file paths, labeled codes such as verification codes or order/tracking numbers, and labeled free text after a colon.
 - Polished SwiftUI/macOS visual style with frosted glass and subtle slide/fade behavior.
 
 ## Current Build Entry
@@ -117,6 +117,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Clipboard library v2 supports local search, per-item delete, copy/paste actions, and Copy/Paste popovers on detected values. Its list is custom `ScrollView + LazyVStack`, not a default macOS `List`; individual clipboard messages should not be boxed as cards. Keep the list lightweight with thin separators between messages and hidden/non-dominant scroll indicators.
 - Extracted clipboard values are shown under the source clipboard record as contextual chips. Do not reintroduce a top-level type grouping unless the user explicitly asks.
 - Clipboard detail extraction chips should wrap into multiple rows instead of using horizontal scrolling, because sideways trackpad scrolling is awkward in the small sticky-note panel. Extracted values live inside a subtle glass shelf, and each value is a stronger capsule bubble with icon + extracted value + subtle action chevron. Avoid wrapping the whole clipboard message itself in another bubble/card.
+- macOS local paths such as `/Users/ceshi/Applications/Codex Token Bar.app` are extracted as `File` detections, even when they contain spaces. File detections use a folder icon and "Open in Finder" action through `NSWorkspace.activateFileViewerSelecting`, not Maps or direct app launch.
 - Label/colon values such as `地址：...`, `电话：...`, `邮箱：...`, or `备注：...` are processed before generic detection. Known labels are typed when the value validates; unknown or invalid labeled values fall back to copyable Text chips instead of being dropped.
 - Do not extract arbitrary numeric values. `Number` is now reserved for labeled codes/identifiers, such as 验证码, 取件码, 订单号, 快递单号, invoice, tracking, ticket, or similar labels. Plain years, dates, counts, prices, decimals, or standalone numbers should not create chips or top-island suggestions.
 - Phone extraction is restricted to 10-15 digits and excludes simple date-like formats such as `2026-06-07`.

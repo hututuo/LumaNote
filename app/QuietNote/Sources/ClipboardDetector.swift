@@ -10,6 +10,7 @@ enum ClipboardDetector {
         )
         static let url = regex(#"(?i)(?:https?://|www\.)[^\s<>"'，。；、！？]+"#)
         static let email = regex(#"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#, options: [.caseInsensitive])
+        static let filePath = regex(#"(?<![\w~.-])(?:~|/(?:Users|Applications|Volumes|Library|System|private|tmp|var|opt|usr|bin|sbin|etc|Developer|Network|cores))(?:/[^\n\r\t:：*?"<>|，。；、！？]+)+"#)
         static let labeledNumber = regex(#"(?i)(?:\#(numberLabels))\s*[:：#]?\s*([A-Z0-9][A-Z0-9 -]{2,30}[A-Z0-9])"#)
         static let phone = regex(#"(?<!\d)(?:\+?\d[\d\s().-]{6,}\d)(?!\d)"#)
 
@@ -40,6 +41,7 @@ enum ClipboardDetector {
         var matches: [DetectedMatch] = []
 
         appendLabeledValueMatches(in: scanText, into: &matches)
+        appendFilePathMatches(in: scanText, into: &matches, excluding: matches.map(\.range))
         appendMatches(kind: .url, regex: Regexes.url, in: scanText, into: &matches, excluding: matches.map(\.range))
         appendMatches(kind: .email, regex: Regexes.email, in: scanText, into: &matches, excluding: matches.map(\.range))
         appendPhoneMatches(in: scanText, into: &matches, excluding: matches.map(\.range))
@@ -86,6 +88,7 @@ enum ClipboardDetector {
             }
 
             var nested: [DetectedMatch] = []
+            appendFilePathMatches(in: value, into: &nested)
             appendMatches(kind: .url, regex: Regexes.url, in: value, into: &nested)
             appendMatches(kind: .email, regex: Regexes.email, in: value, into: &nested)
             appendPhoneMatches(in: value, into: &nested)
@@ -164,6 +167,29 @@ enum ClipboardDetector {
         }
     }
 
+    private static func appendFilePathMatches(
+        in text: String,
+        into matches: inout [DetectedMatch],
+        excluding excludedRanges: [NSRange] = []
+    ) {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        var acceptedCount = 0
+        Regexes.filePath.enumerateMatches(in: text, range: range) { match, _, stop in
+            guard acceptedCount < 6 else {
+                stop.pointee = true
+                return
+            }
+            guard let match else { return }
+            guard !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
+            guard let swiftRange = Range(match.range, in: text) else { return }
+
+            let value = cleanedFilePath(String(text[swiftRange]))
+            guard looksLikeFilePath(value) else { return }
+            matches.append(.init(kind: .file, value: value, range: match.range))
+            acceptedCount += 1
+        }
+    }
+
     private static func appendPhoneMatches(
         in text: String,
         into matches: inout [DetectedMatch],
@@ -229,6 +255,14 @@ enum ClipboardDetector {
         value.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "，,。；;、:：")))
     }
 
+    private static func cleanedFilePath(_ value: String) -> String {
+        let trimSet = CharacterSet.whitespacesAndNewlines
+            .union(CharacterSet(charactersIn: "，,。；;、!?！？)]}）】》\"'“”‘’"))
+        return value
+            .replacingOccurrences(of: #"\\ "#, with: " ")
+            .trimmingCharacters(in: trimSet)
+    }
+
     private static func kind(forLabel label: String, value: String) -> ClipboardDetection.Kind? {
         let normalized = label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
@@ -248,6 +282,9 @@ enum ClipboardDetector {
         if ["地址", "收货", "寄送", "邮寄", "住址", "address", "addr", "location"].contains(where: { normalized.contains($0) }) {
             return .address
         }
+        if ["路径", "目录", "文件", "位置", "path", "file", "folder", "directory"].contains(where: { normalized.contains($0) }) {
+            return looksLikeFilePath(value) ? .file : .text
+        }
         if [
             "验证码", "校验码", "动态码", "取件码", "提取码",
             "订单号", "订单", "单号", "快递单号", "运单号", "物流单号",
@@ -259,6 +296,14 @@ enum ClipboardDetector {
         }
 
         return nil
+    }
+
+    private static func looksLikeFilePath(_ text: String) -> Bool {
+        let expanded = (cleanedFilePath(text) as NSString).expandingTildeInPath
+        guard expanded.hasPrefix("/") else { return false }
+        guard expanded.count > 4, expanded.count < 1_024 else { return false }
+        guard !expanded.contains("\n"), !expanded.contains("\r"), !expanded.contains("\t") else { return false }
+        return expanded.split(separator: "/").count >= 2
     }
 
     private static func looksLikeAddress(_ text: String, allowNoDigit: Bool) -> Bool {

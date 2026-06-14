@@ -23,4 +23,20 @@ final class ClipboardDetectorTests: XCTestCase {
 
         XCTAssertTrue(detections.isEmpty)
     }
+
+    func testMacAppPathWithSpacesIsExtractedAsFile() {
+        let text = "还有一个旧版进程仍在 /Users/ceshi/Applications/Codex Token Bar.app，系统不让我杀；新版是现在打开的 dist/Codex Token Bar.app。"
+
+        let detections = ClipboardDetector.detect(in: text)
+
+        XCTAssertTrue(detections.contains { $0.kind == .file && $0.value == "/Users/ceshi/Applications/Codex Token Bar.app" })
+        XCTAssertFalse(detections.contains { $0.kind == .address && $0.value == text })
+    }
+
+    func testLabeledPathIsExtractedAsFile() {
+        let detections = ClipboardDetector.detect(in: "目录：/Users/ceshi/Applications/Codex Token Bar.app")
+
+        XCTAssertEqual(detections.first?.kind, .file)
+        XCTAssertEqual(detections.first?.value, "/Users/ceshi/Applications/Codex Token Bar.app")
+    }
 }
