@@ -1094,6 +1094,7 @@ struct NoteWindowView: View {
     private func extractionActionsPanel(item: ClipboardItem) -> some View {
         let copy = AppText(language: settings.language)
         let summary = detectedKindSummary(for: item.detections)
+        let panelBlue = Color(red: 0.36, green: 0.66, blue: 1.00)
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
@@ -1200,6 +1201,11 @@ struct NoteWindowView: View {
                 )
         }
         .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .stroke(panelBlue.opacity(0.34), lineWidth: 1.1)
+        }
+        .shadow(color: panelBlue.opacity(0.10), radius: 8, y: 1)
     }
 
     private func scheduleSuggestionReset(for itemID: ClipboardItem.ID?) {
