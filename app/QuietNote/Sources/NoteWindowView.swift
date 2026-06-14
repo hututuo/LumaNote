@@ -1199,7 +1199,7 @@ struct NoteWindowView: View {
         }
         .padding(12)
         .background {
-            readablePopupPanelBackground(whiteOpacity: 0.54, accentOpacity: 0.04)
+            readablePopupPanelBackground(whiteOpacity: 0.60, accentOpacity: 0.032)
         }
         .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         .overlay {
@@ -1211,8 +1211,8 @@ struct NoteWindowView: View {
 
     private func readablePopupPanelBackground(
         cornerRadius: CGFloat = 15,
-        whiteOpacity: Double = 0.52,
-        accentOpacity: Double = 0.032
+        whiteOpacity: Double = 0.60,
+        accentOpacity: Double = 0.026
     ) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
 
