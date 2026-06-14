@@ -358,7 +358,7 @@ struct NoteWindowView: View {
 
             if topChromeCollapsed {
                 collapsedTopChromeHandle
-                    .padding(.top, 5)
+                    .padding(.top, 6)
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.72, anchor: .top).combined(with: .opacity),
                         removal: .scale(scale: 0.92, anchor: .top).combined(with: .opacity)
@@ -416,7 +416,7 @@ struct NoteWindowView: View {
     }
 
     private var collapsedBottomChromeHeight: CGFloat {
-        18
+        16
     }
 
     private var markdownBottomFadeHeight: CGFloat {
@@ -436,7 +436,7 @@ struct NoteWindowView: View {
     }
 
     private var topBarHeight: CGFloat {
-        topChromeCollapsed ? 12 : 35
+        topChromeCollapsed ? 18 : 35
     }
 
     private var markdownContentFadeMask: some View {
@@ -652,11 +652,9 @@ struct NoteWindowView: View {
                         .font(.system(size: 9, weight: .black))
                         .foregroundStyle(detectedIslandIconColor)
                 } else {
-                    ForEach(0..<3, id: \.self) { index in
-                        Capsule(style: .continuous)
-                            .fill(islandIconColor.opacity(0.7 - Double(index) * 0.14))
-                            .frame(width: index == 1 ? 7 : 5, height: 2)
-                    }
+                    Capsule(style: .continuous)
+                        .fill(islandIconColor.opacity(0.56))
+                        .frame(width: 17, height: 2)
                 }
             }
             .allowsHitTesting(false)
@@ -665,7 +663,7 @@ struct NoteWindowView: View {
                 revealChromeControls()
             }, dragStartsImmediately: true)
         }
-        .frame(width: width, height: 18)
+        .frame(width: width, height: 14)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity, accentColor: settings.accentColor))
         .contentShape(Capsule(style: .continuous))
         .help(AppText(language: settings.language).showControls)
