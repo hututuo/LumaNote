@@ -48,9 +48,22 @@ enum ClipboardDetector {
         appendLabeledNumberMatches(in: scanText, into: &matches, excluding: matches.map(\.range))
         appendAddressMatches(in: scanText, into: &matches, excluding: matches.map(\.range))
 
-        let detections = matches.map {
-            ClipboardDetection(id: UUID(), kind: $0.kind, value: $0.value)
-        }
+        let detections = matches
+            .enumerated()
+            .sorted { lhs, rhs in
+                let left = lhs.element
+                let right = rhs.element
+                if left.priority != right.priority {
+                    return left.priority.sortOrder < right.priority.sortOrder
+                }
+                if left.range.location != right.range.location {
+                    return left.range.location < right.range.location
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map {
+                ClipboardDetection(id: UUID(), kind: $0.element.kind, value: $0.element.value)
+            }
 
         var seen = Set<String>()
         return detections.filter { detection in
@@ -82,7 +95,12 @@ enum ClipboardDetector {
 
             let valueNSRange = NSRange(valueRange, in: text)
             if let kind = kind(forLabel: label, value: value) {
-                matches.append(.init(kind: kind, value: value, range: valueNSRange))
+                matches.append(.init(
+                    kind: kind,
+                    value: value,
+                    range: valueNSRange,
+                    priority: kind == .text ? .colonFallback : .confident
+                ))
                 acceptedCount += 1
                 return
             }
@@ -95,16 +113,26 @@ enum ClipboardDetector {
             appendLabeledNumberMatches(in: "\(label): \(value)", into: &nested)
 
             if nested.isEmpty, looksLikeAddress(value, allowNoDigit: true) {
-                nested.append(.init(kind: .address, value: value, range: NSRange(location: 0, length: (value as NSString).length)))
+                nested.append(.init(
+                    kind: .address,
+                    value: value,
+                    range: NSRange(location: 0, length: (value as NSString).length),
+                    priority: .confident
+                ))
             }
 
             if !nested.isEmpty {
                 nested.forEach { nestedMatch in
-                    matches.append(.init(kind: nestedMatch.kind, value: nestedMatch.value, range: valueNSRange))
+                    matches.append(.init(
+                        kind: nestedMatch.kind,
+                        value: nestedMatch.value,
+                        range: shiftedRange(nestedMatch.range, by: valueNSRange.location),
+                        priority: .confident
+                    ))
                 }
                 acceptedCount += nested.count
             } else {
-                matches.append(.init(kind: .text, value: value, range: valueNSRange))
+                matches.append(.init(kind: .text, value: value, range: valueNSRange, priority: .colonFallback))
                 acceptedCount += 1
             }
         }
@@ -114,6 +142,24 @@ enum ClipboardDetector {
         let kind: ClipboardDetection.Kind
         let value: String
         let range: NSRange
+        let priority: DetectionPriority
+    }
+
+    private enum DetectionPriority: Int, Comparable {
+        case confident
+        case colonFallback
+
+        var sortOrder: Int {
+            rawValue
+        }
+
+        static func < (lhs: DetectionPriority, rhs: DetectionPriority) -> Bool {
+            lhs.rawValue < rhs.rawValue
+        }
+    }
+
+    private static func shiftedRange(_ range: NSRange, by offset: Int) -> NSRange {
+        NSRange(location: range.location + offset, length: range.length)
     }
 
     private static func appendMatches(
@@ -134,7 +180,7 @@ enum ClipboardDetector {
             guard let match else { return }
             guard !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
             guard let swiftRange = Range(match.range, in: text) else { return }
-            matches.append(.init(kind: kind, value: String(text[swiftRange]), range: match.range))
+            matches.append(.init(kind: kind, value: String(text[swiftRange]), range: match.range, priority: .confident))
             acceptedCount += 1
         }
     }
@@ -162,7 +208,7 @@ enum ClipboardDetector {
             let digitCount = value.filter(\.isNumber).count
             guard digitCount >= 3 else { return }
 
-            matches.append(.init(kind: .number, value: value, range: match.range(at: 1)))
+            matches.append(.init(kind: .number, value: value, range: match.range(at: 1), priority: .confident))
             acceptedCount += 1
         }
     }
@@ -185,7 +231,7 @@ enum ClipboardDetector {
 
             let value = cleanedFilePath(String(text[swiftRange]))
             guard looksLikeFilePath(value) else { return }
-            matches.append(.init(kind: .file, value: value, range: match.range))
+            matches.append(.init(kind: .file, value: value, range: match.range, priority: .confident))
             acceptedCount += 1
         }
     }
@@ -208,7 +254,7 @@ enum ClipboardDetector {
             let value = String(text[swiftRange])
             let digitCount = value.filter(\.isNumber).count
             guard (10...15).contains(digitCount), !looksLikeDate(value) else { return }
-            matches.append(.init(kind: .phone, value: value, range: match.range))
+            matches.append(.init(kind: .phone, value: value, range: match.range, priority: .confident))
             acceptedCount += 1
         }
     }
@@ -243,7 +289,7 @@ enum ClipboardDetector {
                 let candidate = nsText.substring(with: range)
                 let trimmed = cleanedLabeledValue(candidate)
                 if looksLikeAddress(trimmed, allowNoDigit: false) {
-                    matches.append(.init(kind: .address, value: trimmed, range: range))
+                    matches.append(.init(kind: .address, value: trimmed, range: range, priority: .confident))
                 }
             }
 
