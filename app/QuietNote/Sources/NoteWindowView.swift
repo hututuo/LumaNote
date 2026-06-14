@@ -661,9 +661,9 @@ struct NoteWindowView: View {
             }
             .allowsHitTesting(false)
 
-            WindowClickDragView {
+            WindowClickDragView(onClick: {
                 revealChromeControls()
-            }
+            }, dragStartsImmediately: true)
         }
         .frame(width: width, height: 18)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity, accentColor: settings.accentColor))
@@ -687,9 +687,9 @@ struct NoteWindowView: View {
             .shadow(color: islandSoftShadowColor, radius: 1, y: 0.4)
             .allowsHitTesting(false)
 
-            WindowClickDragView {
+            WindowClickDragView(onClick: {
                 revealChromeControls()
-            }
+            }, dragStartsImmediately: true)
         }
         .frame(width: 58, height: collapsedBottomChromeHeight)
         .modifier(ExtractionIslandButtonModifier(isExpanded: true, opacity: collapsedChromeOpacity, accentColor: settings.accentColor))

@@ -11,9 +11,10 @@ struct WindowDragView: NSViewRepresentable {
 
 struct WindowClickDragView: NSViewRepresentable {
     var onClick: () -> Void
+    var dragStartsImmediately = false
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onClick: onClick)
+        Coordinator(onClick: onClick, dragStartsImmediately: dragStartsImmediately)
     }
 
     func makeNSView(context: Context) -> ClickDragNSView {
@@ -22,13 +23,16 @@ struct WindowClickDragView: NSViewRepresentable {
 
     func updateNSView(_ nsView: ClickDragNSView, context: Context) {
         context.coordinator.onClick = onClick
+        context.coordinator.dragStartsImmediately = dragStartsImmediately
     }
 
     final class Coordinator {
         var onClick: () -> Void
+        var dragStartsImmediately: Bool
 
-        init(onClick: @escaping () -> Void) {
+        init(onClick: @escaping () -> Void, dragStartsImmediately: Bool) {
             self.onClick = onClick
+            self.dragStartsImmediately = dragStartsImmediately
         }
     }
 }
@@ -127,8 +131,6 @@ final class DragNSView: NSView {
 
 final class ClickDragNSView: NSView {
     private let coordinator: WindowClickDragView.Coordinator
-    private var mouseDownEvent: NSEvent?
-    private var didDrag = false
 
     init(coordinator: WindowClickDragView.Coordinator) {
         self.coordinator = coordinator
@@ -145,28 +147,60 @@ final class ClickDragNSView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        mouseDownEvent = event
-        didDrag = false
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        guard !didDrag, let mouseDownEvent else {
+        guard let window else {
+            coordinator.onClick()
             return
         }
 
-        didDrag = true
-        window?.performDrag(with: mouseDownEvent)
+        let startingFrame = window.frame
+        let startingLocation = window.convertPoint(toScreen: event.locationInWindow)
+        let dragThreshold: CGFloat = coordinator.dragStartsImmediately ? 0.6 : 3.0
+
+        while true {
+            guard let nextEvent = window.nextEvent(
+                matching: [.leftMouseDragged, .leftMouseUp],
+                until: .distantFuture,
+                inMode: .eventTracking,
+                dequeue: true
+            ) else {
+                return
+            }
+
+            switch nextEvent.type {
+            case .leftMouseDragged:
+                let currentLocation = window.convertPoint(toScreen: nextEvent.locationInWindow)
+                guard startingLocation.distance(to: currentLocation) >= dragThreshold else {
+                    continue
+                }
+
+                window.performDrag(with: event)
+                return
+
+            case .leftMouseUp:
+                let endingLocation = window.convertPoint(toScreen: nextEvent.locationInWindow)
+                let windowMoved = startingFrame.origin.distance(to: window.frame.origin) > 0.75
+                let pointerMoved = startingLocation.distance(to: endingLocation) >= dragThreshold
+                if !windowMoved && !pointerMoved {
+                    coordinator.onClick()
+                }
+                return
+
+            default:
+                continue
+            }
+        }
     }
 
-    override func mouseUp(with event: NSEvent) {
-        defer {
-            mouseDownEvent = nil
-            didDrag = false
-        }
+    override func mouseDragged(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
 
-        if !didDrag {
-            coordinator.onClick()
-        }
+    override func mouseUp(with event: NSEvent) {}
+}
+
+private extension CGPoint {
+    func distance(to point: CGPoint) -> CGFloat {
+        abs(x - point.x) + abs(y - point.y)
     }
 }
 
