@@ -93,9 +93,9 @@ final class NoteStore: ObservableObject {
         currentFileURL = initialFileURL.standardizedFileURL
         recentFileURLs = Self.loadRecentFileURLs(from: defaults)
 
-        if let data = try? Data(contentsOf: initialFileURL),
-           let text = String(data: data, encoding: .utf8),
-           !text.isEmpty {
+        if FileManager.default.fileExists(atPath: initialFileURL.path),
+           let data = try? Data(contentsOf: initialFileURL),
+           let text = String(data: data, encoding: .utf8) {
             markdown = text
         } else {
             markdown = """
@@ -174,6 +174,29 @@ final class NoteStore: ObservableObject {
         rememberFileInActiveWorkspace(standardizedURL)
         refreshDisplayTitle()
         saveNow()
+    }
+
+    @discardableResult
+    func createMarkdownFile(at url: URL, initialText: String = "") -> Bool {
+        saveNow()
+        saveTask?.cancel()
+
+        let standardizedURL = url.standardizedFileURL
+        guard NoteFileWriter.write(initialText, to: standardizedURL) else {
+            lastSavedText = "Create failed"
+            return false
+        }
+
+        currentFileURL = standardizedURL
+        defaults.set(standardizedURL.path, forKey: Keys.currentFilePath)
+        rememberRecentFile(standardizedURL)
+        rememberFileInActiveWorkspace(standardizedURL)
+        isReplacingText = true
+        markdown = initialText
+        isReplacingText = false
+        refreshDisplayTitle()
+        lastSavedText = "Created"
+        return true
     }
 
     func removeRecentFile(_ url: URL) {

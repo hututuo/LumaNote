@@ -306,7 +306,13 @@ struct NoteWindowView: View {
                 FileSwitcherView(
                     settings: settings,
                     noteStore: noteStore,
-                    openNewFile: {
+                    createMarkdownFile: {
+                        withAnimation(.snappy(duration: 0.14)) {
+                            showFileSwitcher = false
+                        }
+                        createMarkdownFile()
+                    },
+                    openExistingFile: {
                         withAnimation(.snappy(duration: 0.14)) {
                             showFileSwitcher = false
                         }
@@ -979,6 +985,19 @@ struct NoteWindowView: View {
         }
     }
 
+    private func createMarkdownFile() {
+        let copy = AppText(language: settings.language)
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = markdownContentTypes
+        panel.directoryURL = noteStore.currentFileURL.deletingLastPathComponent()
+        panel.nameFieldStringValue = copy.defaultMarkdownFileName
+        panel.canCreateDirectories = true
+
+        if panel.runModal() == .OK, let url = panel.url {
+            noteStore.createMarkdownFile(at: url)
+        }
+    }
+
     private func saveNoteFileAs() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = markdownContentTypes
@@ -1358,7 +1377,7 @@ struct NoteWindowView: View {
         let topClearance = topDragPassthroughHeight + 8
         let bottomClearance: CGFloat = 10
         let maxHeight = max(150, containerSize.height - topClearance - bottomClearance)
-        let height = min(maxHeight, 130 + CGFloat(documentCount) * 43)
+        let height = min(maxHeight, 167 + CGFloat(documentCount) * 43)
         let anchor = fileSwitchButtonFrame == .zero
             ? CGRect(x: containerSize.width - 116, y: containerSize.height - 34, width: 24, height: 24)
             : fileSwitchButtonFrame
@@ -1414,7 +1433,8 @@ private struct FileSwitcherView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var noteStore: NoteStore
 
-    let openNewFile: () -> Void
+    let createMarkdownFile: () -> Void
+    let openExistingFile: () -> Void
     let createWorkspace: () -> Void
     let switchWorkspace: (NoteWorkspace.ID) -> Void
     let openWorkspaceFile: (URL) -> Void
@@ -1428,24 +1448,13 @@ private struct FileSwitcherView: View {
         VStack(alignment: .leading, spacing: 7) {
             workspacePicker
 
-            Button(action: openNewFile) {
-                HStack(spacing: 9) {
-                    Image(systemName: "folder.badge.plus")
-                        .font(.system(size: 12, weight: .semibold))
-                        .frame(width: 18)
+            fileActionButton(symbol: "doc.badge.plus", title: copy.createMarkdownFile, action: createMarkdownFile)
+                .background(settings.accentColor.opacity(0.065), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .help(copy.createMarkdownFile)
 
-                    Text(copy.openNewFile)
-                        .font(.system(size: 12, weight: .semibold))
-
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 10)
-                .frame(height: 34)
-                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .background(.white.opacity(0.08 + settings.noteOpacity * 0.06), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .help(copy.openNewFile)
+            fileActionButton(symbol: "folder", title: copy.openExistingFile, action: openExistingFile)
+                .background(.white.opacity(0.08 + settings.noteOpacity * 0.06), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .help(copy.openExistingFile)
 
             Rectangle()
                 .fill(.white.opacity(0.16 + settings.noteOpacity * 0.16))
@@ -1487,6 +1496,25 @@ private struct FileSwitcherView: View {
             }
         }
         .padding(9)
+    }
+
+    private func fileActionButton(symbol: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 18)
+
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var workspacePicker: some View {

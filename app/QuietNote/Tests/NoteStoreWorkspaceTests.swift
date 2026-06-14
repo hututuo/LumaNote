@@ -67,6 +67,23 @@ final class NoteStoreWorkspaceTests: XCTestCase {
         XCTAssertEqual(store.activeWorkspaceID, clientWorkspaceID)
     }
 
+    @MainActor
+    func testCreatesBlankMarkdownFileInActiveWorkspace() throws {
+        let url = temporaryDirectory.appending(path: "new-note.md")
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+
+        XCTAssertTrue(store.createMarkdownFile(at: url))
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, url.standardizedFileURL.path)
+        XCTAssertEqual(store.markdown, "")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "")
+        XCTAssertTrue(store.activeWorkspaceFileURLs.contains { $0.standardizedFileURL.path == url.standardizedFileURL.path })
+
+        let reloadedStore = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+        XCTAssertEqual(reloadedStore.currentFileURL.standardizedFileURL.path, url.standardizedFileURL.path)
+        XCTAssertEqual(reloadedStore.markdown, "")
+    }
+
     private func makeNote(named name: String, title: String) throws -> URL {
         let url = temporaryDirectory.appending(path: name)
         try "# \(title)\n\nBody".write(to: url, atomically: true, encoding: .utf8)

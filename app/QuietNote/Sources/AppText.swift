@@ -66,7 +66,9 @@ struct AppText {
     var deleteClipboardItem: String { text("删除这条剪切板记录", "Delete this clipboard item") }
     var openNoteFile: String { text("打开 Markdown 文件", "Open Markdown file") }
     var switchNoteFile: String { text("切换便签文件", "Switch note file") }
-    var openNewFile: String { text("打开新文件", "Open new file") }
+    var createMarkdownFile: String { text("新建 Markdown 文件", "New Markdown file") }
+    var openExistingFile: String { text("打开现有文件", "Open existing file") }
+    var defaultMarkdownFileName: String { text("未命名.md", "Untitled.md") }
     var recentFiles: String { text("最近打开", "Recent files") }
     var noRecentFiles: String { text("没有最近文件", "No recent files") }
     var saveAsNoteFile: String { text("另存为 Markdown 文件", "Save as Markdown file") }
