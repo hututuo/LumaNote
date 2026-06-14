@@ -54,7 +54,7 @@ final class DocumentSwipeMonitorNSView: NSView {
 
     private let triggerThreshold: CGFloat = 78
     private let lockThreshold: CGFloat = 8
-    private let progressTravelThreshold: CGFloat = 156
+    private let progressTravelThreshold: CGFloat = 220
     private let dominanceRatio: CGFloat = 1.55
     private let lockDominanceRatio: CGFloat = 1.22
     private let triggerCooldown: TimeInterval = 0.46
