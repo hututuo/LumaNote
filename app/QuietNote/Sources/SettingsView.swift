@@ -19,6 +19,7 @@ struct SettingsView: View {
                 LabeledContent(copy.opacity) {
                     HStack {
                         Slider(value: $settings.noteOpacity, in: AppSettings.minimumNoteOpacity...1)
+                            .tint(settings.accentColor)
                         Text("\(Int(settings.noteOpacity * 100))%")
                             .monospacedDigit()
                             .frame(width: 42, alignment: .trailing)
@@ -35,6 +36,7 @@ struct SettingsView: View {
                             in: AppSettings.minimumEditorFontSize...AppSettings.maximumEditorFontSize,
                             step: 0.5
                         )
+                        .tint(settings.accentColor)
                         Text("\(settings.editorFontSize, specifier: "%.1f")pt")
                             .monospacedDigit()
                             .frame(width: 54, alignment: .trailing)
@@ -47,12 +49,20 @@ struct SettingsView: View {
                 LabeledContent(copy.glass) {
                     HStack {
                         Slider(value: $settings.glassStrength, in: 0...1)
+                            .tint(settings.accentColor)
                         Text("\(Int(settings.glassStrength * 100))%")
                             .monospacedDigit()
                             .frame(width: 42, alignment: .trailing)
                     }
                 }
                 Text(copy.glassHint)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                LabeledContent(copy.themeColor) {
+                    ThemeColorPicker(selection: $settings.themeColor, language: settings.language)
+                }
+                Text(copy.themeColorHint)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 

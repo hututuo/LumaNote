@@ -10,6 +10,8 @@ struct AppText {
     var editorFontSizeHint: String { text("控制正文 Markdown 的显示字号。", "Controls the Markdown editor text size.") }
     var glass: String { text("磨砂强度", "Frosted glass") }
     var glassHint: String { text("控制背景模糊、泛白和玻璃质感。", "Controls blur, haze, and the frosted glass feel.") }
+    var themeColor: String { text("主题色", "Theme color") }
+    var themeColorHint: String { text("控制按钮、滑杆和剪切板提取气泡的强调色。", "Controls the accent color for buttons, sliders, and extracted clipboard bubbles.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }
     var disableAlwaysOnTop: String { text("取消置顶", "Disable always on top") }
     var autoHideControls: String { text("自动隐藏控件", "Auto-hide controls") }

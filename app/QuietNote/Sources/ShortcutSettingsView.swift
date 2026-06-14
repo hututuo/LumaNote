@@ -87,7 +87,7 @@ struct ShortcutSettingsPanel: View {
                 .frame(width: presentation == .sheet ? 38 : 44, height: presentation == .sheet ? 38 : 44)
                 .background {
                     Circle()
-                        .fill(Color.cyan.opacity(0.22))
+                        .fill(settings.accentColor.opacity(0.22))
                         .overlay(Circle().stroke(Color.white.opacity(0.52), lineWidth: 1))
                 }
 
@@ -184,7 +184,7 @@ struct ShortcutSettingsPanel: View {
                 .frame(width: presentation == .sheet ? 24 : 28, height: presentation == .sheet ? 24 : 28)
                 .background {
                     Circle()
-                        .fill((isConflicted ? Color.orange : Color.cyan).opacity(0.14))
+                        .fill((isConflicted ? Color.orange : settings.accentColor).opacity(0.14))
                 }
 
             VStack(alignment: .leading, spacing: 3) {
