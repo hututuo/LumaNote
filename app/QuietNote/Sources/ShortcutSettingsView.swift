@@ -77,11 +77,11 @@ struct ShortcutSettingsPanel: View {
                 .opacity(presentation == .sheet ? 1 : 0)
                 .overlay {
                     shape
-                        .fill(Color.white.opacity(presentation == .sheet ? 0.70 : 0.10))
+                        .fill(Color.white.opacity(presentation == .sheet ? 0.54 : 0.10))
                 }
                 .overlay {
                     shape
-                        .fill(settings.accentColor.opacity(presentation == .sheet ? 0.035 : 0))
+                        .fill(settings.accentColor.opacity(presentation == .sheet ? 0.032 : 0))
                         .blendMode(.plusLighter)
                 }
                 .overlay {
