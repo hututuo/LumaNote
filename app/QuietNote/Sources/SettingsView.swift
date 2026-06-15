@@ -106,7 +106,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(18)
-        .preferredColorScheme(settings.appearanceMode.colorScheme)
+        .preferredColorScheme(settings.resolvedColorScheme)
         .onAppear {
             settings.refreshLaunchAtLoginStatus()
         }
