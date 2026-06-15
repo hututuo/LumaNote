@@ -97,7 +97,7 @@ enum AppThemeColor: String, CaseIterable, Identifiable {
 final class AppSettings: ObservableObject {
     nonisolated static let minimumNoteOpacity = 0.01
     nonisolated static let defaultNoteOpacity = 0.60
-    nonisolated static let defaultGlassStrength = 0.10
+    nonisolated static let defaultGlassStrength = 0.20
     nonisolated static let minimumEditorFontSize = 11.0
     nonisolated static let maximumEditorFontSize = 28.0
     nonisolated static let defaultEditorFontSize = 15.5
