@@ -24,6 +24,7 @@ struct NoteWindowView: View {
     @State private var chromeCollapseTask: Task<Void, Never>?
     @State private var lastChromeActivityAt = Date.distantPast
     @State private var chromeHintPulse = false
+    @State private var chromeHintPulseTask: Task<Void, Never>?
     @State private var documentSwipeProgress: CGFloat = 0
     @State private var isDocumentSwipeAnimating = false
     @State private var documentSwipePreview: DocumentSwipePreview?
@@ -183,12 +184,12 @@ struct NoteWindowView: View {
             markChromeActivity(revealIfCollapsed: false)
         }
         .onAppear {
-            startChromeHintPulse()
             markChromeActivity(forceReschedule: true)
         }
         .onDisappear {
             suggestionResetTask?.cancel()
             chromeCollapseTask?.cancel()
+            chromeHintPulseTask?.cancel()
         }
         .animation(.snappy(duration: 0.16), value: showClipboard)
         .animation(.snappy(duration: 0.16), value: showMore)
@@ -863,13 +864,22 @@ struct NoteWindowView: View {
             withAnimation(.snappy(duration: 0.26)) {
                 chromeControlsCollapsed = true
             }
+            triggerChromeHintPulse()
         }
     }
 
-    private func startChromeHintPulse() {
-        guard !chromeHintPulse else { return }
-        withAnimation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true)) {
-            chromeHintPulse = true
+    private func triggerChromeHintPulse() {
+        chromeHintPulseTask?.cancel()
+        chromeHintPulse = false
+        chromeHintPulseTask = Task { @MainActor in
+            withAnimation(.easeInOut(duration: 0.26)) {
+                chromeHintPulse = true
+            }
+            try? await Task.sleep(for: .milliseconds(850))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.42)) {
+                chromeHintPulse = false
+            }
         }
     }
 
@@ -2027,14 +2037,11 @@ private struct DetectionIslandFlowLayer: View {
     let accentColor: Color
     let opacity: Double
 
-    @State private var phase: CGFloat = 0
-
     var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
             let height = proxy.size.height
-            let sweepWidth = max(44, width * 0.58)
-            let travel = width + sweepWidth
+            let sweepWidth = max(52, width * 0.68)
 
             ZStack {
                 shape
@@ -2056,7 +2063,7 @@ private struct DetectionIslandFlowLayer: View {
                     )
                     .frame(width: sweepWidth, height: max(34, height * 2.4))
                     .rotationEffect(.degrees(10))
-                    .offset(x: -travel / 2 + travel * phase)
+                    .offset(x: width * 0.08)
                     .blur(radius: 6)
             }
             .frame(width: width, height: height)
@@ -2064,12 +2071,6 @@ private struct DetectionIslandFlowLayer: View {
             .opacity(0.62 + opacity * 0.18)
             .blendMode(.plusLighter)
             .allowsHitTesting(false)
-            .onAppear {
-                phase = 0
-                withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) {
-                    phase = 1
-                }
-            }
         }
     }
 }
