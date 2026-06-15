@@ -51,6 +51,7 @@ final class DocumentSwipeMonitorNSView: NSView {
     private var lastPublishedProgress: CGFloat = 0
     private var lastProgressUpdate = Date.distantPast
     private var idleFinishGeneration = 0
+    private var idleFinishWorkItem: DispatchWorkItem?
     private var gestureStartDate = Date.distantPast
     private var gestureSampleCount = 0
     private var didTriggerQuickSwipe = false
@@ -256,14 +257,20 @@ final class DocumentSwipeMonitorNSView: NSView {
     private func scheduleIdleFinish() {
         idleFinishGeneration &+= 1
         let generation = idleFinishGeneration
-        DispatchQueue.main.asyncAfter(deadline: .now() + gestureIdleTimeout) { [weak self] in
+        idleFinishWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
             guard let self, self.idleFinishGeneration == generation else { return }
             self.finishScrollGesture()
         }
+        idleFinishWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + gestureIdleTimeout, execute: workItem)
     }
 
     private func resetGesture() {
         idleFinishGeneration &+= 1
+        idleFinishWorkItem?.cancel()
+        idleFinishWorkItem = nil
         accumulatedX = 0
         accumulatedY = 0
         gestureMode = .undecided
