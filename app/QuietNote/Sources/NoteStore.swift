@@ -56,6 +56,12 @@ final class NoteStore: ObservableObject {
     private let defaults: UserDefaults
     private var saveTask: Task<Void, Never>?
     private var isReplacingText = false
+    private var workspacePreviewCache: [String: DocumentPreviewCacheEntry] = [:]
+
+    private struct DocumentPreviewCacheEntry {
+        let modificationDate: Date?
+        let text: String
+    }
 
     var currentFileName: String {
         currentFileURL.lastPathComponent
@@ -247,10 +253,17 @@ final class NoteStore: ObservableObject {
     }
 
     func workspaceDocumentPreview(offset: Int) -> (url: URL, text: String)? {
-        guard let url = workspaceDocumentURL(offset: offset),
-              let text = try? String(contentsOf: url, encoding: .utf8)
-        else { return nil }
+        guard let url = workspaceDocumentURL(offset: offset) else { return nil }
 
+        let path = url.standardizedFileURL.path
+        let modificationDate = fileModificationDate(for: url)
+        if let cached = workspacePreviewCache[path],
+           cached.modificationDate == modificationDate {
+            return (url, cached.text)
+        }
+
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        workspacePreviewCache[path] = DocumentPreviewCacheEntry(modificationDate: modificationDate, text: text)
         return (url, text)
     }
 
@@ -376,6 +389,11 @@ final class NoteStore: ObservableObject {
         }
     }
 
+    private func fileModificationDate(for url: URL) -> Date? {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.standardizedFileURL.path)
+        return attributes?[.modificationDate] as? Date
+    }
+
     private func preferredURL(for workspace: NoteWorkspace) -> URL? {
         let urls = fileURLs(for: workspace)
         if let currentFilePath = workspace.currentFilePath,
@@ -393,19 +411,39 @@ final class NoteStore: ObservableObject {
     }
 
     private static func title(for markdown: String, currentFileURL: URL) -> String {
-        var extractedTitle: String?
-        markdown.enumerateLines { line, stop in
-            guard line.trimmingCharacters(in: .whitespaces).hasPrefix("#") else { return }
-            let title = line
-                .trimmingCharacters(in: .whitespaces)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "# "))
-            if !title.isEmpty {
-                extractedTitle = title
-                stop = true
+        var lineStart = markdown.startIndex
+        let end = markdown.endIndex
+
+        while lineStart < end {
+            let lineEnd = markdown[lineStart...].firstIndex(of: "\n") ?? end
+            var cursor = lineStart
+
+            while cursor < lineEnd, markdown[cursor] == " " || markdown[cursor] == "\t" {
+                cursor = markdown.index(after: cursor)
             }
+
+            if cursor < lineEnd, markdown[cursor] == "#" {
+                while cursor < lineEnd, markdown[cursor] == "#" || markdown[cursor] == " " || markdown[cursor] == "\t" {
+                    cursor = markdown.index(after: cursor)
+                }
+
+                var titleEnd = lineEnd
+                while cursor < titleEnd {
+                    let previous = markdown.index(before: titleEnd)
+                    guard markdown[previous] == " " || markdown[previous] == "\t" || markdown[previous] == "#" else { break }
+                    titleEnd = previous
+                }
+
+                if cursor < titleEnd {
+                    return String(markdown[cursor..<titleEnd])
+                }
+            }
+
+            guard lineEnd < end else { break }
+            lineStart = markdown.index(after: lineEnd)
         }
 
-        return extractedTitle ?? currentFileURL.lastPathComponent
+        return currentFileURL.lastPathComponent
     }
 
     private func rememberRecentFile(_ url: URL) {
