@@ -8,7 +8,7 @@ struct OnboardingView: View {
     @State private var page = 0
     @State private var automaticallyChecks = true
 
-    private let pageCount = 3
+    private let pageCount = 4
     private let topDragOverlayHeight: CGFloat = 56
 
     var body: some View {
@@ -65,7 +65,6 @@ struct OnboardingView: View {
                             lineWidth: 1
                         )
                 }
-                .shadow(color: .black.opacity(0.24), radius: 24, y: 10)
                 .transition(.asymmetric(
                     insertion: .scale(scale: 0.96, anchor: .center).combined(with: .opacity),
                     removal: .scale(scale: 0.985, anchor: .center).combined(with: .opacity)
@@ -177,6 +176,8 @@ struct OnboardingView: View {
             introPage(copy: copy)
         case 1:
             shortcutsPage(copy: copy)
+        case 2:
+            documentsPage(copy: copy)
         default:
             readyPage(copy: copy)
         }
@@ -224,6 +225,39 @@ struct OnboardingView: View {
             }
 
             ShortcutSettingsPanel(settings: settings, presentation: .sheet)
+        }
+    }
+
+    private func documentsPage(copy: AppText) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 7) {
+                Text(copy.onboardingDocumentsTitle)
+                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color.black.opacity(0.90))
+
+                Text(copy.onboardingDocumentsBody)
+                    .font(.system(size: 12.6, weight: .medium))
+                    .foregroundStyle(Color.black.opacity(0.62))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(spacing: 8) {
+                featureRow(
+                    icon: "rectangle.stack",
+                    title: text("工作区整理", "Organize by workspace"),
+                    detail: text("把项目、日常、灵感等不同场景的 Markdown 分到不同工作区，切换时只看当前工作区的文档。", "Keep project, daily, and idea notes in separate workspaces so switching stays focused.")
+                )
+                featureRow(
+                    icon: "arrow.left.arrow.right",
+                    title: text("底部快速切换", "Quick switcher"),
+                    detail: text("点底部左右箭头按钮，可以选择工作区、新建 Markdown、打开文件，或在当前工作区里快速换文档。", "Use the bottom arrows button to choose a workspace, create Markdown, open a file, or switch within the current workspace.")
+                )
+                featureRow(
+                    icon: "hand.draw",
+                    title: text("左右滑切换文档", "Swipe between documents"),
+                    detail: text("在正文区域左右滑，可以跟手预览并切到同一工作区里的上一份或下一份文档。", "Swipe left or right in the editor to preview and switch to the previous or next document in the workspace.")
+                )
+            }
         }
     }
 
@@ -542,6 +576,7 @@ struct OnboardingView: View {
         switch index {
         case 0: copy.onboardingIntroStep
         case 1: copy.onboardingShortcutStep
+        case 2: copy.onboardingDocumentsStep
         default: copy.onboardingReadyStep
         }
     }
