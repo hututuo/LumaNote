@@ -1,5 +1,6 @@
 import AppKit
 @preconcurrency import KeyboardShortcuts
+import QuartzCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -2041,30 +2042,14 @@ private struct DetectionIslandFlowLayer: View {
         GeometryReader { proxy in
             let width = proxy.size.width
             let height = proxy.size.height
-            let sweepWidth = max(52, width * 0.68)
 
             ZStack {
                 shape
                     .fill(accentColor.opacity(0.025 + opacity * 0.035))
 
-                Capsule(style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                accentColor.opacity(0),
-                                accentColor.opacity(0.08 + opacity * 0.08),
-                                .white.opacity(0.11 + opacity * 0.06),
-                                accentColor.opacity(0.07 + opacity * 0.06),
-                                accentColor.opacity(0)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: sweepWidth, height: max(34, height * 2.4))
-                    .rotationEffect(.degrees(10))
-                    .offset(x: width * 0.08)
-                    .blur(radius: 6)
+                DetectionIslandFlowAnimationView(accentColor: accentColor, opacity: opacity)
+                    .frame(width: width, height: height)
+                    .mask(shape)
             }
             .frame(width: width, height: height)
             .mask(shape)
@@ -2072,6 +2057,110 @@ private struct DetectionIslandFlowLayer: View {
             .blendMode(.plusLighter)
             .allowsHitTesting(false)
         }
+    }
+}
+
+private struct DetectionIslandFlowAnimationView: NSViewRepresentable {
+    let accentColor: Color
+    let opacity: Double
+
+    func makeNSView(context: Context) -> DetectionIslandFlowNSView {
+        DetectionIslandFlowNSView()
+    }
+
+    func updateNSView(_ nsView: DetectionIslandFlowNSView, context: Context) {
+        nsView.configure(accentColor: NSColor(accentColor), opacity: opacity)
+    }
+}
+
+private final class DetectionIslandFlowNSView: NSView {
+    private let flowLayer = CAGradientLayer()
+    private var currentAccentColor: NSColor = .systemCyan
+    private var currentOpacity: Double = 0
+    private var lastAnimationSize: CGSize = .zero
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        let rootLayer = CALayer()
+        rootLayer.masksToBounds = true
+        rootLayer.isGeometryFlipped = true
+        layer = rootLayer
+
+        flowLayer.type = .axial
+        flowLayer.startPoint = CGPoint(x: 0, y: 0.5)
+        flowLayer.endPoint = CGPoint(x: 1, y: 0.5)
+        flowLayer.locations = [0, 0.22, 0.50, 0.78, 1]
+        flowLayer.cornerRadius = 999
+        flowLayer.shouldRasterize = true
+        flowLayer.rasterizationScale = NSScreen.main?.backingScaleFactor ?? 2
+        flowLayer.transform = CATransform3DMakeRotation(10 * .pi / 180, 0, 0, 1)
+        rootLayer.addSublayer(flowLayer)
+        updateColors()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func layout() {
+        super.layout()
+        updateLayerGeometry(restartAnimationIfNeeded: false)
+    }
+
+    func configure(accentColor: NSColor, opacity: Double) {
+        let rgbAccent = accentColor.usingColorSpace(.deviceRGB) ?? .systemCyan
+        if !currentAccentColor.isEqual(rgbAccent) || abs(currentOpacity - opacity) > 0.001 {
+            currentAccentColor = rgbAccent
+            currentOpacity = opacity
+            updateColors()
+        }
+        updateLayerGeometry(restartAnimationIfNeeded: false)
+    }
+
+    private func updateColors() {
+        flowLayer.colors = [
+            currentAccentColor.withAlphaComponent(0).cgColor,
+            currentAccentColor.withAlphaComponent(0.08 + currentOpacity * 0.08).cgColor,
+            NSColor.white.withAlphaComponent(0.11 + currentOpacity * 0.06).cgColor,
+            currentAccentColor.withAlphaComponent(0.07 + currentOpacity * 0.06).cgColor,
+            currentAccentColor.withAlphaComponent(0).cgColor
+        ]
+    }
+
+    private func updateLayerGeometry(restartAnimationIfNeeded: Bool) {
+        guard bounds.width > 1, bounds.height > 1 else { return }
+
+        let sweepWidth = max(52, bounds.width * 0.68)
+        let sweepHeight = max(34, bounds.height * 2.4)
+        flowLayer.bounds = CGRect(x: 0, y: 0, width: sweepWidth, height: sweepHeight)
+        flowLayer.position.y = bounds.midY
+
+        let didSizeChange = lastAnimationSize != bounds.size
+        if restartAnimationIfNeeded || didSizeChange || flowLayer.animation(forKey: "flowPosition") == nil {
+            lastAnimationSize = bounds.size
+            startFlowAnimation(sweepWidth: sweepWidth)
+        }
+    }
+
+    private func startFlowAnimation(sweepWidth: CGFloat) {
+        let fromX = -sweepWidth * 0.55
+        let toX = bounds.width + sweepWidth * 0.55
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        flowLayer.position.x = fromX
+        CATransaction.commit()
+
+        let animation = CABasicAnimation(keyPath: "position.x")
+        animation.fromValue = fromX
+        animation.toValue = toX
+        animation.duration = 3.2
+        animation.repeatCount = .infinity
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
+        animation.isRemovedOnCompletion = false
+        flowLayer.add(animation, forKey: "flowPosition")
     }
 }
 
