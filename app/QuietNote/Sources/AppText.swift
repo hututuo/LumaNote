@@ -108,6 +108,13 @@ struct AppText {
             "Keep at least one show/hide shortcut so the note is always easy to bring back."
         )
     }
+    var onboardingDocumentsTitle: String { text("文档和工作区", "Documents and workspaces") }
+    var onboardingDocumentsBody: String {
+        text(
+            "把同一类 Markdown 放进一个工作区，底部切换按钮可以快速选文档；在正文区域左右滑也能切换同一工作区里的文档。",
+            "Group related Markdown files in a workspace, switch documents from the bottom file button, or swipe left and right in the editor to move through documents in the same workspace."
+        )
+    }
     var onboardingReadyTitle: String { text("两个常用入口", "Two everyday entry points") }
     var onboardingReadyBody: String {
         text(
@@ -117,6 +124,7 @@ struct AppText {
     }
     var onboardingIntroStep: String { text("介绍", "Intro") }
     var onboardingShortcutStep: String { text("快捷键", "Shortcuts") }
+    var onboardingDocumentsStep: String { text("文档", "Docs") }
     var onboardingReadyStep: String { text("完成", "Ready") }
     var onboardingBack: String { text("上一步", "Back") }
     var onboardingNext: String { text("下一步", "Next") }
