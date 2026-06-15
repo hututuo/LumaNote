@@ -7,9 +7,11 @@ struct ClipboardLibraryView: View {
     @ObservedObject var store: ClipboardStore
     @State private var query = ""
     @State private var visibleItemLimit = initialVisibleItemLimit
+    @State private var isBatchLoadScheduled = false
+    @State private var selectedDetection: ClipboardDetection?
 
-    private static let initialVisibleItemLimit = 36
-    private static let visibleItemBatchSize = 24
+    private static let initialVisibleItemLimit = 28
+    private static let visibleItemBatchSize = 16
 
     private var inkColor: Color {
         Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.86)
@@ -28,8 +30,67 @@ struct ClipboardLibraryView: View {
         let visibleSnapshot = store.visibleItems(matching: query, limit: visibleItemLimit)
         let displayedItems = visibleSnapshot.items
         let lastDisplayedItemID = displayedItems.last?.id
-        let accentColor = settings.accentColor
+        let themeColor = settings.themeColor
+        let accentColor = themeColor.color
 
+        ZStack {
+            clipboardContent(
+                copy: copy,
+                visibleSnapshot: visibleSnapshot,
+                displayedItems: displayedItems,
+                lastDisplayedItemID: lastDisplayedItemID,
+                themeColor: themeColor,
+                accentColor: accentColor
+            )
+
+            if let selectedDetection {
+                detectionActionOverlay(
+                    detection: selectedDetection,
+                    copy: copy,
+                    accentColor: accentColor
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                .zIndex(2)
+            }
+        }
+        .foregroundStyle(inkColor)
+        .background {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.28),
+                    accentColor.opacity(0.06),
+                    Color.black.opacity(0.025)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .blendMode(.plusLighter)
+        }
+        .background(Color.white.opacity(0.08))
+        .background {
+            Rectangle()
+                .fill(.regularMaterial)
+                .opacity(0.60)
+        }
+        .onChange(of: query) { _, _ in
+            visibleItemLimit = Self.initialVisibleItemLimit
+            selectedDetection = nil
+        }
+        .onChange(of: store.items.count) { _, _ in
+            if visibleItemLimit < Self.initialVisibleItemLimit {
+                visibleItemLimit = Self.initialVisibleItemLimit
+            }
+        }
+    }
+
+    private func clipboardContent(
+        copy: AppText,
+        visibleSnapshot: ClipboardListSnapshot,
+        displayedItems: [ClipboardItem],
+        lastDisplayedItemID: ClipboardItem.ID?,
+        themeColor: AppThemeColor,
+        accentColor: Color
+    ) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 9) {
                 Image(systemName: "list.clipboard")
@@ -106,12 +167,16 @@ struct ClipboardLibraryView: View {
                             ClipboardRow(
                                 item: item,
                                 copy: copy,
-                                accentColor: accentColor,
+                                themeColor: themeColor,
                                 copyItem: { store.copy(item.text) },
                                 deleteItem: { store.delete(item) },
-                                copyDetection: { store.copy($0.value) },
-                                openDetection: { store.open($0) }
+                                showDetectionActions: { detection in
+                                    withAnimation(.snappy(duration: 0.12)) {
+                                        selectedDetection = detection
+                                    }
+                                }
                             )
+                            .equatable()
 
                             if item.id != lastDisplayedItemID {
                                 Divider()
@@ -132,33 +197,9 @@ struct ClipboardLibraryView: View {
                     .padding(.horizontal, 11)
                     .padding(.bottom, 12)
                 }
-            }
-        }
-        .foregroundStyle(inkColor)
-        .background {
-            LinearGradient(
-                colors: [
-                    Color.white.opacity(0.28),
-                    settings.accentColor.opacity(0.06),
-                    Color.black.opacity(0.025)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .blendMode(.plusLighter)
-        }
-        .background(Color.white.opacity(0.08))
-        .background {
-            Rectangle()
-                .fill(.regularMaterial)
-                .opacity(0.60)
-        }
-        .onChange(of: query) { _, _ in
-            visibleItemLimit = Self.initialVisibleItemLimit
-        }
-        .onChange(of: store.items.count) { _, _ in
-            if visibleItemLimit < Self.initialVisibleItemLimit {
-                visibleItemLimit = Self.initialVisibleItemLimit
+                .transaction { transaction in
+                    transaction.animation = nil
+                }
             }
         }
     }
@@ -186,20 +227,131 @@ struct ClipboardLibraryView: View {
     }
 
     private func loadNextBatch(totalCount: Int) {
-        guard visibleItemLimit < totalCount else { return }
-        visibleItemLimit = min(totalCount, visibleItemLimit + Self.visibleItemBatchSize)
+        guard visibleItemLimit < totalCount, !isBatchLoadScheduled else { return }
+        isBatchLoadScheduled = true
+        Task { @MainActor in
+            await Task.yield()
+            visibleItemLimit = min(totalCount, visibleItemLimit + Self.visibleItemBatchSize)
+            isBatchLoadScheduled = false
+        }
+    }
+
+    private func detectionActionOverlay(
+        detection: ClipboardDetection,
+        copy: AppText,
+        accentColor: Color
+    ) -> some View {
+        ZStack {
+            Color.black.opacity(0.001)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.snappy(duration: 0.12)) {
+                        selectedDetection = nil
+                    }
+                }
+
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(spacing: 8) {
+                    Image(systemName: detection.symbol)
+                        .font(.system(size: 11, weight: .bold))
+                        .frame(width: 24, height: 24)
+                        .background(accentColor.opacity(0.20), in: Circle())
+
+                    Text(detection.value)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(inkColor)
+                        .lineLimit(3)
+                        .textSelection(.enabled)
+
+                    Spacer(minLength: 0)
+
+                    Button {
+                        withAnimation(.snappy(duration: 0.12)) {
+                            selectedDetection = nil
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .frame(width: 22, height: 22)
+                    }
+                    .buttonStyle(.plain)
+                    .background(.white.opacity(0.12), in: Circle())
+                    .help(copy.close)
+                }
+
+                Divider()
+                    .overlay(.white.opacity(0.18))
+
+                HStack(spacing: 8) {
+                    Button {
+                        selectedDetection = nil
+                        store.copy(detection.value)
+                    } label: {
+                        Label(copy.copyExtracted, systemImage: "doc.on.doc")
+                    }
+                    .help(copy.copyExtracted)
+
+                    if let openTitle = detection.openTitle {
+                        Button {
+                            selectedDetection = nil
+                            store.open(detection)
+                        } label: {
+                            Label(openTitle, systemImage: detection.openSymbol)
+                        }
+                        .help(openTitle)
+                    }
+                }
+                .buttonStyle(.borderless)
+                .font(.system(size: 12, weight: .medium))
+            }
+            .padding(12)
+            .frame(width: 260, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.regularMaterial)
+                    .opacity(0.86)
+            }
+            .background(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.30), accentColor.opacity(0.08), Color.white.opacity(0.16)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.62), accentColor.opacity(0.30), .black.opacity(0.10)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+        }
     }
 }
 
-private struct ClipboardRow: View {
+private struct ClipboardRow: View, Equatable {
     @Environment(\.colorScheme) private var colorScheme
     let item: ClipboardItem
     let copy: AppText
-    let accentColor: Color
+    let themeColor: AppThemeColor
     let copyItem: () -> Void
     let deleteItem: () -> Void
-    let copyDetection: (ClipboardDetection) -> Void
-    let openDetection: (ClipboardDetection) -> Void
+    let showDetectionActions: (ClipboardDetection) -> Void
+
+    nonisolated static func == (lhs: ClipboardRow, rhs: ClipboardRow) -> Bool {
+        lhs.item == rhs.item
+            && lhs.copy.language == rhs.copy.language
+            && lhs.themeColor == rhs.themeColor
+    }
+
+    private var accentColor: Color {
+        themeColor.color
+    }
 
     private var inkColor: Color {
         Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.86)
@@ -220,7 +372,7 @@ private struct ClipboardRow: View {
 
                 Spacer(minLength: 6)
 
-                Text(item.createdAt, style: .time)
+                Text(item.createdAt.formatted(date: .omitted, time: .shortened))
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(softInkColor)
@@ -233,10 +385,10 @@ private struct ClipboardRow: View {
                 DetectionShelf(
                     detections: item.detections,
                     copy: copy,
-                    accentColor: accentColor,
-                    copyDetection: copyDetection,
-                    openDetection: openDetection
+                    themeColor: themeColor,
+                    showDetectionActions: showDetectionActions
                 )
+                .equatable()
             }
 
             HStack(spacing: 7) {
@@ -276,13 +428,22 @@ private struct ClipboardRow: View {
     }
 }
 
-private struct DetectionShelf: View {
+private struct DetectionShelf: View, Equatable {
     @Environment(\.colorScheme) private var colorScheme
     let detections: [ClipboardDetection]
     let copy: AppText
-    let accentColor: Color
-    let copyDetection: (ClipboardDetection) -> Void
-    let openDetection: (ClipboardDetection) -> Void
+    let themeColor: AppThemeColor
+    let showDetectionActions: (ClipboardDetection) -> Void
+
+    nonisolated static func == (lhs: DetectionShelf, rhs: DetectionShelf) -> Bool {
+        lhs.detections == rhs.detections
+            && lhs.copy.language == rhs.copy.language
+            && lhs.themeColor == rhs.themeColor
+    }
+
+    private var accentColor: Color {
+        themeColor.color
+    }
 
     private var inkColor: Color {
         Color.primary.opacity(colorScheme == .dark ? 0.88 : 0.82)
@@ -307,10 +468,10 @@ private struct DetectionShelf: View {
                     DetectionChip(
                         detection: detection,
                         copy: copy,
-                        accentColor: accentColor,
-                        copyDetection: copyDetection,
-                        openDetection: openDetection
+                        themeColor: themeColor,
+                        showActions: showDetectionActions
                     )
+                    .equatable()
                 }
             }
         }
@@ -334,21 +495,24 @@ private struct DetectionShelf: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: accentColor.opacity(0.05), radius: 6, y: 1)
     }
 }
 
-private struct DetectionChip: View {
+private struct DetectionChip: View, Equatable {
     @Environment(\.colorScheme) private var colorScheme
     let detection: ClipboardDetection
     let copy: AppText
-    let accentColor: Color
-    let copyDetection: (ClipboardDetection) -> Void
-    let openDetection: (ClipboardDetection) -> Void
-    @State private var showActions = false
+    let themeColor: AppThemeColor
+    let showActions: (ClipboardDetection) -> Void
+
+    nonisolated static func == (lhs: DetectionChip, rhs: DetectionChip) -> Bool {
+        lhs.detection == rhs.detection
+            && lhs.copy.language == rhs.copy.language
+            && lhs.themeColor == rhs.themeColor
+    }
 
     private var tint: Color {
-        accentColor
+        themeColor.color
     }
 
     private var inkColor: Color {
@@ -361,14 +525,11 @@ private struct DetectionChip: View {
 
     var body: some View {
         Button {
-            showActions.toggle()
+            showActions(detection)
         } label: {
             bubbleLabel
         }
         .buttonStyle(.plain)
-        .popover(isPresented: $showActions, arrowEdge: .top) {
-            actionsPopover(copy: copy)
-        }
         .help(copy.showExtractedActions)
     }
 
@@ -422,43 +583,6 @@ private struct DetectionChip: View {
                     lineWidth: 1.15
                 )
         )
-        .shadow(color: tint.opacity(0.2), radius: 8, y: 2)
-        .shadow(color: .black.opacity(0.16), radius: 5, y: 2)
-    }
-
-    private func actionsPopover(copy: AppText) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(detection.value)
-                .font(.system(size: 12, weight: .semibold))
-                .lineLimit(2)
-                .truncationMode(.middle)
-                .frame(maxWidth: 220, alignment: .leading)
-
-            Divider()
-
-            Button {
-                showActions = false
-                copyDetection(detection)
-            } label: {
-                Label(copy.copyExtracted, systemImage: "doc.on.doc")
-            }
-            .help(copy.copyExtracted)
-
-            if let openTitle = detection.openTitle {
-                Button {
-                    showActions = false
-                    openDetection(detection)
-                } label: {
-                    Label(openTitle, systemImage: detection.openSymbol)
-                }
-                .help(openTitle)
-            }
-        }
-        .font(.system(size: 12, weight: .medium))
-        .foregroundStyle(inkColor)
-        .buttonStyle(.borderless)
-        .padding(12)
-        .background(.regularMaterial)
     }
 }
 
@@ -478,7 +602,9 @@ private struct WrappingChipLayout: Layout {
     }
 
     func updateCache(_ cache: inout Cache, subviews: Subviews) {
-        cache.subviewCount = -1
+        if cache.subviewCount != subviews.count {
+            cache.subviewCount = -1
+        }
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
