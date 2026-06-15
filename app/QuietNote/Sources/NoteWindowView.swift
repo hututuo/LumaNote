@@ -417,7 +417,7 @@ struct NoteWindowView: View {
                 ),
                 lineWidth: 1
             )
-            .opacity(min(0.98, 0.18 + shellVisibilityCurve * 0.56 + glassTextureCurve * 0.28))
+            .opacity(shellBorderOpacity)
     }
 
     private var topBar: some View {
@@ -568,23 +568,27 @@ struct NoteWindowView: View {
     }
 
     private var shellMaterialOpacity: Double {
-        min(0.90, 0.08 + settings.noteOpacity * 0.40 + glassTextureCurve * 0.42)
+        min(0.76, 0.018 + shellVisibilityCurve * (0.22 + glassTextureCurve * 0.46))
     }
 
     private var shellHazeOpacity: Double {
-        min(0.316, 0.006 + shellVisibilityCurve * 0.300 + glassTextureCurve * 0.010)
+        min(0.40, shellVisibilityCurve * (0.006 + glassTextureCurve * 0.36))
     }
 
     private var shellTintOpacity: Double {
-        min(0.074, 0.005 + shellVisibilityCurve * 0.014 + glassTextureCurve * 0.055)
+        min(0.092, shellVisibilityCurve * (0.003 + glassTextureCurve * 0.088))
+    }
+
+    private var shellBorderOpacity: Double {
+        min(0.94, 0.08 + shellVisibilityCurve * (0.30 + glassTextureCurve * 0.52))
     }
 
     private var shellVisibilityCurve: Double {
-        pow(settings.noteOpacity, 2.4)
+        pow(settings.noteOpacity, 1.20)
     }
 
     private var glassTextureCurve: Double {
-        pow(settings.glassStrength, 1.10)
+        pow(settings.glassStrength, 0.80)
     }
 
     private var islandOpacity: Double {
