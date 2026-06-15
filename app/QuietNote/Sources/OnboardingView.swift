@@ -392,28 +392,50 @@ struct OnboardingView: View {
     }
 
     private func recommendationToggleRow(title: String, isOn: Binding<Bool>, help: String) -> some View {
-        HStack(spacing: 9) {
-            Toggle("", isOn: isOn)
-                .labelsHidden()
-                .frame(width: 22, alignment: .leading)
+        Button {
+            isOn.wrappedValue.toggle()
+        } label: {
+            HStack(spacing: 9) {
+                onboardingCheckboxMark(isOn: isOn.wrappedValue)
+                    .frame(width: 22, alignment: .leading)
 
-            Text(title)
-                .font(.system(size: 12.3, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.78))
+                Text(title)
+                    .font(.system(size: 12.3, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.78))
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 9)
+            .frame(height: 30)
+            .background {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.white.opacity(0.38))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .strokeBorder(Color.black.opacity(isOn.wrappedValue ? 0.12 : 0.045), lineWidth: 1)
+                    )
+            }
         }
-        .padding(.horizontal, 9)
-        .frame(height: 30)
-        .background {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color.white.opacity(0.38))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .strokeBorder(Color.black.opacity(0.045), lineWidth: 1)
-                )
-        }
+        .buttonStyle(.plain)
         .help(help)
+    }
+
+    private func onboardingCheckboxMark(isOn: Bool) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(isOn ? settings.accentColor.opacity(0.18) : Color.white.opacity(0.40))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.74), lineWidth: 1.25)
+                )
+
+            if isOn {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundStyle(Color.black.opacity(0.86))
+            }
+        }
+        .frame(width: 17, height: 17)
     }
 
     private func featureRow(icon: String, title: String, detail: String) -> some View {
