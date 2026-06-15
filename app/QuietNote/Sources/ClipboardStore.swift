@@ -7,9 +7,49 @@ struct ClipboardItem: Codable, Identifiable, Equatable, Sendable {
     let text: String
     let createdAt: Date
     let detections: [ClipboardDetection]
+    let preview: String
 
-    var preview: String {
-        text.replacingOccurrences(of: "\n", with: " ")
+    init(id: UUID, text: String, createdAt: Date, detections: [ClipboardDetection], preview: String? = nil) {
+        self.id = id
+        self.text = text
+        self.createdAt = createdAt
+        self.detections = detections
+        self.preview = preview ?? Self.makePreview(from: text)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case text
+        case createdAt
+        case detections
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        text = try container.decode(String.self, forKey: .text)
+        id = try container.decode(UUID.self, forKey: .id)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        detections = try container.decode([ClipboardDetection].self, forKey: .detections)
+        preview = Self.makePreview(from: text)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(text, forKey: .text)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(detections, forKey: .detections)
+    }
+
+    private static func makePreview(from text: String) -> String {
+        let maxCharacters = 640
+        let prefix = text.prefix(maxCharacters)
+        let clipped = prefix.endIndex != text.endIndex
+        var preview = String(prefix).replacingOccurrences(of: "\n", with: " ")
+        if clipped {
+            preview += "…"
+        }
+        return preview
     }
 }
 
@@ -64,6 +104,7 @@ final class ClipboardStore: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
     private var lastChangeCount = NSPasteboard.general.changeCount
     private var itemFingerprints: [UUID: UInt64] = [:]
+    private var itemSearchIndex: [UUID: String] = [:]
     private let fileURL: URL
 
     init() {
@@ -136,9 +177,19 @@ final class ClipboardStore: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
+    func visibleItems(matching rawQuery: String) -> [ClipboardItem] {
+        let normalizedQuery = Self.normalizedSearchText(rawQuery.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard !normalizedQuery.isEmpty else { return items }
+
+        return items.filter { item in
+            indexedSearchText(for: item).contains(normalizedQuery)
+        }
+    }
+
     func delete(_ item: ClipboardItem) {
         items.removeAll { $0.id == item.id }
         itemFingerprints[item.id] = nil
+        itemSearchIndex[item.id] = nil
         if latestDetectedItem?.id == item.id {
             latestDetectedItem = nil
             latestSuggestion = nil
@@ -149,6 +200,7 @@ final class ClipboardStore: ObservableObject {
     func clear() {
         items.removeAll()
         itemFingerprints.removeAll()
+        itemSearchIndex.removeAll()
         latestSuggestion = nil
         latestDetectedItem = nil
         save(debounce: false)
@@ -198,13 +250,13 @@ final class ClipboardStore: ObservableObject {
     private func trim(to limit: Int) {
         guard items.count > limit else { return }
         items = Array(items.prefix(limit))
-        rebuildFingerprints()
+        rebuildItemCaches()
         save()
     }
 
     private func load() {
         items = ClipboardPersistence.load(from: fileURL) ?? []
-        rebuildFingerprints()
+        rebuildItemCaches()
     }
 
     private func save(debounce: Bool = true) {
@@ -220,12 +272,13 @@ final class ClipboardStore: ObservableObject {
         }
     }
 
-    private func rebuildFingerprints() {
+    private func rebuildItemCaches() {
         itemFingerprints = Dictionary(
             uniqueKeysWithValues: items.map { item in
                 (item.id, Self.contentFingerprint(for: item.text))
             }
         )
+        itemSearchIndex.removeAll(keepingCapacity: true)
     }
 
     private static func contentFingerprint(for text: String) -> UInt64 {
@@ -235,6 +288,25 @@ final class ClipboardStore: ObservableObject {
             hash &*= 1_099_511_628_211
         }
         return hash
+    }
+
+    private func indexedSearchText(for item: ClipboardItem) -> String {
+        if let searchText = itemSearchIndex[item.id] {
+            return searchText
+        }
+        let searchText = Self.searchableText(for: item)
+        itemSearchIndex[item.id] = searchText
+        return searchText
+    }
+
+    private static func searchableText(for item: ClipboardItem) -> String {
+        let detectedValues = item.detections.map(\.value).joined(separator: " ")
+        return normalizedSearchText("\(item.text) \(detectedValues)")
+    }
+
+    private static func normalizedSearchText(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
     }
 
 }

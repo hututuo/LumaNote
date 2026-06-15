@@ -19,18 +19,11 @@ struct ClipboardLibraryView: View {
         Color.primary.opacity(colorScheme == .dark ? 0.24 : 0.18)
     }
 
-    private var filteredItems: [ClipboardItem] {
-        return store.items.filter { item in
-            query.isEmpty
-                || item.text.localizedCaseInsensitiveContains(query)
-                || item.detections.contains { $0.value.localizedCaseInsensitiveContains(query) }
-        }
-    }
-
     var body: some View {
         let copy = AppText(language: settings.language)
-        let visibleItems = filteredItems
-        let visibleRows = Array(visibleItems.enumerated())
+        let visibleItems = store.visibleItems(matching: query)
+        let lastItemID = visibleItems.last?.id
+        let accentColor = settings.accentColor
 
         VStack(spacing: 0) {
             HStack(spacing: 9) {
@@ -104,10 +97,18 @@ struct ClipboardLibraryView: View {
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 0) {
-                        ForEach(visibleRows, id: \.element.id) { index, item in
-                            ClipboardRow(item: item, settings: settings, store: store)
+                        ForEach(visibleItems) { item in
+                            ClipboardRow(
+                                item: item,
+                                copy: copy,
+                                accentColor: accentColor,
+                                copyItem: { store.copy(item.text) },
+                                deleteItem: { store.delete(item) },
+                                copyDetection: { store.copy($0.value) },
+                                openDetection: { store.open($0) }
+                            )
 
-                            if index < visibleItems.count - 1 {
+                            if item.id != lastItemID {
                                 Divider()
                                     .overlay(.white.opacity(0.12))
                                     .padding(.leading, 3)
@@ -167,8 +168,12 @@ struct ClipboardLibraryView: View {
 private struct ClipboardRow: View {
     @Environment(\.colorScheme) private var colorScheme
     let item: ClipboardItem
-    @ObservedObject var settings: AppSettings
-    @ObservedObject var store: ClipboardStore
+    let copy: AppText
+    let accentColor: Color
+    let copyItem: () -> Void
+    let deleteItem: () -> Void
+    let copyDetection: (ClipboardDetection) -> Void
+    let openDetection: (ClipboardDetection) -> Void
 
     private var inkColor: Color {
         Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.86)
@@ -179,8 +184,6 @@ private struct ClipboardRow: View {
     }
 
     var body: some View {
-        let copy = AppText(language: settings.language)
-
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top, spacing: 8) {
                 Text(item.preview)
@@ -201,18 +204,24 @@ private struct ClipboardRow: View {
             }
 
             if !item.detections.isEmpty {
-                DetectionShelf(detections: item.detections, settings: settings, store: store)
+                DetectionShelf(
+                    detections: item.detections,
+                    copy: copy,
+                    accentColor: accentColor,
+                    copyDetection: copyDetection,
+                    openDetection: openDetection
+                )
             }
 
             HStack(spacing: 7) {
                 Spacer(minLength: 0)
 
                 rowActionButton(symbol: "doc.on.doc", help: copy.copyClipboardItem) {
-                    store.copy(item.text)
+                    copyItem()
                 }
 
                 rowActionButton(symbol: "trash", help: copy.deleteClipboardItem, role: .destructive) {
-                    store.delete(item)
+                    deleteItem()
                 }
             }
         }
@@ -244,16 +253,16 @@ private struct ClipboardRow: View {
 private struct DetectionShelf: View {
     @Environment(\.colorScheme) private var colorScheme
     let detections: [ClipboardDetection]
-    @ObservedObject var settings: AppSettings
-    @ObservedObject var store: ClipboardStore
+    let copy: AppText
+    let accentColor: Color
+    let copyDetection: (ClipboardDetection) -> Void
+    let openDetection: (ClipboardDetection) -> Void
 
     private var inkColor: Color {
         Color.primary.opacity(colorScheme == .dark ? 0.88 : 0.82)
     }
 
     var body: some View {
-        let copy = AppText(language: settings.language)
-
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
@@ -269,14 +278,20 @@ private struct DetectionShelf: View {
 
             WrappingChipLayout(horizontalSpacing: 6, verticalSpacing: 6) {
                 ForEach(detections) { detection in
-                    DetectionChip(detection: detection, settings: settings, store: store)
+                    DetectionChip(
+                        detection: detection,
+                        copy: copy,
+                        accentColor: accentColor,
+                        copyDetection: copyDetection,
+                        openDetection: openDetection
+                    )
                 }
             }
         }
         .padding(8)
         .background(
             LinearGradient(
-                colors: [settings.accentColor.opacity(0.08), .white.opacity(0.05), settings.accentColor.opacity(0.04)],
+                colors: [accentColor.opacity(0.08), .white.opacity(0.05), accentColor.opacity(0.04)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
@@ -286,26 +301,28 @@ private struct DetectionShelf: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [.white.opacity(0.26), settings.accentColor.opacity(0.14), .black.opacity(0.04)],
+                        colors: [.white.opacity(0.26), accentColor.opacity(0.14), .black.opacity(0.04)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
                 )
         )
-        .shadow(color: settings.accentColor.opacity(0.05), radius: 6, y: 1)
+        .shadow(color: accentColor.opacity(0.05), radius: 6, y: 1)
     }
 }
 
 private struct DetectionChip: View {
     @Environment(\.colorScheme) private var colorScheme
     let detection: ClipboardDetection
-    @ObservedObject var settings: AppSettings
-    @ObservedObject var store: ClipboardStore
+    let copy: AppText
+    let accentColor: Color
+    let copyDetection: (ClipboardDetection) -> Void
+    let openDetection: (ClipboardDetection) -> Void
     @State private var showActions = false
 
     private var tint: Color {
-        settings.accentColor
+        accentColor
     }
 
     private var inkColor: Color {
@@ -317,8 +334,6 @@ private struct DetectionChip: View {
     }
 
     var body: some View {
-        let copy = AppText(language: settings.language)
-
         Button {
             showActions.toggle()
         } label: {
@@ -397,7 +412,7 @@ private struct DetectionChip: View {
 
             Button {
                 showActions = false
-                store.copy(detection.value)
+                copyDetection(detection)
             } label: {
                 Label(copy.copyExtracted, systemImage: "doc.on.doc")
             }
@@ -406,7 +421,7 @@ private struct DetectionChip: View {
             if let openTitle = detection.openTitle {
                 Button {
                     showActions = false
-                    store.open(detection)
+                    openDetection(detection)
                 } label: {
                     Label(openTitle, systemImage: detection.openSymbol)
                 }
@@ -425,18 +440,28 @@ private struct WrappingChipLayout: Layout {
     let horizontalSpacing: CGFloat
     let verticalSpacing: CGFloat
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? 260
-        let rows = rows(for: subviews, maxWidth: maxWidth)
-        let height = rows.reduce(CGFloat.zero) { partialResult, row in
-            partialResult + row.height
-        } + verticalSpacing * CGFloat(max(rows.count - 1, 0))
-
-        return CGSize(width: maxWidth, height: height)
+    fileprivate struct Cache {
+        var maxWidth: CGFloat = -1
+        var rows: [Row] = []
+        var size: CGSize = .zero
+        var subviewCount: Int = -1
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let rows = rows(for: subviews, maxWidth: bounds.width)
+    func makeCache(subviews: Subviews) -> Cache {
+        Cache()
+    }
+
+    func updateCache(_ cache: inout Cache, subviews: Subviews) {
+        cache.subviewCount = -1
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        let maxWidth = proposal.width ?? 260
+        return layout(for: subviews, maxWidth: maxWidth, cache: &cache).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        let rows = layout(for: subviews, maxWidth: bounds.width, cache: &cache).rows
         var y = bounds.minY
 
         for row in rows {
@@ -453,6 +478,24 @@ private struct WrappingChipLayout: Layout {
 
             y += row.height + verticalSpacing
         }
+    }
+
+    private func layout(for subviews: Subviews, maxWidth: CGFloat, cache: inout Cache) -> LayoutResult {
+        let availableWidth = max(1, maxWidth)
+        if abs(cache.maxWidth - availableWidth) < 0.5, cache.subviewCount == subviews.count {
+            return LayoutResult(rows: cache.rows, size: cache.size)
+        }
+
+        let rows = rows(for: subviews, maxWidth: availableWidth)
+        let height = rows.reduce(CGFloat.zero) { partialResult, row in
+            partialResult + row.height
+        } + verticalSpacing * CGFloat(max(rows.count - 1, 0))
+        let size = CGSize(width: availableWidth, height: height)
+        cache.maxWidth = availableWidth
+        cache.rows = rows
+        cache.size = size
+        cache.subviewCount = subviews.count
+        return LayoutResult(rows: rows, size: size)
     }
 
     private func rows(for subviews: Subviews, maxWidth: CGFloat) -> [Row] {
@@ -490,12 +533,17 @@ private struct WrappingChipLayout: Layout {
         return rows
     }
 
-    private struct Row {
+    fileprivate struct LayoutResult {
+        let rows: [Row]
+        let size: CGSize
+    }
+
+    fileprivate struct Row {
         let items: [RowItem]
         let height: CGFloat
     }
 
-    private struct RowItem {
+    fileprivate struct RowItem {
         let index: Int
         let size: CGSize
     }
