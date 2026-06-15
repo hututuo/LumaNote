@@ -568,7 +568,7 @@ struct NoteWindowView: View {
     }
 
     private var shellMaterialOpacity: Double {
-        min(0.90, 0.08 + settings.noteOpacity * 0.40 + glassTextureCurve * 0.42)
+        min(0.60, 0.08 + settings.noteOpacity * 0.40 + glassTextureCurve * 0.12)
     }
 
     private var shellHazeOpacity: Double {
