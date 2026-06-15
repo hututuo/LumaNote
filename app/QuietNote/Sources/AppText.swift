@@ -4,12 +4,12 @@ struct AppText {
     let language: AppLanguage
 
     var note: String { text("便签", "Note") }
-    var opacity: String { text("透明度", "Opacity") }
-    var opacityHint: String { text("控制便签外壳的透明/明显；往左更透明，往右更清楚，不影响正文和按钮。", "Controls shell opacity; drag left for clearer glass and right for a stronger outline. Text and controls stay readable.") }
+    var opacity: String { text("外壳可见度", "Shell visibility") }
+    var opacityHint: String { text("控制主便签外壳和泛白底强度；高值会明显变白，低值更透明。", "Controls the main note shell and white haze strength; higher values are visibly whiter, lower values are clearer.") }
     var editorFontSize: String { text("字体大小", "Font size") }
     var editorFontSizeHint: String { text("控制正文 Markdown 的显示字号。", "Controls the Markdown editor text size.") }
     var glass: String { text("玻璃质感", "Glass texture") }
-    var glassHint: String { text("控制泛白、磨砂、高光和边缘折射；越高越白、越像厚玻璃。", "Controls white haze, frost, highlights, and edge refraction; higher values feel whiter and thicker.") }
+    var glassHint: String { text("控制磨砂材质、高光、边缘和轻微折射；高值会明显加厚玻璃感。", "Controls frosted material, highlights, edges, and subtle refraction; higher values make the glass feel thicker.") }
     var themeColor: String { text("主题色", "Theme color") }
     var themeColorHint: String { text("控制按钮、滑杆和剪切板提取气泡的强调色。", "Controls the accent color for buttons, sliders, and extracted clipboard bubbles.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }
@@ -44,7 +44,7 @@ struct AppText {
     var shortcutUnset: String { text("未设置", "Not set") }
     var shortcutConflictHint: String { text("下面这些动作使用了同一个快捷键：", "These actions use the same shortcut:") }
     var appearance: String { text("外观", "Appearance") }
-    var glassHintCompact: String { text("泛白 / 磨砂 / 高光", "Haze / frost / highlights") }
+    var glassHintCompact: String { text("磨砂 / 高光 / 厚度", "Frost / highlights / thickness") }
     var hideNote: String { text("隐藏便签", "Hide Note") }
     var launchAtLogin: String { text("开机自启", "Launch at login") }
     var launchAtLoginHint: String { text("使用 macOS 登录项服务；可能需要系统确认。", "Uses macOS Login Items; macOS may ask for confirmation.") }
