@@ -22,6 +22,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Adjustable theme color for the app's accent tone.
 - Customizable global shortcuts for toggling the note, showing the note, hiding the note, and opening the clipboard library.
 - App-level Chinese/English UI language switch in Settings. This changes app chrome text, not the user's Markdown content.
+- App-level appearance mode in Settings and the compact More panel: follow system, force light, or force dark. The default is system.
 - Clipboard history saved locally after explicit app setting enables monitoring.
 - Clipboard detection suggestions for URL, email, phone, address-like text, macOS local file paths, labeled codes such as verification codes or order/tracking numbers, and labeled free text after a colon.
 - Polished SwiftUI/macOS visual style with frosted glass and subtle slide/fade behavior.
@@ -152,7 +153,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - Clipboard paste copies the selected text, hides QuietNote, then sends Cmd+V to the system. This may depend on macOS input-event permissions in stricter environments.
 - Clipboard paste UI should be labeled as pasting to the current app, because the action targets whichever app/input had focus before LumaNote.
 - The compact more menu now includes clipboard monitoring, stored item count, retention limit, clear-library action, launch-at-login, shortcuts, and update controls. The always-on-top control lives on the bottom rail pin button instead of inside Settings/More.
-- Settings now includes a Chinese/English segmented language control. `AppSettings.language` defaults to Chinese, and `AppText` provides app chrome strings for Settings, More, Clipboard Library, and extraction action menus.
+- Settings now includes a Chinese/English segmented language control. `AppSettings.language` defaults to Chinese, and `AppText` provides app chrome strings for Settings, More, Clipboard Library, and extraction action menus. Settings and the compact More panel also include an appearance mode segmented control backed by `AppSettings.appearanceMode`, with `system`, `light`, and `dark` options. The setting applies both SwiftUI `preferredColorScheme` and AppKit `NSAppearance` to keep the note window, settings window, and native materials aligned.
 - Settings and the compact More menu include a theme color selector. `AppSettings.themeColor` persists as `themeColor`, defaults to aqua, and currently offers aqua, sky, mint, violet, rose, and amber presets. Treat it as a lightweight accent/tint setting: sliders, selected-file emphasis, shortcut accent circles, clipboard library glass highlights, extracted clipboard bubbles, extraction action outlines, and checked Markdown task checkmarks follow it, while semantic warning/success colors remain orange/green.
 - Buttons in the note chrome, clipboard library, file switcher, shortcuts panel, update section, settings/more menus, and status menu should carry hover help text. Prefer localized `AppText` strings for SwiftUI `.help(...)`; status bar menu items use AppKit `toolTip`.
 - LumaNote sets the app-domain `NSInitialToolTipDelay` to `150` milliseconds during launch so SwiftUI `.help` and AppKit tooltip text appears quickly without changing the macOS global tooltip delay.

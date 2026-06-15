@@ -16,6 +16,41 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
+enum AppAppearanceMode: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
+    }
+
+    func displayName(language: AppLanguage) -> String {
+        switch (language, self) {
+        case (.chinese, .system): "跟随系统"
+        case (.chinese, .light): "亮色"
+        case (.chinese, .dark): "暗色"
+        case (.english, .system): "System"
+        case (.english, .light): "Light"
+        case (.english, .dark): "Dark"
+        }
+    }
+}
+
 enum AppThemeColor: String, CaseIterable, Identifiable {
     case aqua
     case sky
@@ -92,6 +127,13 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(themeColor.rawValue, forKey: Keys.themeColor) }
     }
 
+    @Published var appearanceMode: AppAppearanceMode {
+        didSet {
+            defaults.set(appearanceMode.rawValue, forKey: Keys.appearanceMode)
+            applyAppearanceMode()
+        }
+    }
+
     @Published var editorFontSize: Double {
         didSet {
             if editorFontSize < Self.minimumEditorFontSize {
@@ -151,6 +193,7 @@ final class AppSettings: ObservableObject {
         noteOpacity = max(Self.minimumNoteOpacity, defaults.object(forKey: Keys.noteOpacity) as? Double ?? Self.defaultNoteOpacity)
         glassStrength = defaults.object(forKey: Keys.glassStrength) as? Double ?? Self.defaultGlassStrength
         themeColor = AppThemeColor(rawValue: defaults.string(forKey: Keys.themeColor) ?? "") ?? .aqua
+        appearanceMode = AppAppearanceMode(rawValue: defaults.string(forKey: Keys.appearanceMode) ?? "") ?? .system
         let storedFontSize = defaults.object(forKey: Keys.editorFontSize) as? Double ?? Self.defaultEditorFontSize
         editorFontSize = min(max(storedFontSize, Self.minimumEditorFontSize), Self.maximumEditorFontSize)
         alwaysOnTop = defaults.object(forKey: Keys.alwaysOnTop) as? Bool ?? true
@@ -161,6 +204,7 @@ final class AppSettings: ObservableObject {
         clipboardLimit = defaults.object(forKey: Keys.clipboardLimit) as? Int ?? 200
         language = AppLanguage(rawValue: defaults.string(forKey: Keys.language) ?? "") ?? .chinese
         hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding) as? Bool ?? false
+        applyAppearanceMode()
     }
 
     func refreshLaunchAtLoginStatus() {
@@ -181,10 +225,15 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    private func applyAppearanceMode() {
+        NSApp.appearance = appearanceMode.nsAppearance
+    }
+
     private enum Keys {
         static let noteOpacity = "noteOpacity"
         static let glassStrength = "glassStrength"
         static let themeColor = "themeColor"
+        static let appearanceMode = "appearanceMode"
         static let editorFontSize = "editorFontSize"
         static let alwaysOnTop = "alwaysOnTop"
         static let autoHideChrome = "autoHideChrome"

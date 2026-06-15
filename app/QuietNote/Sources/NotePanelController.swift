@@ -42,6 +42,7 @@ final class NotePanelController {
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.hasShadow = true
+        panel.appearance = settings.appearanceMode.nsAppearance
         panel.level = settings.alwaysOnTop ? .floating : .normal
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.minSize = NoteWindowLayout.minimumSize
@@ -69,6 +70,12 @@ final class NotePanelController {
         settings.$alwaysOnTop
             .sink { [weak panel] value in
                 panel?.level = value ? .floating : .normal
+            }
+            .store(in: &cancellables)
+
+        settings.$appearanceMode
+            .sink { [weak panel] value in
+                panel?.appearance = value.nsAppearance
             }
             .store(in: &cancellables)
     }
