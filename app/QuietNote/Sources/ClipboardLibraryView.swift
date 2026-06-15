@@ -6,6 +6,10 @@ struct ClipboardLibraryView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var store: ClipboardStore
     @State private var query = ""
+    @State private var visibleItemLimit = initialVisibleItemLimit
+
+    private static let initialVisibleItemLimit = 36
+    private static let visibleItemBatchSize = 24
 
     private var inkColor: Color {
         Color.primary.opacity(colorScheme == .dark ? 0.90 : 0.86)
@@ -21,8 +25,9 @@ struct ClipboardLibraryView: View {
 
     var body: some View {
         let copy = AppText(language: settings.language)
-        let visibleItems = store.visibleItems(matching: query)
-        let lastItemID = visibleItems.last?.id
+        let visibleSnapshot = store.visibleItems(matching: query, limit: visibleItemLimit)
+        let displayedItems = visibleSnapshot.items
+        let lastDisplayedItemID = displayedItems.last?.id
         let accentColor = settings.accentColor
 
         VStack(spacing: 0) {
@@ -48,7 +53,7 @@ struct ClipboardLibraryView: View {
                     Text(copy.clipboard)
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(inkColor)
-                    Text("\(visibleItems.count)")
+                    Text("\(visibleSnapshot.totalCount)")
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .foregroundStyle(softInkColor)
                 }
@@ -92,12 +97,12 @@ struct ClipboardLibraryView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
 
-            if visibleItems.isEmpty {
+            if visibleSnapshot.totalCount == 0 {
                 emptyState(copy: copy)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 0) {
-                        ForEach(visibleItems) { item in
+                        ForEach(displayedItems) { item in
                             ClipboardRow(
                                 item: item,
                                 copy: copy,
@@ -108,12 +113,20 @@ struct ClipboardLibraryView: View {
                                 openDetection: { store.open($0) }
                             )
 
-                            if item.id != lastItemID {
+                            if item.id != lastDisplayedItemID {
                                 Divider()
                                     .overlay(.white.opacity(0.12))
                                     .padding(.leading, 3)
                                     .padding(.trailing, 2)
                             }
+                        }
+
+                        if displayedItems.count < visibleSnapshot.totalCount {
+                            Color.clear
+                                .frame(height: 1)
+                                .onAppear {
+                                    loadNextBatch(totalCount: visibleSnapshot.totalCount)
+                                }
                         }
                     }
                     .padding(.horizontal, 11)
@@ -140,6 +153,14 @@ struct ClipboardLibraryView: View {
                 .fill(.regularMaterial)
                 .opacity(0.60)
         }
+        .onChange(of: query) { _, _ in
+            visibleItemLimit = Self.initialVisibleItemLimit
+        }
+        .onChange(of: store.items.count) { _, _ in
+            if visibleItemLimit < Self.initialVisibleItemLimit {
+                visibleItemLimit = Self.initialVisibleItemLimit
+            }
+        }
     }
 
     private func emptyState(copy: AppText) -> some View {
@@ -162,6 +183,11 @@ struct ClipboardLibraryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(22)
+    }
+
+    private func loadNextBatch(totalCount: Int) {
+        guard visibleItemLimit < totalCount else { return }
+        visibleItemLimit = min(totalCount, visibleItemLimit + Self.visibleItemBatchSize)
     }
 }
 

@@ -69,6 +69,11 @@ struct ClipboardDetection: Codable, Identifiable, Equatable, Sendable {
     let value: String
 }
 
+struct ClipboardListSnapshot {
+    let totalCount: Int
+    let items: [ClipboardItem]
+}
+
 private enum ClipboardPersistence {
     static func load(from fileURL: URL) -> [ClipboardItem]? {
         guard let data = try? Data(contentsOf: fileURL) else { return nil }
@@ -177,13 +182,28 @@ final class ClipboardStore: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    func visibleItems(matching rawQuery: String) -> [ClipboardItem] {
+    func visibleItems(matching rawQuery: String, limit: Int) -> ClipboardListSnapshot {
         let normalizedQuery = Self.normalizedSearchText(rawQuery.trimmingCharacters(in: .whitespacesAndNewlines))
-        guard !normalizedQuery.isEmpty else { return items }
-
-        return items.filter { item in
-            indexedSearchText(for: item).contains(normalizedQuery)
+        let itemLimit = max(0, limit)
+        guard !normalizedQuery.isEmpty else {
+            return ClipboardListSnapshot(
+                totalCount: items.count,
+                items: Array(items.prefix(itemLimit))
+            )
         }
+
+        var visibleItems: [ClipboardItem] = []
+        visibleItems.reserveCapacity(min(itemLimit, items.count))
+        var totalCount = 0
+
+        for item in items where indexedSearchText(for: item).contains(normalizedQuery) {
+            totalCount += 1
+            if visibleItems.count < itemLimit {
+                visibleItems.append(item)
+            }
+        }
+
+        return ClipboardListSnapshot(totalCount: totalCount, items: visibleItems)
     }
 
     func delete(_ item: ClipboardItem) {

@@ -836,6 +836,14 @@ private final class MarkdownScrollIndicatorView: NSView {
     private var trackingAreaToken: NSTrackingArea?
     private var idleGeneration = 0
     private var animationGeneration = 0
+    private var idleTask: Task<Void, Never>?
+    private var animationTask: Task<Void, Never>?
+    private var animationTarget: CGFloat = 0
+
+    deinit {
+        idleTask?.cancel()
+        animationTask?.cancel()
+    }
 
     override var isFlipped: Bool {
         true
@@ -897,9 +905,13 @@ private final class MarkdownScrollIndicatorView: NSView {
         idleGeneration += 1
         let generation = idleGeneration
 
-        Task { @MainActor [weak self] in
+        idleTask?.cancel()
+        idleTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(1))
-            guard let self, self.idleGeneration == generation else { return }
+            guard !Task.isCancelled,
+                  let self,
+                  self.idleGeneration == generation
+            else { return }
             self.isRecentlyActive = false
             self.animateVisibility(to: self.targetVisualProgress)
         }
@@ -915,30 +927,42 @@ private final class MarkdownScrollIndicatorView: NSView {
     }
 
     private func animateVisibility(to target: CGFloat) {
+        if abs(animationTarget - target) <= 0.01, animationTask != nil {
+            return
+        }
+        animationTarget = target
         animationGeneration += 1
         let generation = animationGeneration
         let start = visualProgress
         let distance = target - start
 
+        animationTask?.cancel()
         guard abs(distance) > 0.01 else {
             visualProgress = target
             needsDisplay = true
             return
         }
 
-        Task { @MainActor [weak self] in
+        animationTask = Task { @MainActor [weak self] in
             let frames = 12
             for frame in 1...frames {
-                guard let self, self.animationGeneration == generation else { return }
+                guard !Task.isCancelled,
+                      let self,
+                      self.animationGeneration == generation
+                else { return }
                 let t = CGFloat(frame) / CGFloat(frames)
                 let eased = 1 - pow(1 - t, 3)
                 self.visualProgress = start + distance * eased
                 self.needsDisplay = true
                 try? await Task.sleep(for: .seconds(0.015))
             }
-            guard let self, self.animationGeneration == generation else { return }
+            guard !Task.isCancelled,
+                  let self,
+                  self.animationGeneration == generation
+            else { return }
             self.visualProgress = target
             self.needsDisplay = true
+            self.animationTask = nil
         }
     }
 }
