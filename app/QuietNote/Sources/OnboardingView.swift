@@ -40,10 +40,10 @@ struct OnboardingView: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(.regularMaterial)
-                            .opacity(0.18)
+                            .opacity(0.10)
 
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.white.opacity(0.91))
+                            .fill(Color.white.opacity(0.96))
 
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(settings.accentColor.opacity(0.018))
