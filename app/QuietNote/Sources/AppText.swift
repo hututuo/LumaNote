@@ -10,6 +10,8 @@ struct AppText {
     var editorFontSizeHint: String { text("控制正文 Markdown 的显示字号。", "Controls the Markdown editor text size.") }
     var glass: String { text("玻璃质感", "Glass texture") }
     var glassHint: String { text("控制磨砂材质、高光、边缘和轻微折射；高值会明显加厚玻璃感。", "Controls frosted material, highlights, edges, and subtle refraction; higher values make the glass feel thicker.") }
+    var appearanceMode: String { text("显示模式", "Color mode") }
+    var appearanceModeHint: String { text("跟随系统，或固定使用亮色 / 暗色显示。", "Follow the system, or force light or dark appearance.") }
     var themeColor: String { text("主题色", "Theme color") }
     var themeColorHint: String { text("控制按钮、滑杆和剪切板提取气泡的强调色。", "Controls the accent color for buttons, sliders, and extracted clipboard bubbles.") }
     var alwaysOnTop: String { text("保持置顶", "Always on top") }

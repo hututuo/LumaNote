@@ -16,6 +16,16 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
 
+                Picker(copy.appearanceMode, selection: $settings.appearanceMode) {
+                    ForEach(AppAppearanceMode.allCases) { mode in
+                        Text(mode.displayName(language: settings.language)).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text(copy.appearanceModeHint)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
                 LabeledContent(copy.opacity) {
                     HStack {
                         Slider(value: $settings.noteOpacity, in: AppSettings.minimumNoteOpacity...1)
@@ -96,6 +106,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(18)
+        .preferredColorScheme(settings.appearanceMode.colorScheme)
         .onAppear {
             settings.refreshLaunchAtLoginStatus()
         }

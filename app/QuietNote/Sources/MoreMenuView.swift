@@ -20,6 +20,8 @@ struct MoreMenuView: View {
                 Text(copy.appearance)
                     .font(.system(size: 13, weight: .semibold))
 
+                compactAppearanceRow(copy: copy)
+
                 compactThemeRow(copy: copy)
 
                 compactSliderRow(
@@ -180,6 +182,28 @@ struct MoreMenuView: View {
             }
 
             ThemeColorPicker(selection: $settings.themeColor, language: settings.language, compact: true)
+        }
+    }
+
+    private func compactAppearanceRow(copy: AppText) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(copy.appearanceMode)
+                    .font(.system(size: 12.5, weight: .medium))
+                Spacer()
+                Text(settings.appearanceMode.displayName(language: settings.language))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Picker("", selection: $settings.appearanceMode) {
+                ForEach(AppAppearanceMode.allCases) { mode in
+                    Text(mode.displayName(language: settings.language)).tag(mode)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .help(copy.appearanceModeHint)
         }
     }
 }
