@@ -23,14 +23,6 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system: nil
-        case .light: .light
-        case .dark: .dark
-        }
-    }
-
     var nsAppearance: NSAppearance? {
         switch self {
         case .system: nil
@@ -130,9 +122,12 @@ final class AppSettings: ObservableObject {
     @Published var appearanceMode: AppAppearanceMode {
         didSet {
             defaults.set(appearanceMode.rawValue, forKey: Keys.appearanceMode)
+            refreshResolvedColorScheme()
             applyAppearanceMode()
         }
     }
+
+    @Published private(set) var resolvedColorScheme: ColorScheme?
 
     @Published var editorFontSize: Double {
         didSet {
@@ -193,7 +188,9 @@ final class AppSettings: ObservableObject {
         noteOpacity = max(Self.minimumNoteOpacity, defaults.object(forKey: Keys.noteOpacity) as? Double ?? Self.defaultNoteOpacity)
         glassStrength = defaults.object(forKey: Keys.glassStrength) as? Double ?? Self.defaultGlassStrength
         themeColor = AppThemeColor(rawValue: defaults.string(forKey: Keys.themeColor) ?? "") ?? .aqua
-        appearanceMode = AppAppearanceMode(rawValue: defaults.string(forKey: Keys.appearanceMode) ?? "") ?? .system
+        let storedAppearanceMode = AppAppearanceMode(rawValue: defaults.string(forKey: Keys.appearanceMode) ?? "") ?? .system
+        appearanceMode = storedAppearanceMode
+        resolvedColorScheme = Self.resolvedColorScheme(for: storedAppearanceMode)
         let storedFontSize = defaults.object(forKey: Keys.editorFontSize) as? Double ?? Self.defaultEditorFontSize
         editorFontSize = min(max(storedFontSize, Self.minimumEditorFontSize), Self.maximumEditorFontSize)
         alwaysOnTop = defaults.object(forKey: Keys.alwaysOnTop) as? Bool ?? true
@@ -205,6 +202,7 @@ final class AppSettings: ObservableObject {
         language = AppLanguage(rawValue: defaults.string(forKey: Keys.language) ?? "") ?? .chinese
         hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding) as? Bool ?? false
         applyAppearanceMode()
+        observeSystemAppearanceChanges()
     }
 
     func refreshLaunchAtLoginStatus() {
@@ -227,6 +225,42 @@ final class AppSettings: ObservableObject {
 
     private func applyAppearanceMode() {
         NSApp.appearance = appearanceMode.nsAppearance
+        NSApp.windows.forEach { window in
+            window.appearance = appearanceMode.nsAppearance
+            window.contentView?.appearance = appearanceMode.nsAppearance
+            window.contentView?.needsLayout = true
+            window.contentView?.needsDisplay = true
+        }
+    }
+
+    private func observeSystemAppearanceChanges() {
+        _ = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.appearanceMode == .system else { return }
+                self.refreshResolvedColorScheme()
+                self.applyAppearanceMode()
+            }
+        }
+    }
+
+    private func refreshResolvedColorScheme() {
+        resolvedColorScheme = Self.resolvedColorScheme(for: appearanceMode)
+    }
+
+    private static func resolvedColorScheme(for mode: AppAppearanceMode) -> ColorScheme? {
+        switch mode {
+        case .system: currentSystemColorScheme
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+
+    private static var currentSystemColorScheme: ColorScheme {
+        UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" ? .dark : .light
     }
 
     private enum Keys {

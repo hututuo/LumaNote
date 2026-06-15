@@ -198,7 +198,7 @@ struct NoteWindowView: View {
         .animation(.snappy(duration: 0.24), value: clipboardStore.latestDetectedItem?.id)
         .animation(.snappy(duration: 0.24), value: hiddenSuggestionID)
         .animation(.snappy(duration: 0.24), value: chromeControlsCollapsed)
-        .preferredColorScheme(settings.appearanceMode.colorScheme)
+        .preferredColorScheme(settings.resolvedColorScheme)
     }
 
     @ViewBuilder
