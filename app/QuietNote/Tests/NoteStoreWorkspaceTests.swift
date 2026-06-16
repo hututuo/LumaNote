@@ -30,6 +30,33 @@ final class NoteStoreWorkspaceTests: XCTestCase {
     }
 
     @MainActor
+    func testFirstLaunchCreatesExampleMarkdownFile() throws {
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+        let expectedURL = temporaryDirectory.appending(path: "示例便签.md")
+
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, expectedURL.standardizedFileURL.path)
+        XCTAssertEqual(store.currentFileName, "示例便签.md")
+        XCTAssertEqual(store.displayTitle, "LumaNote 示例便签")
+        XCTAssertTrue(store.markdown.contains("# LumaNote 示例便签"))
+        XCTAssertTrue(store.markdown.contains("- [ ] 试着输入一条新待办"))
+        XCTAssertTrue(store.markdown.contains("- [x] Markdown 会实时渲染"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: expectedURL.path))
+        XCTAssertEqual(try String(contentsOf: expectedURL, encoding: .utf8), store.markdown)
+        XCTAssertTrue(store.activeWorkspaceFileURLs.contains { $0.standardizedFileURL.path == expectedURL.standardizedFileURL.path })
+    }
+
+    @MainActor
+    func testFirstLaunchKeepsLegacyDefaultNoteIfItExists() throws {
+        let legacyURL = try makeNote(named: "note.md", title: "Old Note")
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, legacyURL.standardizedFileURL.path)
+        XCTAssertEqual(store.displayTitle, "Old Note")
+        XCTAssertEqual(store.markdown, "# Old Note\n\nBody")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryDirectory.appending(path: "示例便签.md").path))
+    }
+
+    @MainActor
     func testSwitchesBetweenDocumentsInActiveWorkspace() throws {
         let first = try makeNote(named: "first.md", title: "First")
         let second = try makeNote(named: "second.md", title: "Second")

@@ -18,6 +18,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 
 - Markdown note editing with live save.
 - Markdown should render live inside the editable note body, not through separate edit/preview modes.
+- First launch should open a real example Markdown document that demonstrates common Markdown syntax and clickable task items.
 - Adjustable note opacity. New default note opacity is 60%.
 - Adjustable theme color for the app's accent tone.
 - Customizable global shortcuts for toggling the note, showing the note, hiding the note, and opening the clipboard library.
@@ -97,6 +98,7 @@ The selected visual direction is a fusion of the generated `Bottom Rail Note` an
 - `WindowDragView.swift` overrides `acceptsFirstMouse` so the drag strip can receive the first mouse/trackpad event even while QuietNote is inactive. This is intended to make three-finger dragging work without first focusing the app.
 - The top island must not be implemented as a normal SwiftUI `Button`; it blocks three-finger dragging. Use `WindowClickDragView` for the island hit target so short clicks open clipboard/actions and drag gestures call `window.performDrag`.
 - The app stores data locally under `~/Library/Application Support/QuietNote/`.
+- On a clean first launch, `NoteStore` creates and opens `示例便签.md` in the app support directory. The file contains a concise Markdown syntax demo plus `- [ ]` / `- [x]` task items, and is added to the default workspace like any other document. If an old `note.md` exists and no explicit current path has been saved yet, keep opening `note.md` to avoid hiding existing user content after upgrade.
 - The public product name is LumaNote. The Swift package/target still uses the legacy `QuietNote` name internally, while the built macOS bundle is `LumaNote.app` with the selected glass bubble icon.
 - `build-app.sh` signs the local bundle with ad-hoc identity (`codesign --sign -`) and verifies it with `codesign --verify --deep --strict`. This is for local builds/install/update hygiene and is not Developer ID signing or notarization.
 - The `test/ad-hoc-permission-update` branch signs with `--requirements '=designated => identifier "com.hututuo.lumanote"'`; the temporary Accessibility permission request UI was removed after update permission persistence was confirmed.
