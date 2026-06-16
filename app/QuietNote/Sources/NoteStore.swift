@@ -85,7 +85,8 @@ final class NoteStore: ObservableObject {
         let support = supportDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "QuietNote", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        defaultFileURL = support.appending(path: "note.md")
+        defaultFileURL = support.appending(path: "示例便签.md")
+        let legacyDefaultFileURL = support.appending(path: "note.md")
 
         let initialFileURL: URL
         if let savedPath = defaults.string(forKey: Keys.currentFilePath), !savedPath.isEmpty {
@@ -95,10 +96,14 @@ final class NoteStore: ObservableObject {
                 initialFileURL = defaultFileURL
                 defaults.set(defaultFileURL.path, forKey: Keys.currentFilePath)
             }
+        } else if FileManager.default.fileExists(atPath: legacyDefaultFileURL.path) {
+            initialFileURL = legacyDefaultFileURL
         } else {
             initialFileURL = defaultFileURL
         }
-        currentFileURL = initialFileURL.standardizedFileURL
+        let standardizedInitialFileURL = initialFileURL.standardizedFileURL
+        currentFileURL = standardizedInitialFileURL
+        defaults.set(standardizedInitialFileURL.path, forKey: Keys.currentFilePath)
         recentFileURLs = Self.loadRecentFileURLs(from: defaults)
 
         if FileManager.default.fileExists(atPath: initialFileURL.path),
@@ -106,19 +111,8 @@ final class NoteStore: ObservableObject {
            let text = String(data: data, encoding: .utf8) {
             markdown = text
         } else {
-            markdown = """
-            # Today
-
-            - [ ] Write implementation plan
-            - [ ] Test keyboard shortcut
-            - [ ] Ship the build
-
-            > Quiet is productive.
-
-            Reference: [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/)
-
-            Quick snippet: `cmd + shift + n`
-            """
+            markdown = Self.exampleMarkdown
+            _ = NoteFileWriter.write(Self.exampleMarkdown, to: currentFileURL)
         }
 
         workspaces = Self.loadWorkspaces(from: defaults)
@@ -539,6 +533,29 @@ final class NoteStore: ObservableObject {
 
     private static let defaultWorkspaceName = "默认工作区"
     private static let maximumWorkspaceDocuments = 24
+    private static let exampleMarkdown = """
+    # LumaNote 示例便签
+
+    这是你的第一张 Markdown 便签。直接编辑即可，内容会自动保存。
+
+    ## 常用语法
+
+    - **加粗**、*斜体*、`行内代码`
+    - [链接](https://github.com/hututuo/LumaNote)
+    - `- [ ]` 会变成可以点击的待办框
+
+    > 引用适合记录灵感或摘录。
+
+    ## 今日待办
+
+    - [ ] 试着输入一条新待办
+    - [ ] 用底部切换按钮新建或打开 Markdown 文件
+    - [x] Markdown 会实时渲染
+
+    ```swift
+    let note = "代码块也可以放在便签里"
+    ```
+    """
 
     private enum Keys {
         static let currentFilePath = "currentFilePath"
