@@ -1,15 +1,4 @@
-<?xml version="1.0" standalone="yes"?>
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
-    <channel>
-        <title>LumaNote</title>
-        <item>
-            <title>0.1.3</title>
-            <pubDate>Tue, 16 Jun 2026 15:01:57 +0800</pubDate>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[# LumaNote v0.1.3
+# LumaNote v0.1.3
 
 Release date: 2026-06-16
 
@@ -61,8 +50,3 @@ codesign --verify --deep --strict --verbose=2 build/LumaNote.app
 codesign -d -r- build/LumaNote.app
 hdiutil verify build/releases/v0.1.3/LumaNote-0.1.3-macos-arm64.dmg
 ```
-]]></description>
-            <enclosure url="https://github.com/hututuo/LumaNote/releases/download/v0.1.3/LumaNote-0.1.3-macos-arm64.zip" length="3813876" type="application/octet-stream" sparkle:edSignature="im7a0dS7nyt4kXkXvpJnSYW+dtw7zFtmVhZIr7HRp5pkuLTDeUPK+yl8t7+UgvuUKJGCvX4YKIiyngcU3x2qDw=="/>
-        </item>
-    </channel>
-</rss>
