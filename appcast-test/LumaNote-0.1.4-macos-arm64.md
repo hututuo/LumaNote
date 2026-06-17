@@ -1,15 +1,4 @@
-<?xml version="1.0" standalone="yes"?>
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
-    <channel>
-        <title>LumaNote</title>
-        <item>
-            <title>0.1.4</title>
-            <pubDate>Wed, 17 Jun 2026 18:51:09 +0800</pubDate>
-            <sparkle:version>5</sparkle:version>
-            <sparkle:shortVersionString>0.1.4</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[# LumaNote v0.1.4
+# LumaNote v0.1.4
 
 Release date: 2026-06-17
 
@@ -46,8 +35,3 @@ LumaNote v0.1.4 is a maintenance release focused on smoother editing, lighter cl
 This build is ad-hoc signed and is not Apple notarized. macOS may show an "unidentified developer" warning on first launch. Download only from the official GitHub Release and verify the SHA256 checksum before opening.
 
 If macOS blocks the first launch, open `System Settings` -> `Privacy & Security`, find the LumaNote warning, click `Open Anyway`, then confirm `Open`.
-]]></description>
-            <enclosure url="https://github.com/hututuo/LumaNote/releases/download/v0.1.4/LumaNote-0.1.4-macos-arm64.zip" length="3871768" type="application/octet-stream" sparkle:edSignature="J8NSYTuyxc0scEcEzBGmSh1ZJJZWUaIN7VHGp5Sti6MQWApsd8CAMRggSzg5xvl7qphrKyvbWNIiqSQlHMAGBw=="/>
-        </item>
-    </channel>
-</rss>
