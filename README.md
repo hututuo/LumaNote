@@ -154,7 +154,15 @@ Sparkle's private signing key is not stored in this repository. Release operator
 ```text
 LumaNote/
   app/QuietNote/                 # SwiftUI macOS app source
-    Sources/                     # App code
+    Sources/                     # App code, grouped by feature
+      App/                       # App entry, settings, shortcuts, updates
+      Clipboard/                 # Clipboard monitoring, detection, library UI
+      Markdown/                  # Live Markdown editor and styling
+      NoteWindow/                # Main note shell, chrome, panels
+      Notes/                     # Markdown file storage and workspaces
+      Onboarding/                # First-launch guide
+      Settings/                  # Full settings and compact more menu
+      Window/                    # AppKit window, drag, overlay helpers
     scripts/build-app.sh         # Builds build/LumaNote.app
     scripts/build-dmg.sh         # Builds a drag-to-Applications DMG
     support/Info.plist           # Bundle metadata

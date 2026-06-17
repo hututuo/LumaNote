@@ -154,7 +154,15 @@ Sparkle 私钥不保存在本仓库。发布者应把私钥保存在登录钥匙
 ```text
 LumaNote/
   app/QuietNote/                 # SwiftUI macOS app 源码
-    Sources/                     # App 代码
+    Sources/                     # App 代码，按功能分组
+      App/                       # 应用入口、设置、快捷键、更新
+      Clipboard/                 # 剪切板监听、识别和剪切板库 UI
+      Markdown/                  # 实时 Markdown 编辑器和样式
+      NoteWindow/                # 主便签外壳、顶底栏和浮层
+      Notes/                     # Markdown 文件存储和工作区
+      Onboarding/                # 首次启动引导
+      Settings/                  # 完整设置和紧凑 More 菜单
+      Window/                    # AppKit 窗口、拖动和浮层辅助
     scripts/build-app.sh         # 构建 build/LumaNote.app
     scripts/build-dmg.sh         # 构建拖到 Applications 安装的 DMG
     support/Info.plist           # Bundle 元数据
