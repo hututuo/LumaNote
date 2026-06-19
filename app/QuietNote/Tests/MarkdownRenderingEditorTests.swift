@@ -323,6 +323,41 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         XCTAssertEqual(scrollView.contentView.bounds.origin.y, before, accuracy: 0.5)
     }
 
+    func testLiveResizeReusesCachedDocumentHeightUntilResizeEnds() {
+        var state = MarkdownScrollViewLiveResizeState()
+
+        XCTAssertFalse(state.shouldDeferMeasurement(hasCachedDocumentHeight: true, isInLiveResize: false))
+        XCTAssertTrue(state.shouldDeferMeasurement(hasCachedDocumentHeight: true, isInLiveResize: true))
+        XCTAssertTrue(state.consumeNeedsPostResizeRefresh())
+        XCTAssertFalse(state.consumeNeedsPostResizeRefresh())
+        XCTAssertFalse(state.shouldDeferMeasurement(hasCachedDocumentHeight: true, isInLiveResize: false))
+    }
+
+    func testLiveResizeStillMeasuresWhenThereIsNoCachedDocumentHeight() {
+        var state = MarkdownScrollViewLiveResizeState()
+
+        XCTAssertFalse(state.shouldDeferMeasurement(hasCachedDocumentHeight: false, isInLiveResize: true))
+        XCTAssertFalse(state.consumeNeedsPostResizeRefresh())
+    }
+
+    func testWindowLiveResizeStateDefersMeasurementEvenWhenViewFlagIsFalse() {
+        var state = MarkdownScrollViewLiveResizeState()
+
+        state.windowLiveResizeDidStart()
+
+        XCTAssertTrue(state.isLiveResizing(viewInLiveResize: false))
+        XCTAssertTrue(state.shouldDeferMeasurement(
+            hasCachedDocumentHeight: true,
+            isInLiveResize: state.isLiveResizing(viewInLiveResize: false)
+        ))
+        XCTAssertTrue(state.shouldDeferDocumentFrameUpdate(
+            hasCachedDocumentHeight: true,
+            isInLiveResize: state.isLiveResizing(viewInLiveResize: false)
+        ))
+        XCTAssertTrue(state.windowLiveResizeDidEnd())
+        XCTAssertFalse(state.isLiveResizing(viewInLiveResize: false))
+    }
+
     private func styledStorage(_ markdown: String, selectedRange: NSRange = NSRange(location: 0, length: 0)) -> NSTextStorage {
         var text = markdown
         let binding = Binding<String>(
