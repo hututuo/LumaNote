@@ -6,6 +6,8 @@ final class MarkdownScrollView: NSScrollView {
     private var cachedDocumentHeight: CGFloat?
     private var lastViewportWidth: CGFloat = 0
     private var lastViewportHeight: CGFloat = 0
+    private var liveResizeState = MarkdownScrollViewLiveResizeState()
+    private weak var observedWindow: NSWindow?
     private static let bottomBreathingSpaceRatio: CGFloat = 2.0 / 3.0
 
     override init(frame frameRect: NSRect) {
@@ -42,6 +44,75 @@ final class MarkdownScrollView: NSScrollView {
         refreshScrollIndicator()
     }
 
+    override func viewDidEndLiveResize() {
+        super.viewDidEndLiveResize()
+        finishLiveResizeIfNeeded()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observeWindowLiveResize()
+    }
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if newWindow !== observedWindow {
+            removeWindowLiveResizeObserver()
+        }
+        super.viewWillMove(toWindow: newWindow)
+    }
+
+    private var isLiveResizingForLayout: Bool {
+        liveResizeState.isLiveResizing(viewInLiveResize: inLiveResize)
+    }
+
+    private func observeWindowLiveResize() {
+        guard window !== observedWindow else { return }
+        removeWindowLiveResizeObserver()
+        observedWindow = window
+        guard let window else { return }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowWillStartLiveResize(_:)),
+            name: NSWindow.willStartLiveResizeNotification,
+            object: window
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidEndLiveResize(_:)),
+            name: NSWindow.didEndLiveResizeNotification,
+            object: window
+        )
+    }
+
+    private func removeWindowLiveResizeObserver() {
+        guard let observedWindow else { return }
+        NotificationCenter.default.removeObserver(
+            self,
+            name: NSWindow.willStartLiveResizeNotification,
+            object: observedWindow
+        )
+        NotificationCenter.default.removeObserver(
+            self,
+            name: NSWindow.didEndLiveResizeNotification,
+            object: observedWindow
+        )
+        self.observedWindow = nil
+    }
+
+    @objc private func windowWillStartLiveResize(_ notification: Notification) {
+        liveResizeState.windowLiveResizeDidStart()
+    }
+
+    @objc private func windowDidEndLiveResize(_ notification: Notification) {
+        finishLiveResizeIfNeeded()
+    }
+
+    private func finishLiveResizeIfNeeded() {
+        guard liveResizeState.windowLiveResizeDidEnd() else { return }
+        invalidateDocumentHeight()
+        refreshScrollIndicator()
+    }
+
     func invalidateDocumentHeight() {
         cachedDocumentHeight = nil
     }
@@ -69,14 +140,26 @@ final class MarkdownScrollView: NSScrollView {
         }
 
         let viewportHeight = max(1, contentView.bounds.height)
+        let hadCachedDocumentHeight = cachedDocumentHeight != nil
+        let shouldDeferLiveResizeLayout = liveResizeState.shouldDeferMeasurement(
+            hasCachedDocumentHeight: hadCachedDocumentHeight,
+            isInLiveResize: isLiveResizingForLayout
+        )
         let documentHeight: CGFloat
-        if let cachedDocumentHeight {
+        if let cachedDocumentHeight, shouldDeferLiveResizeLayout {
+            documentHeight = cachedDocumentHeight
+        } else if let cachedDocumentHeight {
             documentHeight = cachedDocumentHeight
         } else {
             documentHeight = measuredDocumentHeight(for: documentView, viewportHeight: viewportHeight)
             cachedDocumentHeight = documentHeight
         }
-        updateDocumentFrame(for: documentView, documentHeight: documentHeight)
+        if !liveResizeState.shouldDeferDocumentFrameUpdate(
+            hasCachedDocumentHeight: hadCachedDocumentHeight,
+            isInLiveResize: isLiveResizingForLayout
+        ) {
+            updateDocumentFrame(for: documentView, documentHeight: documentHeight)
+        }
         guard documentHeight > viewportHeight + 1 else {
             scrollIndicator.isHidden = true
             return
@@ -178,17 +261,90 @@ final class MarkdownScrollView: NSScrollView {
         {
             lastViewportWidth = viewportWidth
             lastViewportHeight = viewportHeight
+            if liveResizeState.shouldDeferInvalidation(
+                hasCachedDocumentHeight: cachedDocumentHeight != nil,
+                isInLiveResize: isLiveResizingForLayout
+            ) {
+                return
+            }
             invalidateDocumentHeight()
         }
     }
 
     @objc private func scrollGeometryDidChange(_ notification: Notification) {
         if let object = notification.object as? NSView, object === documentView {
+            if liveResizeState.shouldDeferInvalidation(
+                hasCachedDocumentHeight: cachedDocumentHeight != nil,
+                isInLiveResize: isLiveResizingForLayout
+            ) {
+                return
+            }
             invalidateDocumentHeight()
         } else {
             invalidateDocumentHeightIfNeeded()
         }
         refreshScrollIndicator()
+    }
+}
+
+struct MarkdownScrollViewLiveResizeState {
+    private var needsPostResizeRefresh = false
+    private var isWindowLiveResizing = false
+
+    func isLiveResizing(viewInLiveResize: Bool) -> Bool {
+        viewInLiveResize || isWindowLiveResizing
+    }
+
+    mutating func windowLiveResizeDidStart() {
+        isWindowLiveResizing = true
+    }
+
+    mutating func windowLiveResizeDidEnd() -> Bool {
+        isWindowLiveResizing = false
+        return consumeNeedsPostResizeRefresh()
+    }
+
+    mutating func shouldDeferMeasurement(
+        hasCachedDocumentHeight: Bool,
+        isInLiveResize: Bool
+    ) -> Bool {
+        shouldDeferLiveResizeLayoutWork(
+            hasCachedDocumentHeight: hasCachedDocumentHeight,
+            isInLiveResize: isInLiveResize
+        )
+    }
+
+    mutating func shouldDeferDocumentFrameUpdate(
+        hasCachedDocumentHeight: Bool,
+        isInLiveResize: Bool
+    ) -> Bool {
+        shouldDeferLiveResizeLayoutWork(
+            hasCachedDocumentHeight: hasCachedDocumentHeight,
+            isInLiveResize: isInLiveResize
+        )
+    }
+
+    private mutating func shouldDeferLiveResizeLayoutWork(
+        hasCachedDocumentHeight: Bool,
+        isInLiveResize: Bool
+    ) -> Bool {
+        guard isInLiveResize, hasCachedDocumentHeight else { return false }
+        needsPostResizeRefresh = true
+        return true
+    }
+
+    mutating func shouldDeferInvalidation(
+        hasCachedDocumentHeight: Bool,
+        isInLiveResize: Bool
+    ) -> Bool {
+        guard isInLiveResize, hasCachedDocumentHeight else { return false }
+        needsPostResizeRefresh = true
+        return true
+    }
+
+    mutating func consumeNeedsPostResizeRefresh() -> Bool {
+        defer { needsPostResizeRefresh = false }
+        return needsPostResizeRefresh
     }
 }
 
