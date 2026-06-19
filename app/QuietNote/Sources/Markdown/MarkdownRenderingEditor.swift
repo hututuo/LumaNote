@@ -5,14 +5,85 @@ extension NSAttributedString.Key {
     static let markdownHiddenSyntax = NSAttributedString.Key("LumaNoteMarkdownHiddenSyntax")
 }
 
+enum MarkdownDocumentPositionApplicator {
+    @MainActor
+    static func apply(
+        _ position: MarkdownDocumentPosition,
+        textView: NSTextView,
+        scrollView: MarkdownScrollView?
+    ) {
+        let textLength = (textView.string as NSString).length
+        let location = min(max(0, position.selectedLocation), textLength)
+        let maxLength = max(0, textLength - location)
+        let length = min(max(0, position.selectedLength), maxLength)
+        let savedRange = NSRange(location: location, length: length)
+        scrollView?.scroll(toY: CGFloat(position.scrollY))
+        let selectedRange = visibleSelectionRange(
+            savedRange,
+            textLength: textLength,
+            textView: textView,
+            scrollView: scrollView
+        )
+        let selectedRanges = [NSValue(range: selectedRange)]
+        if let taskTextView = textView as? MarkdownTaskTextView {
+            taskTextView.restoreSelectedRangesWithoutScroll(selectedRanges)
+        } else {
+            textView.selectedRanges = selectedRanges
+        }
+        scrollView?.scroll(toY: CGFloat(position.scrollY))
+    }
+
+    @MainActor
+    private static func visibleSelectionRange(
+        _ savedRange: NSRange,
+        textLength: Int,
+        textView: NSTextView,
+        scrollView: MarkdownScrollView?
+    ) -> NSRange {
+        guard let visibleRange = visibleCharacterRange(textView: textView, scrollView: scrollView),
+              visibleRange.length > 0,
+              !NSLocationInRange(savedRange.location, visibleRange)
+        else { return savedRange }
+
+        let location = min(max(0, visibleRange.location), textLength)
+        return NSRange(location: location, length: 0)
+    }
+
+    @MainActor
+    private static func visibleCharacterRange(
+        textView: NSTextView,
+        scrollView: MarkdownScrollView?
+    ) -> NSRange? {
+        guard let scrollView,
+              let documentView = scrollView.documentView,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer
+        else { return nil }
+
+        layoutManager.ensureLayout(for: textContainer)
+        let visibleRect = textView.convert(documentView.visibleRect, from: documentView)
+        let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textContainer)
+        return layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+    }
+}
+
 struct MarkdownRenderingEditor: NSViewRepresentable {
     @Binding var text: String
+    var documentID: String = ""
     var contentRevision: Int = 0
     var fontSize: Double = MarkdownTaskLayout.defaultBaseFontSize
     var accentColor: NSColor = .systemCyan
+    var documentPosition: MarkdownDocumentPosition?
+    var onDocumentPositionChange: ((MarkdownDocumentPosition) -> Void)?
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, contentRevision: contentRevision, fontSize: CGFloat(fontSize))
+        Coordinator(
+            text: $text,
+            documentID: documentID,
+            contentRevision: contentRevision,
+            fontSize: CGFloat(fontSize),
+            onDocumentPositionChange: onDocumentPositionChange
+        )
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -57,6 +128,11 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         scrollView.setMarkdownTextView(textView)
         scrollView.refreshScrollIndicator()
         context.coordinator.textView = textView
+        context.coordinator.observeScrollView(scrollView)
+        context.coordinator.applyDocumentPosition(
+            documentPosition ?? .top,
+            scrollView: scrollView
+        )
         context.coordinator.applyMarkdownStyle()
         return scrollView
     }
@@ -65,11 +141,13 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         let markdownScrollView = scrollView as? MarkdownScrollView
         guard let textView = markdownScrollView?.markdownTextView ?? scrollView.documentView as? NSTextView else { return }
         var didReplaceText = false
+        let didChangeDocument = context.coordinator.documentID != documentID
         let newFontSize = MarkdownTaskLayout.normalizedFontSize(CGFloat(fontSize))
         let didChangeFontSize = abs(context.coordinator.fontSize - newFontSize) > 0.05
         let didChangeTextRevision = context.coordinator.contentRevision != contentRevision
         let taskTextView = textView as? MarkdownTaskTextView
         let didChangeAccentColor = taskTextView.map { !$0.taskAccentColor.isEqual(accentColor) } ?? false
+        context.coordinator.onDocumentPositionChange = onDocumentPositionChange
         if didChangeFontSize {
             context.coordinator.fontSize = newFontSize
             taskTextView?.bodyFontSize = newFontSize
@@ -82,12 +160,21 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         if didChangeTextRevision, textView.string != text {
             guard !textView.hasMarkedText() else { return }
             context.coordinator.contentRevision = contentRevision
-            let selectedRanges = textView.selectedRanges
             textView.string = text
-            textView.selectedRanges = selectedRanges
+            context.coordinator.applyDocumentPosition(
+                documentPosition ?? .top,
+                scrollView: markdownScrollView
+            )
             didReplaceText = true
         } else if didChangeTextRevision {
             context.coordinator.contentRevision = contentRevision
+        }
+        if didChangeDocument {
+            context.coordinator.documentID = documentID
+            context.coordinator.applyDocumentPosition(
+                documentPosition ?? .top,
+                scrollView: markdownScrollView
+            )
         }
         if didReplaceText || didChangeFontSize {
             context.coordinator.applyMarkdownStyle()
@@ -102,19 +189,61 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         @Binding private var text: String
+        var documentID: String
         var contentRevision: Int
         var fontSize: CGFloat
+        var onDocumentPositionChange: ((MarkdownDocumentPosition) -> Void)?
         weak var textView: NSTextView?
         private var isStyling = false
+        private var isApplyingDocumentPosition = false
         private var lastStyledSelectionRanges: [NSRange] = []
+        private weak var observedClipView: NSClipView?
+        private var lastEmittedPosition: MarkdownDocumentPosition?
         private var styles: MarkdownStyleAttributes {
             MarkdownStyleAttributes(fontSize: fontSize)
         }
 
-        init(text: Binding<String>, contentRevision: Int, fontSize: CGFloat) {
+        init(
+            text: Binding<String>,
+            documentID: String = "",
+            contentRevision: Int,
+            fontSize: CGFloat,
+            onDocumentPositionChange: ((MarkdownDocumentPosition) -> Void)? = nil
+        ) {
             _text = text
+            self.documentID = documentID
             self.contentRevision = contentRevision
             self.fontSize = MarkdownTaskLayout.normalizedFontSize(fontSize)
+            self.onDocumentPositionChange = onDocumentPositionChange
+        }
+
+        deinit {
+            if let observedClipView {
+                NotificationCenter.default.removeObserver(
+                    self,
+                    name: NSView.boundsDidChangeNotification,
+                    object: observedClipView
+                )
+            }
+        }
+
+        func observeScrollView(_ scrollView: MarkdownScrollView) {
+            guard observedClipView !== scrollView.contentView else { return }
+            if let observedClipView {
+                NotificationCenter.default.removeObserver(
+                    self,
+                    name: NSView.boundsDidChangeNotification,
+                    object: observedClipView
+                )
+            }
+            observedClipView = scrollView.contentView
+            scrollView.contentView.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(scrollPositionDidChange(_:)),
+                name: NSView.boundsDidChangeNotification,
+                object: scrollView.contentView
+            )
         }
 
         func textDidChange(_ notification: Notification) {
@@ -129,15 +258,18 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             applyMarkdownStyle()
             markdownScrollView?.invalidateDocumentHeight()
             markdownScrollView?.refreshScrollIndicator()
+            emitDocumentPosition()
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
             guard !isStyling,
+                  !isApplyingDocumentPosition,
                   let textView,
                   !textView.hasMarkedText(),
                   MarkdownRangeHelpers.nsRanges(from: textView.selectedRanges) != lastStyledSelectionRanges
             else { return }
             applyMarkdownStyle()
+            emitDocumentPosition()
         }
 
         func applyMarkdownStyle() {
@@ -188,6 +320,45 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
         func baseTypingAttributes() -> [NSAttributedString.Key: Any] {
             styles.baseAttributes()
+        }
+
+        func applyDocumentPosition(
+            _ position: MarkdownDocumentPosition,
+            scrollView: MarkdownScrollView?
+        ) {
+            guard let textView else { return }
+            isApplyingDocumentPosition = true
+            MarkdownDocumentPositionApplicator.apply(
+                position,
+                textView: textView,
+                scrollView: scrollView
+            )
+            lastEmittedPosition = currentDocumentPosition()
+            isApplyingDocumentPosition = false
+        }
+
+        @objc private func scrollPositionDidChange(_ notification: Notification) {
+            emitDocumentPosition()
+        }
+
+        private func emitDocumentPosition() {
+            guard !isApplyingDocumentPosition else { return }
+            guard let position = currentDocumentPosition() else { return }
+            guard position != lastEmittedPosition else { return }
+            lastEmittedPosition = position
+            onDocumentPositionChange?(position)
+        }
+
+        private func currentDocumentPosition() -> MarkdownDocumentPosition? {
+            guard let textView,
+                  let scrollView = textView.enclosingScrollView as? MarkdownScrollView
+            else { return nil }
+            let selectedRange = textView.selectedRange()
+            return MarkdownDocumentPosition(
+                selectedLocation: selectedRange.location,
+                selectedLength: selectedRange.length,
+                scrollY: Double(scrollView.contentView.bounds.origin.y)
+            )
         }
     }
 }

@@ -126,6 +126,19 @@ final class MarkdownScrollView: NSScrollView {
         refreshScrollIndicator()
     }
 
+    func scroll(toY rawY: CGFloat) {
+        refreshScrollIndicator()
+        guard let documentView else { return }
+
+        let maxY = max(0, documentView.frame.height - contentView.bounds.height)
+        let targetY = min(max(0, rawY), maxY)
+        guard abs(contentView.bounds.origin.y - targetY) > 0.5 else { return }
+
+        contentView.scroll(to: NSPoint(x: 0, y: targetY))
+        reflectScrolledClipView(contentView)
+        refreshScrollIndicator()
+    }
+
     func refreshScrollIndicator() {
         guard !isRefreshingScrollIndicator else { return }
         isRefreshingScrollIndicator = true

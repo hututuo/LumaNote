@@ -323,6 +323,99 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         XCTAssertEqual(scrollView.contentView.bounds.origin.y, before, accuracy: 0.5)
     }
 
+    func testDocumentReplacementAppliesTargetDocumentPosition() {
+        let viewportHeight: CGFloat = 160
+        let markdown = Array(repeating: "Line with enough content", count: 80).joined(separator: "\n")
+        let scrollView = configuredScrollView(markdown: markdown, viewportHeight: viewportHeight)
+        guard let textView = scrollView.markdownTextView else {
+            return XCTFail("Expected markdown text view")
+        }
+
+        textView.selectedRanges = [NSValue(range: NSRange(location: 120, length: 0))]
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: 220))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        let targetPosition = MarkdownDocumentPosition(
+            selectedLocation: 120,
+            selectedLength: 0,
+            scrollY: 64
+        )
+
+        MarkdownDocumentPositionApplicator.apply(
+            targetPosition,
+            textView: textView,
+            scrollView: scrollView
+        )
+
+        XCTAssertEqual(textView.selectedRange(), NSRange(location: 120, length: 0))
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 64, accuracy: 0.5)
+    }
+
+    func testDocumentPositionRestorePrefersSavedScrollOverStaleSelection() {
+        let viewportHeight: CGFloat = 160
+        let markdown = Array(repeating: "Line with enough content", count: 140).joined(separator: "\n")
+        let scrollView = configuredScrollView(markdown: markdown, viewportHeight: viewportHeight)
+        guard let textView = scrollView.markdownTextView else {
+            return XCTFail("Expected markdown text view")
+        }
+        let staleSelectionLocation = min(2600, (markdown as NSString).length - 1)
+        let targetPosition = MarkdownDocumentPosition(
+            selectedLocation: staleSelectionLocation,
+            selectedLength: 0,
+            scrollY: 72
+        )
+
+        MarkdownDocumentPositionApplicator.apply(
+            targetPosition,
+            textView: textView,
+            scrollView: scrollView
+        )
+
+        let visibleCharacterRange = visibleCharacterRange(in: scrollView, textView: textView)
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, targetPosition.scrollY, accuracy: 0.5)
+        XCTAssertTrue(
+            NSLocationInRange(textView.selectedRange().location, visibleCharacterRange),
+            "Restored selection should stay in the saved visible scroll range instead of jumping to stale location \(staleSelectionLocation); visible range: \(visibleCharacterRange), selected: \(textView.selectedRange())"
+        )
+    }
+
+    func testApplyingDocumentPositionDoesNotEmitIntermediatePosition() {
+        var text = Array(repeating: "Line with enough content", count: 120).joined(separator: "\n")
+        var emittedPositions: [MarkdownDocumentPosition] = []
+        let binding = Binding<String>(
+            get: { text },
+            set: { text = $0 }
+        )
+        let coordinator = MarkdownRenderingEditor.Coordinator(
+            text: binding,
+            documentID: "target.md",
+            contentRevision: 0,
+            fontSize: 15.5,
+            onDocumentPositionChange: { emittedPositions.append($0) }
+        )
+        let scrollView = configuredScrollView(markdown: text, viewportHeight: 160)
+        guard let textView = scrollView.markdownTextView else {
+            return XCTFail("Expected markdown text view")
+        }
+        textView.delegate = coordinator
+        coordinator.textView = textView
+        coordinator.observeScrollView(scrollView)
+
+        let targetPosition = MarkdownDocumentPosition(
+            selectedLocation: min(900, (text as NSString).length),
+            selectedLength: 0,
+            scrollY: 72
+        )
+
+        coordinator.applyDocumentPosition(
+            targetPosition,
+            scrollView: scrollView
+        )
+
+        XCTAssertTrue(emittedPositions.isEmpty)
+        XCTAssertTrue(NSLocationInRange(textView.selectedRange().location, visibleCharacterRange(in: scrollView, textView: textView)))
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, targetPosition.scrollY, accuracy: 0.5)
+    }
+
     func testLiveResizeReusesCachedDocumentHeightUntilResizeEnds() {
         var state = MarkdownScrollViewLiveResizeState()
 
@@ -413,5 +506,36 @@ final class MarkdownRenderingEditorTests: XCTestCase {
 
     private func paragraphStyle(at location: Int, in storage: NSTextStorage) -> NSParagraphStyle? {
         storage.attribute(.paragraphStyle, at: location, effectiveRange: nil) as? NSParagraphStyle
+    }
+
+    private func configuredScrollView(markdown: String, viewportHeight: CGFloat) -> MarkdownScrollView {
+        let scrollView = MarkdownScrollView(frame: NSRect(x: 0, y: 0, width: 320, height: viewportHeight))
+        let textView = MarkdownTaskTextView(frame: NSRect(x: 0, y: 0, width: 320, height: viewportHeight))
+        textView.drawsBackground = false
+        textView.textContainerInset = NSSize(width: 0, height: 10)
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.string = markdown
+        scrollView.setMarkdownTextView(textView)
+        scrollView.layoutSubtreeIfNeeded()
+        scrollView.refreshScrollIndicator()
+        return scrollView
+    }
+
+    private func visibleCharacterRange(in scrollView: MarkdownScrollView, textView: NSTextView) -> NSRange {
+        guard let documentView = scrollView.documentView,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer
+        else { return NSRange(location: 0, length: 0) }
+
+        layoutManager.ensureLayout(for: textContainer)
+        let visibleRect = textView.convert(documentView.visibleRect, from: documentView)
+        let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textContainer)
+        return layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
     }
 }

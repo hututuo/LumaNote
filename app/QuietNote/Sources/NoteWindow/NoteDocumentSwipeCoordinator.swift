@@ -3,16 +3,25 @@ import SwiftUI
 @MainActor
 @Observable
 final class NoteDocumentSwipeCoordinator {
+    typealias PreviewLoader = @MainActor (Int, NoteStore) async -> (url: URL, text: String)?
+
     var progress: CGFloat = 0
     var isAnimating = false
     var preview: NoteDocumentSwipePreview?
 
+    @ObservationIgnored private let previewLoader: PreviewLoader
     @ObservationIgnored private var previewLoadingOffset: Int?
     @ObservationIgnored private var previewTask: Task<Void, Never>?
     @ObservationIgnored private var commitAnimationTask: Task<Void, Never>?
     @ObservationIgnored private var unlockAnimationTask: Task<Void, Never>?
     @ObservationIgnored private var previewClearTask: Task<Void, Never>?
     @ObservationIgnored private var previewRevision = 0
+
+    init(previewLoader: @escaping PreviewLoader = { offset, noteStore in
+        await noteStore.loadWorkspaceDocumentPreview(offset: offset)
+    }) {
+        self.previewLoader = previewLoader
+    }
 
     func updateProgress(_ newProgress: CGFloat, noteStore: NoteStore) {
         guard !isAnimating else { return }
@@ -81,9 +90,17 @@ final class NoteDocumentSwipeCoordinator {
             try? await Task.sleep(for: .seconds(NoteWindowTiming.documentSwipeCommitAnimation))
             guard !Task.isCancelled, let self else { return }
 
-            let didSwitchDocument = direction > 0
-                ? noteStore.switchToNextDocument()
-                : noteStore.switchToPreviousDocument()
+            if self.preview?.offset != direction,
+               self.previewLoadingOffset == direction {
+                await self.previewTask?.value
+            }
+            guard !Task.isCancelled else { return }
+
+            let matchingPreview = self.preview?.offset == direction ? self.preview : nil
+            let didSwitchDocument = noteStore.switchWorkspaceDocument(
+                offset: direction,
+                preloadedPreview: matchingPreview.map { ($0.url, $0.text) }
+            )
 
             if didSwitchDocument {
                 didSwitch()
@@ -134,8 +151,9 @@ final class NoteDocumentSwipeCoordinator {
 
         previewLoadingOffset = offset
         previewTask = Task { @MainActor [weak self] in
-            let loadedPreview = await noteStore.loadWorkspaceDocumentPreview(offset: offset)
-            guard !Task.isCancelled, let self else { return }
+            guard let self else { return }
+            let loadedPreview = await self.previewLoader(offset, noteStore)
+            guard !Task.isCancelled else { return }
 
             previewLoadingOffset = nil
             previewTask = nil
@@ -150,8 +168,10 @@ final class NoteDocumentSwipeCoordinator {
             previewRevision &+= 1
             preview = NoteDocumentSwipePreview(
                 id: "\(loadedPreview.url.standardizedFileURL.path)#\(previewRevision)",
+                url: loadedPreview.url,
                 offset: offset,
                 text: loadedPreview.text,
+                position: noteStore.documentPosition(for: loadedPreview.url),
                 revision: previewRevision
             )
         }

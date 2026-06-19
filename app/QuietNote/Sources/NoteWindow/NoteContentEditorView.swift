@@ -3,30 +3,38 @@ import SwiftUI
 
 struct NoteDocumentSwipePreview: Identifiable, Equatable {
     let id: String
+    let url: URL
     let offset: Int
     let text: String
+    let position: MarkdownDocumentPosition?
     let revision: Int
 }
 
 struct NoteContentEditorView: View {
     @Binding var text: String
 
+    let documentID: String
     let contentRevision: Int
+    let documentPosition: MarkdownDocumentPosition?
     let preview: NoteDocumentSwipePreview?
     let swipeProgress: CGFloat
     let fontSize: Double
     let accentColor: NSColor
     let topFadeHeight: CGFloat
     let bottomFadeHeight: CGFloat
+    let onDocumentPositionChange: (MarkdownDocumentPosition) -> Void
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
                 MarkdownRenderingEditor(
                     text: $text,
+                    documentID: documentID,
                     contentRevision: contentRevision,
                     fontSize: fontSize,
-                    accentColor: accentColor
+                    accentColor: accentColor,
+                    documentPosition: documentPosition,
+                    onDocumentPositionChange: onDocumentPositionChange
                 )
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .offset(x: currentOffset(for: proxy.size.width))
@@ -34,9 +42,11 @@ struct NoteContentEditorView: View {
                 if let preview {
                     MarkdownRenderingEditor(
                         text: .constant(preview.text),
+                        documentID: preview.url.standardizedFileURL.path,
                         contentRevision: preview.revision,
                         fontSize: fontSize,
-                        accentColor: accentColor
+                        accentColor: accentColor,
+                        documentPosition: preview.position
                     )
                     .id(preview.id)
                     .frame(width: proxy.size.width, height: proxy.size.height)

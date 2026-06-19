@@ -49,6 +49,8 @@ final class NoteStore {
     private var isReplacingText = false
     @ObservationIgnored
     private var workspacePreviewCache: [String: DocumentPreviewCacheEntry] = [:]
+    @ObservationIgnored
+    private var documentPositions: [String: MarkdownDocumentPosition] = [:]
 
     private struct DocumentPreviewCacheEntry {
         let modificationDate: Date?
@@ -70,6 +72,10 @@ final class NoteStore {
 
     var canSwitchWorkspaceDocument: Bool {
         activeWorkspaceFileURLs.count > 1
+    }
+
+    var currentDocumentPosition: MarkdownDocumentPosition? {
+        documentPosition(for: currentFileURL)
     }
 
     var cachedWorkspacePreviewCountForTesting: Int {
@@ -102,6 +108,21 @@ final class NoteStore {
         workspacePreviewCache[url.standardizedFileURL.path] != nil
     }
 
+    func documentPosition(for url: URL) -> MarkdownDocumentPosition? {
+        documentPositions[url.standardizedFileURL.path]
+    }
+
+    func updateCurrentDocumentPosition(_ position: MarkdownDocumentPosition) {
+        updateDocumentPosition(position, for: currentFileURL)
+    }
+
+    func updateDocumentPosition(_ position: MarkdownDocumentPosition, for url: URL) {
+        let path = url.standardizedFileURL.path
+        guard documentPositions[path] != position else { return }
+        documentPositions[path] = position
+        persistDocumentPositions()
+    }
+
     init(
         defaults: UserDefaults = .standard,
         supportDirectory: URL? = nil,
@@ -112,6 +133,10 @@ final class NoteStore {
             .appending(path: "QuietNote", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         defaultFileURL = support.appending(path: "示例便签.md")
+        if let data = defaults.data(forKey: NoteStoreDefaultsKey.documentPositions),
+           let positions = try? JSONDecoder().decode([String: MarkdownDocumentPosition].self, from: data) {
+            documentPositions = positions
+        }
         let legacyDefaultFileURL = support.appending(path: "note.md")
 
         let initialFileURL: URL
@@ -190,7 +215,11 @@ final class NoteStore {
         openFile(at: url, moveToFrontInWorkspace: false)
     }
 
-    private func openFile(at url: URL, moveToFrontInWorkspace: Bool) {
+    private func openFile(
+        at url: URL,
+        moveToFrontInWorkspace: Bool,
+        preloadedText: String? = nil
+    ) {
         let standardizedURL = url.standardizedFileURL
         let targetPath = standardizedURL.path
         guard FileManager.default.fileExists(atPath: targetPath) else {
@@ -213,6 +242,35 @@ final class NoteStore {
         }
 
         cancelInitialLoad()
+        if let preloadedText {
+            applyOpenedFile(
+                text: preloadedText,
+                url: standardizedURL,
+                moveToFrontInWorkspace: moveToFrontInWorkspace
+            )
+
+            guard shouldSavePrevious else { return }
+
+            openGeneration &+= 1
+            let generation = openGeneration
+            openTask = Task { [weak self] in
+                let didSavePrevious = await NoteFileWriter.writeOffMain(previousText, to: previousURL)
+                guard !Task.isCancelled,
+                      let self,
+                      self.openGeneration == generation,
+                      self.currentFileURL.standardizedFileURL.path == targetPath
+                else { return }
+
+                if didSavePrevious {
+                    self.invalidateWorkspacePreview(for: previousURL)
+                } else {
+                    self.lastSavedText = "Save failed"
+                }
+                self.openTask = nil
+            }
+            return
+        }
+
         lastSavedText = "Opening..."
         openGeneration &+= 1
         let generation = openGeneration
@@ -296,6 +354,8 @@ final class NoteStore {
         let path = url.standardizedFileURL.path
         recentFileURLs.removeAll { $0.standardizedFileURL.path == path }
         workspacePreviewCache[path] = nil
+        documentPositions[path] = nil
+        persistDocumentPositions()
         defaults.set(recentFileURLs.map(\.path), forKey: NoteStoreDefaultsKey.recentFilePaths)
     }
 
@@ -310,7 +370,10 @@ final class NoteStore {
     }
 
     @discardableResult
-    func switchWorkspaceDocument(offset: Int) -> Bool {
+    func switchWorkspaceDocument(
+        offset: Int,
+        preloadedPreview: (url: URL, text: String)? = nil
+    ) -> Bool {
         guard let nextURL = workspaceDocumentURL(offset: offset) else {
             let currentPath = currentFileURL.standardizedFileURL.path
             let urls = activeWorkspaceFileURLs
@@ -320,7 +383,19 @@ final class NoteStore {
             return false
         }
 
-        openWorkspaceDocument(at: nextURL)
+        let matchingPreloadedText: String?
+        if let preloadedPreview,
+           preloadedPreview.url.standardizedFileURL.path == nextURL.standardizedFileURL.path {
+            matchingPreloadedText = preloadedPreview.text
+        } else {
+            matchingPreloadedText = nil
+        }
+
+        openFile(
+            at: nextURL,
+            moveToFrontInWorkspace: false,
+            preloadedText: matchingPreloadedText
+        )
         return true
     }
 
@@ -621,6 +696,12 @@ final class NoteStore {
         }
         if let data = try? JSONEncoder().encode(workspaces) {
             defaults.set(data, forKey: NoteStoreDefaultsKey.workspaces)
+        }
+    }
+
+    private func persistDocumentPositions() {
+        if let data = try? JSONEncoder().encode(documentPositions) {
+            defaults.set(data, forKey: NoteStoreDefaultsKey.documentPositions)
         }
     }
 

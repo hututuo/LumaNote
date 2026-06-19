@@ -158,6 +158,49 @@ final class NoteStoreWorkspaceTests: XCTestCase {
     }
 
     @MainActor
+    func testSwitchingWithPreloadedPreviewDisplaysNewDocumentImmediately() async throws {
+        let first = try makeNote(named: "first.md", title: "First")
+        let second = try makeNote(named: "second.md", title: "Second")
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+
+        store.openFile(at: first)
+        try await waitForCurrentFile(first, in: store)
+        store.openFile(at: second)
+        try await waitForCurrentFile(second, in: store)
+
+        XCTAssertTrue(store.switchWorkspaceDocument(
+            offset: 1,
+            preloadedPreview: (url: first, text: "# First\n\nBody")
+        ))
+
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, first.standardizedFileURL.path)
+        XCTAssertEqual(store.markdown, "# First\n\nBody")
+        XCTAssertEqual(store.displayTitle, "First")
+
+        await store.waitForPendingOpenForTesting()
+        XCTAssertFalse(store.hasPendingOpenForTesting)
+    }
+
+    @MainActor
+    func testDocumentPositionIsStoredPerFileAndReloaded() throws {
+        let first = try makeNote(named: "first.md", title: "First")
+        let second = try makeNote(named: "second.md", title: "Second")
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+        let firstPosition = MarkdownDocumentPosition(selectedLocation: 12, selectedLength: 0, scrollY: 80)
+        let secondPosition = MarkdownDocumentPosition(selectedLocation: 4, selectedLength: 0, scrollY: 20)
+
+        store.updateDocumentPosition(firstPosition, for: first)
+        store.updateDocumentPosition(secondPosition, for: second)
+
+        XCTAssertEqual(store.documentPosition(for: first), firstPosition)
+        XCTAssertEqual(store.documentPosition(for: second), secondPosition)
+
+        let reloadedStore = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+        XCTAssertEqual(reloadedStore.documentPosition(for: first), firstPosition)
+        XCTAssertEqual(reloadedStore.documentPosition(for: second), secondPosition)
+    }
+
+    @MainActor
     func testSwitchingWorkspaceRestoresWorkspaceCurrentDocument() async throws {
         let first = try makeNote(named: "first.md", title: "First")
         let second = try makeNote(named: "second.md", title: "Second")

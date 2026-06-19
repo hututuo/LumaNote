@@ -434,14 +434,18 @@ struct NoteWindowView: View {
     private var content: some View {
         NoteContentEditorView(
             text: $noteStore.markdown,
+            documentID: noteStore.currentFileURL.standardizedFileURL.path,
             contentRevision: noteStore.markdownRevision,
+            documentPosition: noteStore.currentDocumentPosition,
             preview: documentSwipe.preview,
             swipeProgress: documentSwipe.progress,
             fontSize: settings.editorFontSize,
             accentColor: settings.accentNSColor,
             topFadeHeight: markdownTopFadeHeight,
             bottomFadeHeight: markdownBottomFadeHeight
-        )
+        ) { position in
+            noteStore.updateCurrentDocumentPosition(position)
+        }
     }
 
     private var bottomRailHeight: CGFloat {
