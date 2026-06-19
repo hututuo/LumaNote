@@ -350,12 +350,19 @@ final class MarkdownRenderingEditorTests: XCTestCase {
             hasCachedDocumentHeight: true,
             isInLiveResize: state.isLiveResizing(viewInLiveResize: false)
         ))
-        XCTAssertTrue(state.shouldDeferDocumentFrameUpdate(
+        XCTAssertTrue(state.windowLiveResizeDidEnd())
+        XCTAssertFalse(state.isLiveResizing(viewInLiveResize: false))
+    }
+
+    func testLiveResizeKeepsDocumentFrameUpdatesForRealtimeReflow() {
+        var state = MarkdownScrollViewLiveResizeState()
+
+        state.windowLiveResizeDidStart()
+
+        XCTAssertFalse(state.shouldDeferDocumentFrameUpdate(
             hasCachedDocumentHeight: true,
             isInLiveResize: state.isLiveResizing(viewInLiveResize: false)
         ))
-        XCTAssertTrue(state.windowLiveResizeDidEnd())
-        XCTAssertFalse(state.isLiveResizing(viewInLiveResize: false))
     }
 
     private func styledStorage(_ markdown: String, selectedRange: NSRange = NSRange(location: 0, length: 0)) -> NSTextStorage {
