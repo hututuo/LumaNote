@@ -54,12 +54,12 @@ LumaNote 保存的是普通 `.md` 文本，不会把你的内容锁进私有格�
 
 推荐从 [GitHub Releases](https://github.com/hututuo/LumaNote/releases/latest) 下载最新 `.dmg`：
 
-1. 下载 `LumaNote-0.1.4-macos-arm64.dmg` 和 `SHA256SUMS-v0.1.4.txt`。
+1. 下载 `LumaNote-0.1.5-macos-arm64.dmg` 和 `SHA256SUMS-v0.1.5.txt`。
 2. 可选校验：
 
 ```bash
-shasum -a 256 LumaNote-0.1.4-macos-arm64.dmg
-cat SHA256SUMS-v0.1.4.txt
+shasum -a 256 LumaNote-0.1.5-macos-arm64.dmg
+cat SHA256SUMS-v0.1.5.txt
 ```
 
 3. 打开 DMG，把 `LumaNote.app` 拖到 Applications。
@@ -202,12 +202,12 @@ Detected values stay attached to the copied item they came from instead of being
 
 Download the latest `.dmg` from [GitHub Releases](https://github.com/hututuo/LumaNote/releases/latest):
 
-1. Download `LumaNote-0.1.4-macos-arm64.dmg` and `SHA256SUMS-v0.1.4.txt`.
+1. Download `LumaNote-0.1.5-macos-arm64.dmg` and `SHA256SUMS-v0.1.5.txt`.
 2. Optionally verify:
 
 ```bash
-shasum -a 256 LumaNote-0.1.4-macos-arm64.dmg
-cat SHA256SUMS-v0.1.4.txt
+shasum -a 256 LumaNote-0.1.5-macos-arm64.dmg
+cat SHA256SUMS-v0.1.5.txt
 ```
 
 3. Open the DMG and drag `LumaNote.app` to Applications.
