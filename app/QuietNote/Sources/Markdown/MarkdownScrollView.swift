@@ -154,12 +154,7 @@ final class MarkdownScrollView: NSScrollView {
             documentHeight = measuredDocumentHeight(for: documentView, viewportHeight: viewportHeight)
             cachedDocumentHeight = documentHeight
         }
-        if !liveResizeState.shouldDeferDocumentFrameUpdate(
-            hasCachedDocumentHeight: hadCachedDocumentHeight,
-            isInLiveResize: isLiveResizingForLayout
-        ) {
-            updateDocumentFrame(for: documentView, documentHeight: documentHeight)
-        }
+        updateDocumentFrame(for: documentView, documentHeight: documentHeight)
         guard documentHeight > viewportHeight + 1 else {
             scrollIndicator.isHidden = true
             return
@@ -318,10 +313,7 @@ struct MarkdownScrollViewLiveResizeState {
         hasCachedDocumentHeight: Bool,
         isInLiveResize: Bool
     ) -> Bool {
-        shouldDeferLiveResizeLayoutWork(
-            hasCachedDocumentHeight: hasCachedDocumentHeight,
-            isInLiveResize: isInLiveResize
-        )
+        false
     }
 
     private mutating func shouldDeferLiveResizeLayoutWork(
