@@ -16,94 +16,97 @@ struct NoteBottomRailView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let progress = railCompactProgress(for: proxy.size.width)
-            let spacing = 7 - progress * 3.5
-            let horizontalPadding = 12 - progress * 6
-            let sliderMinWidth = 84 - progress * 56
-            let buttonSize = 23 - progress * 3
-            let labelFontSize = 11.5 - progress * 1.2
-            let percentWidth = 34 - progress * 5
+            let metrics = NoteBottomRailLayout.metrics(for: proxy.size.width)
 
-            HStack(spacing: spacing) {
-                Text("1")
-                    .font(.system(size: labelFontSize, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                Slider(value: $settings.noteOpacity, in: AppSettings.minimumNoteOpacity...AppSettings.maximumNoteOpacity)
-                    .tint(settings.accentColor)
-                    .frame(minWidth: sliderMinWidth)
+            HStack(spacing: metrics.spacing) {
+                opacityControls(metrics)
+                    .frame(minWidth: metrics.opacityGroupWidth, maxWidth: .infinity, alignment: .leading)
                     .layoutPriority(1)
 
-                Text("100")
-                    .font(.system(size: labelFontSize, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                Text("\(Int(settings.noteOpacity * 100))%")
-                    .font(.system(size: labelFontSize, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .frame(width: percentWidth, alignment: .trailing)
-
-                railButton(symbol: "textformat", help: copy.emphasis, size: buttonSize) {
-                    toggleEmphasis()
-                }
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: EmphasisButtonFramePreferenceKey.self,
-                            value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
-                        )
-                    }
-                )
-                railButton(symbol: "arrow.left.arrow.right", help: copy.switchNoteFile, size: buttonSize) {
-                    toggleFileSwitcher()
-                }
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: FileSwitchButtonFramePreferenceKey.self,
-                            value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
-                        )
-                    }
-                )
-                railButton(symbol: "square.and.arrow.down", help: copy.saveAsNoteFile, size: buttonSize) {
-                    saveAs()
-                }
-                railButton(
-                    symbol: settings.alwaysOnTop ? "pin.fill" : "pin",
-                    help: settings.alwaysOnTop ? copy.disableAlwaysOnTop : copy.alwaysOnTop,
-                    size: buttonSize
-                ) {
-                    toggleAlwaysOnTop()
-                }
-                railButton(
-                    symbol: settings.autoHideChrome ? "eye.slash" : "eye",
-                    help: settings.autoHideChrome ? copy.autoHideControls : copy.keepControlsVisible,
-                    size: buttonSize
-                ) {
-                    toggleAutoHideChrome()
-                }
-                railButton(symbol: "ellipsis", help: copy.more, size: buttonSize, hitSize: max(30, buttonSize + 8)) {
-                    toggleMore()
-                }
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: MoreButtonFramePreferenceKey.self,
-                            value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
-                        )
-                    }
-                )
-                railButton(symbol: "xmark", help: copy.close, size: buttonSize, hitSize: max(30, buttonSize + 8)) {
-                    close()
-                }
+                railButtons(metrics)
+                    .frame(width: metrics.buttonClusterWidth, alignment: .trailing)
+                    .layoutPriority(2)
             }
-            .padding(.horizontal, horizontalPadding)
+            .padding(.horizontal, metrics.horizontalPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(height: height)
         .contentShape(Rectangle())
         .onTapGesture {}
         .background { liquidGlassBackground }
+    }
+
+    @ViewBuilder
+    private func opacityControls(_ metrics: NoteBottomRailLayoutMetrics) -> some View {
+        HStack(spacing: metrics.spacing) {
+            Slider(value: $settings.noteOpacity, in: AppSettings.minimumNoteOpacity...AppSettings.maximumNoteOpacity)
+                .tint(settings.accentColor)
+                .frame(minWidth: metrics.sliderWidth)
+
+            Text("\(Int(settings.noteOpacity * 100))%")
+                .font(.system(size: metrics.labelFontSize, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .frame(width: metrics.percentWidth, alignment: .trailing)
+        }
+    }
+
+    @ViewBuilder
+    private func railButtons(_ metrics: NoteBottomRailLayoutMetrics) -> some View {
+        HStack(spacing: metrics.spacing) {
+            railButton(symbol: "textformat", help: copy.emphasis, size: metrics.buttonSize) {
+                toggleEmphasis()
+            }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: EmphasisButtonFramePreferenceKey.self,
+                        value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                    )
+                }
+            )
+            railButton(symbol: "arrow.left.arrow.right", help: copy.switchNoteFile, size: metrics.buttonSize) {
+                toggleFileSwitcher()
+            }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: FileSwitchButtonFramePreferenceKey.self,
+                        value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                    )
+                }
+            )
+            railButton(symbol: "square.and.arrow.down", help: copy.saveAsNoteFile, size: metrics.buttonSize) {
+                saveAs()
+            }
+            railButton(
+                symbol: settings.alwaysOnTop ? "pin.fill" : "pin",
+                help: settings.alwaysOnTop ? copy.disableAlwaysOnTop : copy.alwaysOnTop,
+                size: metrics.buttonSize
+            ) {
+                toggleAlwaysOnTop()
+            }
+            railButton(
+                symbol: settings.autoHideChrome ? "eye.slash" : "eye",
+                help: settings.autoHideChrome ? copy.autoHideControls : copy.keepControlsVisible,
+                size: metrics.buttonSize
+            ) {
+                toggleAutoHideChrome()
+            }
+            railButton(symbol: "ellipsis", help: copy.more, size: metrics.buttonSize, hitSize: metrics.utilityButtonHitSize) {
+                toggleMore()
+            }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: MoreButtonFramePreferenceKey.self,
+                        value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                    )
+                }
+            )
+            railButton(symbol: "xmark", help: copy.close, size: metrics.buttonSize, hitSize: metrics.utilityButtonHitSize) {
+                close()
+            }
+        }
     }
 
     private var liquidGlassBackground: some View {
@@ -163,15 +166,6 @@ struct NoteBottomRailView: View {
         .clipShape(shape)
         .shadow(color: .white.opacity(0.025 + glassMetrics.bottomRailOpacity * 0.07), radius: 1.2, x: -0.5, y: -0.5)
         .shadow(color: .black.opacity(0.025 + glassMetrics.bottomRailOpacity * 0.055), radius: 2, y: 1)
-    }
-
-    private func railCompactProgress(for width: CGFloat) -> CGFloat {
-        let fullWidth = NoteWindowLayout.initialSize.width
-        let compactWidth = NoteWindowLayout.minimumSize.width
-        guard width < fullWidth, fullWidth > compactWidth else {
-            return 0
-        }
-        return min(max((fullWidth - width) / (fullWidth - compactWidth), 0), 1)
     }
 
     private func railButton(symbol: String, help: String, size: CGFloat = 24, hitSize: CGFloat? = nil, action: @escaping () -> Void) -> some View {
