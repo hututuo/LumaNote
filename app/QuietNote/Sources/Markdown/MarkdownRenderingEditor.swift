@@ -74,6 +74,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
     var fontSize: Double = MarkdownTaskLayout.defaultBaseFontSize
     var accentColor: NSColor = .systemCyan
     var documentPosition: MarkdownDocumentPosition?
+    var emphasisCommand: MarkdownEmphasisCommand?
     var onDocumentPositionChange: ((MarkdownDocumentPosition) -> Void)?
 
     func makeCoordinator() -> Coordinator {
@@ -184,6 +185,11 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             textView.needsDisplay = true
             markdownScrollView?.refreshScrollIndicator()
         }
+        if let emphasisCommand,
+           context.coordinator.lastAppliedEmphasisCommandID != emphasisCommand.id {
+            context.coordinator.lastAppliedEmphasisCommandID = emphasisCommand.id
+            context.coordinator.applyEmphasis(styles: emphasisCommand.styles)
+        }
     }
 
     @MainActor
@@ -199,6 +205,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         private var lastStyledSelectionRanges: [NSRange] = []
         private weak var observedClipView: NSClipView?
         private var lastEmittedPosition: MarkdownDocumentPosition?
+        var lastAppliedEmphasisCommandID: Int?
         private var styles: MarkdownStyleAttributes {
             MarkdownStyleAttributes(fontSize: fontSize)
         }
@@ -320,6 +327,31 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
 
         func baseTypingAttributes() -> [NSAttributedString.Key: Any] {
             styles.baseAttributes()
+        }
+
+        func applyEmphasis(styles: MarkdownEmphasisStyle) {
+            guard let textView, !textView.hasMarkedText() else { return }
+            let oldText = textView.string
+            let result = MarkdownEmphasisFormatting.apply(
+                styles: styles,
+                to: oldText,
+                selectedRange: textView.selectedRange()
+            )
+            guard result.text != oldText || result.selectedRange != textView.selectedRange() else { return }
+
+            let fullRange = NSRange(location: 0, length: (oldText as NSString).length)
+            guard textView.shouldChangeText(in: fullRange, replacementString: result.text) else { return }
+            textView.textStorage?.replaceCharacters(in: fullRange, with: result.text)
+            text = result.text
+            textView.setSelectedRange(result.selectedRange)
+            textView.didChangeText()
+            textView.typingAttributes = baseTypingAttributes()
+            applyMarkdownStyle()
+            if let markdownScrollView = textView.enclosingScrollView as? MarkdownScrollView {
+                markdownScrollView.invalidateDocumentHeight()
+                markdownScrollView.refreshScrollIndicator()
+            }
+            emitDocumentPosition()
         }
 
         func applyDocumentPosition(

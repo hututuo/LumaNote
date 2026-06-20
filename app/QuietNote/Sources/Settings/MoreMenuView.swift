@@ -37,6 +37,8 @@ struct MoreMenuView: View {
                     .tint(settings.accentColor)
                 }
 
+                compactEmphasisRow(copy: copy)
+
                 compactSliderRow(
                     title: copy.glass,
                     value: "\(Int(settings.glassStrength * 100))%"
@@ -186,6 +188,34 @@ struct MoreMenuView: View {
 
             ThemeColorPicker(selection: $settings.themeColor, language: settings.language, compact: true)
         }
+    }
+
+    private func compactEmphasisRow(copy: AppText) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(copy.oneTapEmphasisStyle)
+                    .font(.system(size: 12.5, weight: .medium))
+                Spacer()
+                Text(selectedEmphasisSummary(copy: copy))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            EmphasisStylePicker(
+                selection: $settings.oneTapEmphasisStyles,
+                copy: copy,
+                accentColor: settings.accentColor,
+                compact: true
+            )
+        }
+    }
+
+    private func selectedEmphasisSummary(copy: AppText) -> String {
+        MarkdownEmphasisStyle.allControls
+            .filter { settings.oneTapEmphasisStyles.contains($0) }
+            .map { copy.emphasisStyleName($0) }
+            .joined(separator: settings.language == .chinese ? "、" : ", ")
     }
 
     private func compactAppearanceRow(copy: AppText) -> some View {

@@ -57,6 +57,18 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(copy.oneTapEmphasisStyle)
+                    EmphasisStylePicker(
+                        selection: $settings.oneTapEmphasisStyles,
+                        copy: copy,
+                        accentColor: settings.accentColor
+                    )
+                }
+                Text(copy.oneTapEmphasisHint)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
                 LabeledContent(copy.glass) {
                     HStack {
                         Slider(value: $settings.glassStrength, in: AppSettings.minimumGlassStrength...AppSettings.maximumGlassStrength)

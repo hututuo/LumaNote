@@ -31,6 +31,17 @@ struct AppText {
     var showNoteShortcut: String { text("只呼出便签：", "Show only:") }
     var hideNoteShortcut: String { text("只隐藏便签：", "Hide only:") }
     var clipboardShortcut: String { text("打开剪切板库：", "Open clipboard library:") }
+    var oneTapEmphasisShortcut: String { text("一键强调：", "One-tap emphasis:") }
+    var emphasis: String { text("强调", "Emphasis") }
+    var oneTapEmphasis: String { text("一键强调", "One-tap emphasis") }
+    var oneTapEmphasisStyle: String { text("一键强调样式", "One-tap emphasis style") }
+    var oneTapEmphasisHint: String { text("用于底栏“一键强调”和全局快捷键；默认是加粗 + 高亮。", "Used by the bottom-rail one-tap button and global shortcut; default is bold + highlight.") }
+    var applyEmphasis: String { text("应用强调", "Apply emphasis") }
+    var bold: String { text("加粗", "Bold") }
+    var italic: String { text("斜体", "Italic") }
+    var strikethrough: String { text("删除线", "Strikethrough") }
+    var highlight: String { text("高亮", "Highlight") }
+    var smallHeading: String { text("小标题", "Small heading") }
     var languageLabel: String { text("语言", "Language") }
     var clipboard: String { text("剪切板", "Clipboard") }
     var monitorClipboard: String { text("本地监听剪切板", "Monitor clipboard locally") }
@@ -143,6 +154,23 @@ struct AppText {
 
     func shortcutConflictLine(shortcut: String, actions: String) -> String {
         text("\(shortcut)：\(actions)", "\(shortcut): \(actions)")
+    }
+
+    func emphasisStyleName(_ style: MarkdownEmphasisStyle) -> String {
+        switch style {
+        case .bold:
+            bold
+        case .italic:
+            italic
+        case .strikethrough:
+            strikethrough
+        case .highlight:
+            highlight
+        case .smallHeading:
+            smallHeading
+        default:
+            ""
+        }
     }
 
     func switchToFile(_ filename: String) -> String {

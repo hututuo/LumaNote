@@ -15,9 +15,12 @@ struct NoteWindowView: View {
     @State private var overlayController = NoteWindowOverlayController()
     @State private var moreButtonFrame: CGRect = .zero
     @State private var fileSwitchButtonFrame: CGRect = .zero
+    @State private var emphasisButtonFrame: CGRect = .zero
     @State private var clipboardSuggestion = NoteClipboardSuggestionController()
     @State private var chromeAutoHide = NoteChromeAutoHideController()
     @State private var documentSwipe = NoteDocumentSwipeCoordinator()
+    @State private var emphasisCommandSerial = 0
+    @State private var emphasisCommand: MarkdownEmphasisCommand?
     @Namespace private var extractionIslandNamespace
 
     private var copy: AppText {
@@ -87,27 +90,7 @@ struct NoteWindowView: View {
                 .allowsHitTesting(false)
             }
         }
-        .overlay {
-            if activeOverlay == .clipboard {
-                clipboardInlineOverlay
-            }
-        }
-        .overlay {
-            if activeOverlay == .more {
-                moreInlineOverlay
-            }
-        }
-        .overlay {
-            if activeOverlay == .fileSwitcher {
-                fileSwitcherInlineOverlay
-            }
-        }
-        .overlay {
-            if activeOverlay == .extractionActions,
-               let item = activeDetectedItem {
-                extractionActionsInlineOverlay(item: item)
-            }
-        }
+        .overlay { activeInlineOverlay }
         .overlay {
             if !settings.hasCompletedOnboarding {
                 OnboardingView(
@@ -130,6 +113,9 @@ struct NoteWindowView: View {
         .onPreferenceChange(FileSwitchButtonFramePreferenceKey.self) { frame in
             fileSwitchButtonFrame = frame
         }
+        .onPreferenceChange(EmphasisButtonFramePreferenceKey.self) { frame in
+            emphasisButtonFrame = frame
+        }
         .sheet(isPresented: shortcutSettingsPresented) {
             ShortcutSettingsView(settings: settings)
                 .frame(width: NoteWindowChromeLayout.shortcutSheetWidth)
@@ -140,6 +126,10 @@ struct NoteWindowView: View {
                 chromeAutoHide.controlsCollapsed = false
                 toggleClipboardOverlay()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quietNoteApplyOneTapEmphasis)) { _ in
+            issueEmphasisCommand(settings.oneTapEmphasisStyles)
+            markChromeActivity(revealIfCollapsed: true, forceReschedule: true)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
             closeTransientOverlaysOnFocusLoss()
@@ -192,6 +182,26 @@ struct NoteWindowView: View {
         .animation(.snappy(duration: NoteWindowTiming.chromeStateAnimation), value: clipboardSuggestion.hiddenItemID)
         .animation(.snappy(duration: NoteWindowTiming.chromeStateAnimation), value: chromeAutoHide.controlsCollapsed)
         .preferredColorScheme(settings.resolvedColorScheme)
+    }
+
+    @ViewBuilder
+    private var activeInlineOverlay: some View {
+        switch activeOverlay {
+        case .clipboard:
+            clipboardInlineOverlay
+        case .more:
+            moreInlineOverlay
+        case .fileSwitcher:
+            fileSwitcherInlineOverlay
+        case .emphasis:
+            emphasisInlineOverlay
+        case .extractionActions:
+            if let item = activeDetectedItem {
+                extractionActionsInlineOverlay(item: item)
+            }
+        case .shortcutSettings, nil:
+            EmptyView()
+        }
     }
 
     @ViewBuilder
@@ -345,6 +355,42 @@ struct NoteWindowView: View {
         }
     }
 
+    @ViewBuilder
+    private var emphasisInlineOverlay: some View {
+        GeometryReader { proxy in
+            let metrics = NoteWindowOverlayLayout.emphasisMetrics(
+                in: proxy.size,
+                anchorFrame: emphasisButtonFrame,
+                topDragPassthroughHeight: topDragPassthroughHeight
+            )
+
+            ZStack(alignment: .topLeading) {
+                dismissBackdropWithTopDragPassthrough {
+                    withAnimation(.snappy(duration: NoteWindowTiming.overlayDismissAnimation)) {
+                        closeTransientOverlays()
+                    }
+                }
+
+                EmphasisFormattingPanelView(
+                    settings: settings,
+                    copy: copy,
+                    applyStyles: { styles in
+                        issueEmphasisCommand(styles)
+                    }
+                )
+                .frame(width: metrics.width, height: metrics.height)
+                .floatingReadablePopupPanel(accentColor: settings.accentColor)
+                .position(x: metrics.centerX, y: metrics.centerY)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.95, anchor: .bottom).combined(with: .opacity),
+                    removal: .scale(scale: 0.985, anchor: .bottom).combined(with: .opacity)
+                ))
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .zIndex(33)
+        }
+    }
+
     private func extractionActionsInlineOverlay(item: ClipboardItem) -> some View {
         GeometryReader { proxy in
             let panelWidth = min(
@@ -441,6 +487,7 @@ struct NoteWindowView: View {
             swipeProgress: documentSwipe.progress,
             fontSize: settings.editorFontSize,
             accentColor: settings.accentNSColor,
+            emphasisCommand: emphasisCommand,
             topFadeHeight: markdownTopFadeHeight,
             bottomFadeHeight: markdownBottomFadeHeight
         ) { position in
@@ -560,12 +607,22 @@ struct NoteWindowView: View {
         toggleOverlay(.more)
     }
 
+    private func toggleEmphasisOverlay() {
+        toggleOverlay(.emphasis)
+    }
+
     private func toggleFileSwitcherOverlay() {
         toggleOverlay(.fileSwitcher)
     }
 
     private func toggleExtractionActionsOverlay() {
         toggleOverlay(.extractionActions)
+    }
+
+    private func issueEmphasisCommand(_ styles: MarkdownEmphasisStyle) {
+        let normalizedStyles = AppSettings.normalizedOneTapEmphasisStyles(styles.rawValue)
+        emphasisCommandSerial &+= 1
+        emphasisCommand = MarkdownEmphasisCommand(id: emphasisCommandSerial, styles: normalizedStyles)
     }
 
     private func toggleOverlay(_ overlay: NoteWindowTransientOverlay) {
@@ -640,6 +697,11 @@ struct NoteWindowView: View {
             toggleFileSwitcher: {
                 withAnimation(.snappy(duration: NoteWindowTiming.overlayDismissAnimation)) {
                     toggleFileSwitcherOverlay()
+                }
+            },
+            toggleEmphasis: {
+                withAnimation(.snappy(duration: NoteWindowTiming.overlayDismissAnimation)) {
+                    toggleEmphasisOverlay()
                 }
             },
             saveAs: {

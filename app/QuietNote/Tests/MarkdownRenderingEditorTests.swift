@@ -84,6 +84,39 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         XCTAssertTrue(isHiddenSyntax(at: 0, in: textView.textStorage ?? NSTextStorage()))
     }
 
+    func testCoordinatorAppliesEmphasisCommandToBoundMarkdown() {
+        var text = "hello world"
+        let binding = Binding<String>(
+            get: { text },
+            set: { text = $0 }
+        )
+        let coordinator = MarkdownRenderingEditor.Coordinator(
+            text: binding,
+            contentRevision: 0,
+            fontSize: 15.5
+        )
+        let textView = MarkdownTaskTextView()
+        textView.string = text
+        textView.setSelectedRange(NSRange(location: 6, length: 5))
+        coordinator.textView = textView
+
+        coordinator.applyEmphasis(styles: [.bold, .highlight])
+
+        XCTAssertEqual(text, "hello ==**world**==")
+        XCTAssertEqual(textView.string, "hello ==**world**==")
+        XCTAssertEqual(textView.selectedRange(), NSRange(location: 10, length: 5))
+        XCTAssertTrue((textView.textStorage?.attribute(.font, at: 10, effectiveRange: nil) as? NSFont)?.fontDescriptor.symbolicTraits.contains(.bold) == true)
+        XCTAssertNotNil(textView.textStorage?.attribute(.backgroundColor, at: 10, effectiveRange: nil))
+    }
+
+    func testHighlightUsesBrighterBackground() {
+        let markdown = "==important=="
+        let storage = styledStorage(markdown)
+        let color = storage.attribute(.backgroundColor, at: 2, effectiveRange: nil) as? NSColor
+
+        XCTAssertGreaterThanOrEqual(color?.alphaComponent ?? 0, 0.34)
+    }
+
     func testActiveLinkRevealsDestinationForEditing() {
         let markdown = "[Spec](https://example.com/a_(b))"
         let storage = styledStorage(markdown, selectedRange: NSRange(location: 2, length: 0))

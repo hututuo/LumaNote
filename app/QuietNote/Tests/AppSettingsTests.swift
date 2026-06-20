@@ -30,4 +30,13 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(AppSettings.normalizedClipboardLimit(200), 200)
         XCTAssertEqual(AppSettings.normalizedClipboardLimit(10_000), AppSettings.maximumClipboardLimit)
     }
+
+    func testOneTapEmphasisNormalizationFallsBackToBoldHighlight() {
+        XCTAssertEqual(AppSettings.normalizedOneTapEmphasisStyles(0), MarkdownEmphasisStyle.defaultOneTap)
+        XCTAssertEqual(AppSettings.normalizedOneTapEmphasisStyles(1 << 20), MarkdownEmphasisStyle.defaultOneTap)
+        XCTAssertEqual(
+            AppSettings.normalizedOneTapEmphasisStyles(MarkdownEmphasisStyle.italic.rawValue | MarkdownEmphasisStyle.smallHeading.rawValue),
+            [.italic, .smallHeading]
+        )
+    }
 }

@@ -131,8 +131,14 @@ final class NotePanelController {
         show()
         NotificationCenter.default.post(name: .quietNoteToggleClipboard, object: nil)
     }
+
+    func applyOneTapEmphasis() {
+        show()
+        NotificationCenter.default.post(name: .quietNoteApplyOneTapEmphasis, object: nil)
+    }
 }
 
 extension Notification.Name {
     static let quietNoteToggleClipboard = Notification.Name("quietNoteToggleClipboard")
+    static let quietNoteApplyOneTapEmphasis = Notification.Name("quietNoteApplyOneTapEmphasis")
 }

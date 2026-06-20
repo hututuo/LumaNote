@@ -2,6 +2,7 @@ enum NoteWindowTransientOverlay: Equatable {
     case clipboard
     case more
     case fileSwitcher
+    case emphasis
     case extractionActions
     case shortcutSettings
 
@@ -11,7 +12,7 @@ enum NoteWindowTransientOverlay: Equatable {
 
     var keepsBottomChromeExpanded: Bool {
         switch self {
-        case .clipboard, .more, .fileSwitcher, .shortcutSettings:
+        case .clipboard, .more, .fileSwitcher, .emphasis, .shortcutSettings:
             true
         case .extractionActions:
             false
@@ -20,7 +21,7 @@ enum NoteWindowTransientOverlay: Equatable {
 
     var hidesDetectedClipboardItem: Bool {
         switch self {
-        case .clipboard, .more, .fileSwitcher, .shortcutSettings:
+        case .clipboard, .more, .fileSwitcher, .emphasis, .shortcutSettings:
             true
         case .extractionActions:
             false

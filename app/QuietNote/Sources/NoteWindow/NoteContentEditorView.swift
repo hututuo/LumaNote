@@ -20,6 +20,7 @@ struct NoteContentEditorView: View {
     let swipeProgress: CGFloat
     let fontSize: Double
     let accentColor: NSColor
+    let emphasisCommand: MarkdownEmphasisCommand?
     let topFadeHeight: CGFloat
     let bottomFadeHeight: CGFloat
     let onDocumentPositionChange: (MarkdownDocumentPosition) -> Void
@@ -34,6 +35,7 @@ struct NoteContentEditorView: View {
                     fontSize: fontSize,
                     accentColor: accentColor,
                     documentPosition: documentPosition,
+                    emphasisCommand: emphasisCommand,
                     onDocumentPositionChange: onDocumentPositionChange
                 )
                 .frame(width: proxy.size.width, height: proxy.size.height)
@@ -46,7 +48,8 @@ struct NoteContentEditorView: View {
                         contentRevision: preview.revision,
                         fontSize: fontSize,
                         accentColor: accentColor,
-                        documentPosition: preview.position
+                        documentPosition: preview.position,
+                        emphasisCommand: nil
                     )
                     .id(preview.id)
                     .frame(width: proxy.size.width, height: proxy.size.height)

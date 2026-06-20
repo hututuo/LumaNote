@@ -7,6 +7,7 @@ struct NoteBottomRailView: View {
     let glassMetrics: NoteGlassMetrics
     let height: CGFloat
     let toggleFileSwitcher: () -> Void
+    let toggleEmphasis: () -> Void
     let saveAs: () -> Void
     let toggleAlwaysOnTop: () -> Void
     let toggleAutoHideChrome: () -> Void
@@ -42,6 +43,17 @@ struct NoteBottomRailView: View {
                     .monospacedDigit()
                     .frame(width: percentWidth, alignment: .trailing)
 
+                railButton(symbol: "textformat", help: copy.emphasis, size: buttonSize) {
+                    toggleEmphasis()
+                }
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: EmphasisButtonFramePreferenceKey.self,
+                            value: proxy.frame(in: .named(NoteWindowCoordinateSpace.name))
+                        )
+                    }
+                )
                 railButton(symbol: "arrow.left.arrow.right", help: copy.switchNoteFile, size: buttonSize) {
                     toggleFileSwitcher()
                 }

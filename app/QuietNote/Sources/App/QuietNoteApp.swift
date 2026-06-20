@@ -61,7 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onToggleNote: { [weak controller] in controller?.toggle() },
             onShowNote: { [weak controller] in controller?.show() },
             onHideNote: { [weak controller] in controller?.hide() },
-            onToggleClipboard: { [weak controller] in controller?.toggleClipboard() }
+            onToggleClipboard: { [weak controller] in controller?.toggleClipboard() },
+            onOneTapEmphasis: { [weak controller] in controller?.applyOneTapEmphasis() }
         )
 
         configureStatusItem()

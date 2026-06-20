@@ -227,7 +227,7 @@ struct MarkdownStyleAttributes {
 
     private func highlightAttributes() -> [NSAttributedString.Key: Any] {
         [
-            .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.24)
+            .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.38)
         ]
     }
 

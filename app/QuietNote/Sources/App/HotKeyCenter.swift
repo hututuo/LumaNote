@@ -6,6 +6,7 @@ extension KeyboardShortcuts.Name {
     @MainActor static let showQuietNote = Self("showQuietNote")
     @MainActor static let hideQuietNote = Self("hideQuietNote")
     @MainActor static let toggleClipboardLibrary = Self("toggleClipboardLibrary")
+    @MainActor static let oneTapEmphasis = Self("oneTapEmphasis")
 }
 
 @MainActor
@@ -16,12 +17,14 @@ final class HotKeyCenter {
     static let showOnlyDefaultShortcut = KeyboardShortcuts.Shortcut(.space, modifiers: [.option, .shift])
     static let hideDefaultShortcut = KeyboardShortcuts.Shortcut(.escape, modifiers: [.option])
     static let clipboardDefaultShortcut = KeyboardShortcuts.Shortcut(.v, modifiers: [.option])
+    static let emphasisDefaultShortcut = KeyboardShortcuts.Shortcut(.b, modifiers: [.option, .command])
 
     init(
         onToggleNote: @escaping @MainActor () -> Void,
         onShowNote: @escaping @MainActor () -> Void,
         onHideNote: @escaping @MainActor () -> Void,
-        onToggleClipboard: @escaping @MainActor () -> Void
+        onToggleClipboard: @escaping @MainActor () -> Void,
+        onOneTapEmphasis: @escaping @MainActor () -> Void = {}
     ) {
         Self.configureDefaultShortcuts()
 
@@ -37,6 +40,9 @@ final class HotKeyCenter {
         KeyboardShortcuts.onKeyUp(for: .toggleClipboardLibrary) {
             Task { @MainActor in onToggleClipboard() }
         }
+        KeyboardShortcuts.onKeyUp(for: .oneTapEmphasis) {
+            Task { @MainActor in onOneTapEmphasis() }
+        }
     }
 
     private static func configureDefaultShortcuts() {
@@ -47,7 +53,8 @@ final class HotKeyCenter {
             toggleShortcut: KeyboardShortcuts.getShortcut(for: .toggleQuietNote),
             showShortcut: KeyboardShortcuts.getShortcut(for: .showQuietNote),
             hideShortcut: KeyboardShortcuts.getShortcut(for: .hideQuietNote),
-            clipboardShortcut: KeyboardShortcuts.getShortcut(for: .toggleClipboardLibrary)
+            clipboardShortcut: KeyboardShortcuts.getShortcut(for: .toggleClipboardLibrary),
+            emphasisShortcut: KeyboardShortcuts.getShortcut(for: .oneTapEmphasis)
         )
 
         if let shortcut = plan.toggleShortcut {
@@ -62,6 +69,9 @@ final class HotKeyCenter {
         if let shortcut = plan.clipboardShortcut {
             KeyboardShortcuts.setShortcut(shortcut, for: .toggleClipboardLibrary)
         }
+        if let shortcut = plan.emphasisShortcut {
+            KeyboardShortcuts.setShortcut(shortcut, for: .oneTapEmphasis)
+        }
 
         if plan.shouldMarkMigrated {
             defaults.set(true, forKey: didMigrateToggleShortcutKey)
@@ -73,13 +83,15 @@ final class HotKeyCenter {
         toggleShortcut: KeyboardShortcuts.Shortcut?,
         showShortcut: KeyboardShortcuts.Shortcut?,
         hideShortcut: KeyboardShortcuts.Shortcut?,
-        clipboardShortcut: KeyboardShortcuts.Shortcut?
+        clipboardShortcut: KeyboardShortcuts.Shortcut?,
+        emphasisShortcut: KeyboardShortcuts.Shortcut?
     ) -> HotKeyDefaultShortcutPlan {
         HotKeyDefaultShortcutPlan(
             toggleShortcut: toggleShortcut == nil ? toggleDefaultShortcut : nil,
             showShortcut: defaultShowOnlyShortcut(didMigrate: didMigrate, currentShortcut: showShortcut),
             hideShortcut: hideShortcut == nil ? hideDefaultShortcut : nil,
             clipboardShortcut: clipboardShortcut == nil ? clipboardDefaultShortcut : nil,
+            emphasisShortcut: emphasisShortcut == nil ? emphasisDefaultShortcut : nil,
             shouldMarkMigrated: !didMigrate
         )
     }
@@ -102,6 +114,7 @@ final class HotKeyCenter {
         KeyboardShortcuts.setShortcut(showOnlyDefaultShortcut, for: .showQuietNote)
         KeyboardShortcuts.setShortcut(hideDefaultShortcut, for: .hideQuietNote)
         KeyboardShortcuts.setShortcut(clipboardDefaultShortcut, for: .toggleClipboardLibrary)
+        KeyboardShortcuts.setShortcut(emphasisDefaultShortcut, for: .oneTapEmphasis)
     }
 }
 
@@ -110,5 +123,6 @@ struct HotKeyDefaultShortcutPlan: Equatable {
     let showShortcut: KeyboardShortcuts.Shortcut?
     let hideShortcut: KeyboardShortcuts.Shortcut?
     let clipboardShortcut: KeyboardShortcuts.Shortcut?
+    let emphasisShortcut: KeyboardShortcuts.Shortcut?
     let shouldMarkMigrated: Bool
 }
