@@ -55,6 +55,7 @@ final class NoteDocumentSwipeCoordinator {
         let preRenderedImage: NSImage
         let modificationDate: Date?
         let configuration: PreviewPrewarmConfiguration
+        let requiresCurrentModificationDate: Bool
 
         func preview(offset: Int) -> NoteDocumentSwipePreview {
             NoteDocumentSwipePreview(
@@ -67,6 +68,16 @@ final class NoteDocumentSwipeCoordinator {
                 preRenderedImage: preRenderedImage
             )
         }
+
+        func matchesModificationDate(_ currentModificationDate: Date?) -> Bool {
+            !requiresCurrentModificationDate || modificationDate == currentModificationDate
+        }
+    }
+
+    private struct CurrentDocumentSnapshot {
+        let url: URL
+        let text: String
+        let position: MarkdownDocumentPosition?
     }
 
     private static let prewarmOffsets = [-1, 1]
@@ -85,6 +96,7 @@ final class NoteDocumentSwipeCoordinator {
     @ObservationIgnored private var previewRevision = 0
     @ObservationIgnored private var pendingProgress: CGFloat?
     @ObservationIgnored private var prewarmConfiguration: PreviewPrewarmConfiguration?
+    @ObservationIgnored private var prewarmAccentColor: NSColor?
     @ObservationIgnored private var prewarmedPreviews: [Int: PrewarmedPreview] = [:]
 
     init(previewLoader: @escaping PreviewLoader = { offset, noteStore in
@@ -140,6 +152,7 @@ final class NoteDocumentSwipeCoordinator {
               configuration.pixelHeight <= Self.maximumPrewarmPixelDimension
         else {
             prewarmConfiguration = nil
+            prewarmAccentColor = nil
             prewarmedPreviews.removeAll()
             return
         }
@@ -148,6 +161,7 @@ final class NoteDocumentSwipeCoordinator {
             prewarmConfiguration = configuration
             prewarmedPreviews.removeAll()
         }
+        prewarmAccentColor = accentColor
 
         for offset in Self.prewarmOffsets {
             guard !Task.isCancelled,
@@ -225,6 +239,11 @@ final class NoteDocumentSwipeCoordinator {
             try? await Task.sleep(for: .seconds(NoteWindowTiming.documentSwipeCommitAnimation))
             guard !Task.isCancelled else { return }
 
+            let currentSnapshot = CurrentDocumentSnapshot(
+                url: noteStore.currentFileURL,
+                text: noteStore.markdown,
+                position: noteStore.currentDocumentPosition
+            )
             let matchingPreview = self.preview?.offset == direction ? self.preview : nil
             let didSwitchDocument = noteStore.switchWorkspaceDocument(
                 offset: direction,
@@ -240,6 +259,7 @@ final class NoteDocumentSwipeCoordinator {
                     self.progress = 0
                     self.preview = nil
                 }
+                self.cacheReversePreview(snapshot: currentSnapshot, noteStore: noteStore)
             } else {
                 self.cancelPreviewTask()
                 withAnimation(.snappy(duration: NoteWindowTiming.documentSwipeCancelAnimation)) {
@@ -262,6 +282,7 @@ final class NoteDocumentSwipeCoordinator {
         isAnimating = false
         pendingProgress = nil
         prewarmConfiguration = nil
+        prewarmAccentColor = nil
         prewarmedPreviews.removeAll()
     }
 
@@ -323,7 +344,8 @@ final class NoteDocumentSwipeCoordinator {
         accentColor: NSColor
     ) async {
         guard offset != 0 else { return }
-        if validPrewarmedPreview(offset: offset, noteStore: noteStore) != nil {
+        if let existingPreview = validPrewarmedPreview(offset: offset, noteStore: noteStore),
+           existingPreview.requiresCurrentModificationDate {
             return
         }
         guard let targetURL = noteStore.workspaceDocumentURL(offset: offset) else {
@@ -364,7 +386,8 @@ final class NoteDocumentSwipeCoordinator {
             revision: previewRevision,
             preRenderedImage: image,
             modificationDate: fileModificationDate(for: loadedPreview.url),
-            configuration: configuration
+            configuration: configuration,
+            requiresCurrentModificationDate: true
         )
     }
 
@@ -374,7 +397,7 @@ final class NoteDocumentSwipeCoordinator {
               prewarmedPreview.configuration == prewarmConfiguration,
               let targetURL = noteStore.workspaceDocumentURL(offset: offset),
               prewarmedPreview.url.standardizedFileURL.path == targetURL.standardizedFileURL.path,
-              prewarmedPreview.modificationDate == fileModificationDate(for: targetURL),
+              prewarmedPreview.matchesModificationDate(fileModificationDate(for: targetURL)),
               prewarmedPreview.position == noteStore.documentPosition(for: targetURL)
         else { return nil }
         return prewarmedPreview
@@ -388,10 +411,49 @@ final class NoteDocumentSwipeCoordinator {
         let targetPath = targetURL.standardizedFileURL.path
         let modificationDate = fileModificationDate(for: targetURL)
         return prewarmedPreviews.values.first { preview in
-            preview.configuration == configuration
+            preview.requiresCurrentModificationDate
+                && preview.configuration == configuration
                 && preview.url.standardizedFileURL.path == targetPath
                 && preview.modificationDate == modificationDate
                 && preview.position == position
+        }
+    }
+
+    private func cacheReversePreview(snapshot: CurrentDocumentSnapshot, noteStore: NoteStore) {
+        guard let configuration = prewarmConfiguration,
+              let accentColor = prewarmAccentColor
+        else { return }
+
+        let snapshotPath = snapshot.url.standardizedFileURL.path
+        let matchingOffsets = Self.prewarmOffsets.filter { offset in
+            noteStore.workspaceDocumentURL(offset: offset)?.standardizedFileURL.path == snapshotPath
+        }
+        guard !matchingOffsets.isEmpty,
+              let image = MarkdownStaticPreviewRenderer.render(
+                text: snapshot.text,
+                fontSize: configuration.fontSize,
+                accentColor: accentColor,
+                documentPosition: snapshot.position,
+                size: configuration.viewportSize,
+                backingScale: configuration.backingScale
+              )
+        else { return }
+
+        previewRevision &+= 1
+        let preview = PrewarmedPreview(
+            id: "\(snapshotPath)#reverse-\(previewRevision)",
+            url: snapshot.url,
+            text: snapshot.text,
+            position: snapshot.position,
+            revision: previewRevision,
+            preRenderedImage: image,
+            modificationDate: fileModificationDate(for: snapshot.url),
+            configuration: configuration,
+            requiresCurrentModificationDate: false
+        )
+
+        for offset in matchingOffsets {
+            prewarmedPreviews[offset] = preview
         }
     }
 

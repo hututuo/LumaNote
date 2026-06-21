@@ -307,6 +307,57 @@ final class NoteDocumentSwipeCoordinatorTests: XCTestCase {
         XCTAssertGreaterThan(loadCalls, loadCallsAfterPrewarm)
     }
 
+    @MainActor
+    func testCommittedDocumentIsAvailableForImmediateReverseSwipe() async throws {
+        let first = try makeNote(named: "first.md", title: "First")
+        let second = try makeNote(named: "second.md", title: "Second")
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+        var loadCalls = 0
+        let coordinator = NoteDocumentSwipeCoordinator(previewLoader: { offset, noteStore in
+            loadCalls += 1
+            guard let targetURL = noteStore.workspaceDocumentURL(offset: offset),
+                  let text = try? String(contentsOf: targetURL, encoding: .utf8)
+            else { return nil }
+            return (url: targetURL, text: text)
+        })
+        let secondPosition = MarkdownDocumentPosition(selectedLocation: 3, selectedLength: 0, scrollY: 24)
+
+        store.openFile(at: first)
+        try await waitForCurrentFile(first, in: store)
+        store.openFile(at: second)
+        try await waitForCurrentFile(second, in: store)
+        store.updateCurrentDocumentPosition(secondPosition)
+
+        await coordinator.prewarmAdjacentPreviews(
+            noteStore: store,
+            viewportSize: CGSize(width: 240, height: 160),
+            backingScale: 1,
+            fontSize: 15.5,
+            accentColor: .systemCyan
+        )
+
+        coordinator.updateProgress(0.35, noteStore: store)
+        XCTAssertEqual(coordinator.preview?.url.standardizedFileURL.path, first.standardizedFileURL.path)
+        XCTAssertEqual(coordinator.progress, 0.35, accuracy: 0.001)
+
+        coordinator.commit(offset: 1, noteStore: store) {}
+        try await waitForCurrentFile(first, in: store)
+        for _ in 0..<80 where coordinator.isAnimating {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        await store.waitForPendingOpenForTesting()
+        XCTAssertFalse(coordinator.isAnimating)
+
+        let loadCallsAfterCommit = loadCalls
+        coordinator.updateProgress(-0.35, noteStore: store)
+
+        XCTAssertEqual(loadCalls, loadCallsAfterCommit)
+        XCTAssertEqual(coordinator.preview?.url.standardizedFileURL.path, second.standardizedFileURL.path)
+        XCTAssertEqual(coordinator.preview?.position, secondPosition)
+        XCTAssertNotNil(coordinator.preview?.preRenderedImage)
+        XCTAssertEqual(coordinator.progress, -0.35, accuracy: 0.001)
+    }
+
     private func makeNote(named name: String, title: String) throws -> URL {
         let url = temporaryDirectory.appending(path: name)
         try "# \(title)\n\nBody".write(to: url, atomically: true, encoding: .utf8)
