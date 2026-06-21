@@ -358,6 +358,67 @@ final class NoteDocumentSwipeCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.progress, -0.35, accuracy: 0.001)
     }
 
+    @MainActor
+    func testCommitPrewarmsContinuationTargetAfterUnlock() async throws {
+        let first = try makeNote(named: "first.md", title: "First")
+        let second = try makeNote(named: "second.md", title: "Second")
+        let third = try makeNote(named: "third.md", title: "Third")
+        let fourth = try makeNote(named: "fourth.md", title: "Fourth")
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+        var loadedPreviewPaths: [String] = []
+        let coordinator = NoteDocumentSwipeCoordinator(previewLoader: { offset, noteStore in
+            guard let targetURL = noteStore.workspaceDocumentURL(offset: offset),
+                  let text = try? String(contentsOf: targetURL, encoding: .utf8)
+            else { return nil }
+            loadedPreviewPaths.append(targetURL.standardizedFileURL.path)
+            return (url: targetURL, text: text)
+        })
+
+        store.createWorkspace(named: "Swipe Quad", includeCurrentFile: false)
+        store.openFile(at: first)
+        try await waitForCurrentFile(first, in: store)
+        store.openFile(at: second)
+        try await waitForCurrentFile(second, in: store)
+        store.openFile(at: third)
+        try await waitForCurrentFile(third, in: store)
+        store.openFile(at: fourth)
+        try await waitForCurrentFile(fourth, in: store)
+
+        await coordinator.prewarmAdjacentPreviews(
+            noteStore: store,
+            viewportSize: CGSize(width: 240, height: 160),
+            backingScale: 1,
+            fontSize: 15.5,
+            accentColor: .systemCyan
+        )
+
+        let secondPath = second.standardizedFileURL.path
+        XCTAssertFalse(loadedPreviewPaths.contains(secondPath))
+
+        coordinator.updateProgress(0.35, noteStore: store)
+        XCTAssertEqual(coordinator.preview?.url.standardizedFileURL.path, third.standardizedFileURL.path)
+        coordinator.commit(offset: 1, noteStore: store) {}
+        try await waitForCurrentFile(third, in: store)
+        for _ in 0..<80 where coordinator.isAnimating {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        await store.waitForPendingOpenForTesting()
+        XCTAssertFalse(coordinator.isAnimating)
+
+        for _ in 0..<80 where !loadedPreviewPaths.contains(secondPath) {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(loadedPreviewPaths.contains(secondPath))
+
+        let loadCountAfterContinuationPrewarm = loadedPreviewPaths.count
+        coordinator.updateProgress(0.35, noteStore: store)
+
+        XCTAssertEqual(loadedPreviewPaths.count, loadCountAfterContinuationPrewarm)
+        XCTAssertEqual(coordinator.preview?.url.standardizedFileURL.path, secondPath)
+        XCTAssertNotNil(coordinator.preview?.preRenderedImage)
+        XCTAssertEqual(coordinator.progress, 0.35, accuracy: 0.001)
+    }
+
     private func makeNote(named name: String, title: String) throws -> URL {
         let url = temporaryDirectory.appending(path: name)
         try "# \(title)\n\nBody".write(to: url, atomically: true, encoding: .utf8)

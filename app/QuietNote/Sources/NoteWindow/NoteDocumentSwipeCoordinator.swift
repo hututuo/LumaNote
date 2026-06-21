@@ -260,15 +260,18 @@ final class NoteDocumentSwipeCoordinator {
                     self.preview = nil
                 }
                 self.cacheReversePreview(snapshot: currentSnapshot, noteStore: noteStore)
+                self.scheduleAnimationUnlock(
+                    continuationPrewarmOffset: direction,
+                    noteStore: noteStore
+                )
             } else {
                 self.cancelPreviewTask()
                 withAnimation(.snappy(duration: NoteWindowTiming.documentSwipeCancelAnimation)) {
                     self.progress = 0
                 }
                 self.clearPreviewAfterDelay(NoteWindowTiming.documentSwipePreviewClearDelay)
+                self.scheduleAnimationUnlock()
             }
-
-            self.scheduleAnimationUnlock()
         }
     }
 
@@ -496,7 +499,10 @@ final class NoteDocumentSwipeCoordinator {
         unlockAnimationTask = nil
     }
 
-    private func scheduleAnimationUnlock() {
+    private func scheduleAnimationUnlock(
+        continuationPrewarmOffset: Int? = nil,
+        noteStore: NoteStore? = nil
+    ) {
         unlockAnimationTask?.cancel()
         unlockAnimationTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(NoteWindowTiming.documentSwipeUnlockDelay))
@@ -504,7 +510,29 @@ final class NoteDocumentSwipeCoordinator {
             isAnimating = false
             unlockAnimationTask = nil
             commitAnimationTask = nil
+            if let continuationPrewarmOffset, let noteStore {
+                await prewarmContinuationPreview(
+                    offset: continuationPrewarmOffset,
+                    noteStore: noteStore
+                )
+            }
         }
+    }
+
+    private func prewarmContinuationPreview(offset: Int, noteStore: NoteStore) async {
+        guard let configuration = prewarmConfiguration,
+              let accentColor = prewarmAccentColor,
+              noteStore.canSwitchWorkspaceDocument,
+              abs(progress) <= 0.001,
+              !isAnimating
+        else { return }
+
+        await prewarmPreview(
+            offset: offset,
+            noteStore: noteStore,
+            configuration: configuration,
+            accentColor: accentColor
+        )
     }
 
     private func clearPreviewAfterDelay(_ delay: TimeInterval) {
