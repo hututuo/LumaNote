@@ -259,6 +259,40 @@ enum MarkdownStaticPreviewRenderer {
     }
 
     @MainActor
+    static func glyphOriginXForTesting(
+        text: String,
+        fontSize: CGFloat,
+        accentColor: NSColor,
+        documentPosition: MarkdownDocumentPosition?,
+        size: CGSize,
+        characterLocation: Int
+    ) -> CGFloat? {
+        let scrollView = preparedScrollView(
+            text: text,
+            fontSize: fontSize,
+            accentColor: accentColor,
+            documentPosition: documentPosition,
+            size: size
+        )
+        guard let textView = scrollView.markdownTextView,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer,
+              characterLocation >= 0,
+              characterLocation < (textView.string as NSString).length
+        else { return nil }
+
+        layoutManager.ensureLayout(for: textContainer)
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterLocation)
+        guard glyphIndex < layoutManager.numberOfGlyphs else { return nil }
+
+        let rect = layoutManager.boundingRect(
+            forGlyphRange: NSRange(location: glyphIndex, length: 1),
+            in: textContainer
+        )
+        return textView.textContainerOrigin.x + rect.minX
+    }
+
+    @MainActor
     private static func preparedScrollView(
         text: String,
         fontSize: CGFloat,
@@ -275,11 +309,12 @@ enum MarkdownStaticPreviewRenderer {
         scrollView.frame = bounds
         scrollView.contentView.frame = bounds
         scrollView.layoutSubtreeIfNeeded()
-        MarkdownDocumentPositionApplicator.apply(documentPosition ?? .top, textView: textView, scrollView: scrollView)
-        applyMarkdownStyle(to: textView, fontSize: fontSize)
+        applyScrollPosition(documentPosition ?? .top, scrollView: scrollView)
+        applyMarkdownStyle(to: textView, fontSize: fontSize, activeSelectionRanges: [])
         scrollView.invalidateDocumentHeight()
         scrollView.refreshScrollIndicator()
-        MarkdownDocumentPositionApplicator.apply(documentPosition ?? .top, textView: textView, scrollView: scrollView)
+        applyScrollPosition(documentPosition ?? .top, scrollView: scrollView)
+        ensureLayout(for: textView)
         scrollView.layoutSubtreeIfNeeded()
         scrollView.displayIfNeeded()
         return scrollView
@@ -336,10 +371,13 @@ enum MarkdownStaticPreviewRenderer {
     }
 
     @MainActor
-    private static func applyMarkdownStyle(to textView: MarkdownTaskTextView, fontSize: CGFloat) {
+    private static func applyMarkdownStyle(
+        to textView: MarkdownTaskTextView,
+        fontSize: CGFloat,
+        activeSelectionRanges: [NSRange]
+    ) {
         guard let storage = textView.textStorage else { return }
         let selectedRanges = textView.selectedRanges
-        let activeSelectionRanges = MarkdownRangeHelpers.nsRanges(from: selectedRanges)
         let fullRange = NSRange(location: 0, length: storage.length)
         guard fullRange.length > 0 else {
             textView.taskItems = []
@@ -371,5 +409,20 @@ enum MarkdownStaticPreviewRenderer {
         textView.headingItems = blockResult.headingItems
         textView.updateHiddenSyntaxRanges(from: storage)
         textView.restoreSelectedRangesWithoutScroll(selectedRanges)
+    }
+
+    @MainActor
+    private static func applyScrollPosition(_ position: MarkdownDocumentPosition, scrollView: MarkdownScrollView) {
+        scrollView.scroll(toY: CGFloat(position.scrollY))
+    }
+
+    @MainActor
+    private static func ensureLayout(for textView: MarkdownTaskTextView) {
+        guard let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer
+        else { return }
+
+        layoutManager.ensureLayout(for: textContainer)
+        textView.needsDisplay = true
     }
 }

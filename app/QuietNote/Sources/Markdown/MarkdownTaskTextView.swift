@@ -201,6 +201,7 @@ final class MarkdownTaskTextView: NSTextView, @preconcurrency NSLayoutManagerDel
         guard storage.length > 0 else {
             hiddenSyntaxRanges = []
             hiddenSyntaxCharacterMap = []
+            invalidateHiddenSyntaxLayout(characterRange: NSRange(location: 0, length: 0))
             return
         }
 
@@ -219,11 +220,13 @@ final class MarkdownTaskTextView: NSTextView, @preconcurrency NSLayoutManagerDel
             ranges: hiddenSyntaxRanges,
             length: storage.length
         )
+        invalidateHiddenSyntaxLayout(characterRange: NSRange(location: 0, length: storage.length))
     }
 
     func clearHiddenSyntaxRanges() {
         hiddenSyntaxRanges = []
         hiddenSyntaxCharacterMap = []
+        invalidateHiddenSyntaxLayout(characterRange: NSRange(location: 0, length: (string as NSString).length))
     }
 
     func containsHiddenSyntaxCharacters(_ characterIndexes: [Int]) -> Bool {
@@ -257,6 +260,28 @@ final class MarkdownTaskTextView: NSTextView, @preconcurrency NSLayoutManagerDel
             }
             return false
         }
+    }
+
+    private func invalidateHiddenSyntaxLayout(characterRange: NSRange) {
+        guard characterRange.location != NSNotFound else { return }
+        let textLength = (string as NSString).length
+        let location = min(max(0, characterRange.location), textLength)
+        let length = min(max(0, characterRange.length), max(0, textLength - location))
+        guard length > 0 else {
+            needsDisplay = true
+            return
+        }
+        let invalidationRange = NSRange(location: location, length: length)
+        layoutManager?.invalidateGlyphs(
+            forCharacterRange: invalidationRange,
+            changeInLength: 0,
+            actualCharacterRange: nil
+        )
+        layoutManager?.invalidateLayout(
+            forCharacterRange: invalidationRange,
+            actualCharacterRange: nil
+        )
+        needsDisplay = true
     }
 
     private static func makeHiddenSyntaxCharacterMap(ranges: [NSRange], length: Int) -> [UInt8] {

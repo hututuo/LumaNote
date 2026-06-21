@@ -89,7 +89,7 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         XCTAssertTrue(image === preRenderedImage)
     }
 
-    func testStaticPreviewStylingMatchesLiveEditorAtRestoredHeadingPosition() {
+    func testStaticPreviewStylingKeepsHeadingMarkersHiddenAtRestoredPosition() {
         let markdown = "# Preview title\n\nBody"
         let position = MarkdownDocumentPosition(selectedLocation: 3, selectedLength: 0, scrollY: 0)
         let storage = MarkdownStaticPreviewRenderer.styledStorageForTesting(
@@ -99,10 +99,9 @@ final class MarkdownRenderingEditorTests: XCTestCase {
             documentPosition: position,
             size: CGSize(width: 240, height: 160)
         )
-        let liveStorage = styledStorage(markdown, selectedRange: NSRange(location: 3, length: 0))
 
-        XCTAssertEqual(isHiddenSyntax(at: 0, in: storage), isHiddenSyntax(at: 0, in: liveStorage))
-        XCTAssertEqual(foregroundAlpha(at: 0, in: storage), foregroundAlpha(at: 0, in: liveStorage), accuracy: 0.01)
+        XCTAssertTrue(isHiddenSyntax(at: 0, in: storage))
+        XCTAssertEqual(foregroundAlpha(at: 0, in: storage), 0, accuracy: 0.01)
         XCTAssertFalse(isHiddenSyntax(at: 2, in: storage))
     }
 
@@ -156,6 +155,38 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         XCTAssertNotNil(staticX)
         XCTAssertNotNil(liveX)
         XCTAssertEqual(staticX ?? -1, liveX ?? -2, accuracy: 1)
+    }
+
+    func testStaticPreviewHeadingTextOriginIgnoresRestoredHeadingSelection() {
+        let markdown = "# Preview title\n\nBody"
+        let size = CGSize(width: 320, height: 160)
+        let titleLocation = range(of: "Preview", in: markdown).location
+        let inactiveOrigin = MarkdownStaticPreviewRenderer.glyphOriginXForTesting(
+            text: markdown,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: .top,
+            size: size,
+            characterLocation: titleLocation
+        )
+        let restoredHeadingOrigin = MarkdownStaticPreviewRenderer.glyphOriginXForTesting(
+            text: markdown,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: MarkdownDocumentPosition(
+                selectedLocation: titleLocation + 2,
+                selectedLength: 0,
+                scrollY: 0
+            ),
+            size: size,
+            characterLocation: titleLocation
+        )
+
+        XCTAssertNotNil(inactiveOrigin)
+        XCTAssertNotNil(restoredHeadingOrigin)
+        XCTAssertEqual(restoredHeadingOrigin ?? -1, inactiveOrigin ?? -2, accuracy: 0.5)
+        XCTAssertLessThanOrEqual(inactiveOrigin ?? .greatestFiniteMagnitude, 8)
+        XCTAssertLessThanOrEqual(restoredHeadingOrigin ?? .greatestFiniteMagnitude, 8)
     }
 
     func testHeadingMarkerIsHiddenUntilHeadingIsActive() {
