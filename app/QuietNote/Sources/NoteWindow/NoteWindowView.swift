@@ -19,6 +19,7 @@ struct NoteWindowView: View {
     @State private var clipboardSuggestion = NoteClipboardSuggestionController()
     @State private var chromeAutoHide = NoteChromeAutoHideController()
     @State private var documentSwipe = NoteDocumentSwipeCoordinator()
+    @State private var contentEditorViewportSize: CGSize = .zero
     @State private var emphasisCommandSerial = 0
     @State private var emphasisCommand: MarkdownEmphasisCommand?
     @Namespace private var extractionIslandNamespace
@@ -50,8 +51,6 @@ struct NoteWindowView: View {
                 topBar
 
                 content
-                    .padding(.leading, NoteWindowChromeLayout.contentLeadingPadding)
-                    .padding(.trailing, NoteWindowChromeLayout.contentTrailingPadding)
                     .padding(.top, contentTopPadding)
                     .padding(.bottom, contentBottomInset)
             }
@@ -168,6 +167,9 @@ struct NoteWindowView: View {
         }
         .onChange(of: noteStore.markdown) { _, _ in
             markChromeActivity(revealIfCollapsed: false)
+        }
+        .task(id: documentSwipePrewarmKey) {
+            await prewarmDocumentSwipePreviews()
         }
         .onAppear {
             markChromeActivity(forceReschedule: true)
@@ -489,7 +491,12 @@ struct NoteWindowView: View {
             accentColor: settings.accentNSColor,
             emphasisCommand: emphasisCommand,
             topFadeHeight: markdownTopFadeHeight,
-            bottomFadeHeight: markdownBottomFadeHeight
+            bottomFadeHeight: markdownBottomFadeHeight,
+            contentLeadingInset: NoteWindowChromeLayout.contentLeadingPadding,
+            contentTrailingInset: NoteWindowChromeLayout.contentTrailingPadding,
+            onEditorViewportChange: { size in
+                updateContentEditorViewportSize(size)
+            }
         ) { position in
             noteStore.updateCurrentDocumentPosition(position)
         }
@@ -550,6 +557,52 @@ struct NoteWindowView: View {
             && noteStore.canSwitchWorkspaceDocument
             && !documentSwipe.isAnimating
             && activeOverlay == nil
+    }
+
+    private var documentSwipePrewarmKey: String {
+        let workspacePaths = noteStore.activeWorkspaceFileURLs
+            .map { $0.standardizedFileURL.path }
+            .joined(separator: "\u{1F}")
+        let viewportWidth = Int((contentEditorViewportSize.width * 100).rounded())
+        let viewportHeight = Int((contentEditorViewportSize.height * 100).rounded())
+        let fontSize = Int((settings.editorFontSize * 100).rounded())
+
+        return [
+            noteStore.currentFileURL.standardizedFileURL.path,
+            workspacePaths,
+            "\(viewportWidth)x\(viewportHeight)",
+            "\(fontSize)",
+            settings.themeColor.rawValue,
+            settings.hasCompletedOnboarding ? "ready" : "onboarding"
+        ].joined(separator: "\u{1E}")
+    }
+
+    private func updateContentEditorViewportSize(_ size: CGSize) {
+        let normalizedSize = CGSize(
+            width: max(0, size.width),
+            height: max(0, size.height)
+        )
+        guard abs(normalizedSize.width - contentEditorViewportSize.width) > 0.5
+            || abs(normalizedSize.height - contentEditorViewportSize.height) > 0.5
+        else { return }
+
+        contentEditorViewportSize = normalizedSize
+    }
+
+    private func prewarmDocumentSwipePreviews() async {
+        guard settings.hasCompletedOnboarding,
+              noteStore.canSwitchWorkspaceDocument,
+              contentEditorViewportSize.width > 1,
+              contentEditorViewportSize.height > 1
+        else { return }
+
+        await documentSwipe.prewarmAdjacentPreviews(
+            noteStore: noteStore,
+            viewportSize: contentEditorViewportSize,
+            backingScale: NSScreen.main?.backingScaleFactor ?? 2,
+            fontSize: settings.editorFontSize,
+            accentColor: settings.accentNSColor
+        )
     }
 
     private var topDragPassthroughHeight: CGFloat {

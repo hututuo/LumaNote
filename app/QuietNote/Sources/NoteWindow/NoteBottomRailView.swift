@@ -20,7 +20,11 @@ struct NoteBottomRailView: View {
 
             HStack(spacing: metrics.spacing) {
                 opacityControls(metrics)
-                    .frame(minWidth: metrics.opacityGroupWidth, maxWidth: .infinity, alignment: .leading)
+                    .frame(
+                        minWidth: metrics.opacityGroupWidth,
+                        maxWidth: metrics.opacityGroupMaximumWidth,
+                        alignment: .trailing
+                    )
                     .layoutPriority(1)
 
                 railButtons(metrics)
@@ -28,7 +32,7 @@ struct NoteBottomRailView: View {
                     .layoutPriority(2)
             }
             .padding(.horizontal, metrics.horizontalPadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
         .frame(height: height)
         .contentShape(Rectangle())

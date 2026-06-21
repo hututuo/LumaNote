@@ -7,6 +7,9 @@ final class NoteBottomRailLayoutTests: XCTestCase {
 
         XCTAssertEqual(metrics.buttonCount, 7)
         XCTAssertEqual(metrics.opacityEndpointLabelWidth, 0, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(metrics.sliderWidth, 46)
+        XCTAssertEqual(metrics.opacityGroupMaximumWidth, metrics.opacityGroupWidth, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(metrics.horizontalPadding, 5)
         XCTAssertLessThanOrEqual(metrics.estimatedMinimumContentWidth, NoteWindowLayout.minimumSize.width + 0.1)
     }
 

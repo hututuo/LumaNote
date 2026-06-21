@@ -28,7 +28,7 @@ struct DocumentSwipeGestureAxisState {
         verticalLockDominanceRatio: CGFloat = 1.1,
         progressTravelThreshold: CGFloat = 220,
         progressLimit: CGFloat = 1.12,
-        triggerThreshold: CGFloat = 55,
+        triggerThreshold: CGFloat = 42,
         dominanceRatio: CGFloat = 1.55
     ) {
         self.lockThreshold = lockThreshold
@@ -112,5 +112,54 @@ struct DocumentSwipeGestureAxisState {
                   verticalDistance > max(1, horizontalDistance) * verticalLockDominanceRatio {
             mode = .vertical
         }
+    }
+}
+
+enum DocumentSwipeDisablePolicy {
+    static func shouldCancelWhenDisabling(
+        mode: DocumentSwipeGestureMode,
+        didTriggerQuickSwipe: Bool
+    ) -> Bool {
+        mode == .horizontal && !didTriggerQuickSwipe
+    }
+}
+
+struct DocumentSwipeProgressPublisher {
+    private var lastPublishedProgress: CGFloat = 0
+    private var lastProgressUpdate = -Double.infinity
+
+    private let updateInterval: TimeInterval
+    private let progressEpsilon: CGFloat
+    private let immediateProgressEpsilon: CGFloat
+
+    init(
+        updateInterval: TimeInterval = 1.0 / 60.0,
+        progressEpsilon: CGFloat = 0.018,
+        immediateProgressEpsilon: CGFloat = 0.048
+    ) {
+        self.updateInterval = updateInterval
+        self.progressEpsilon = progressEpsilon
+        self.immediateProgressEpsilon = immediateProgressEpsilon
+    }
+
+    mutating func shouldPublish(
+        progress: CGFloat,
+        force: Bool = false,
+        now: TimeInterval = Date.timeIntervalSinceReferenceDate
+    ) -> Bool {
+        let progressDelta = abs(progress - lastPublishedProgress)
+        guard force
+                || progressDelta >= immediateProgressEpsilon
+                || (progressDelta >= progressEpsilon && now - lastProgressUpdate >= updateInterval)
+        else { return false }
+
+        lastPublishedProgress = progress
+        lastProgressUpdate = now
+        return true
+    }
+
+    mutating func reset() {
+        lastPublishedProgress = 0
+        lastProgressUpdate = -Double.infinity
     }
 }

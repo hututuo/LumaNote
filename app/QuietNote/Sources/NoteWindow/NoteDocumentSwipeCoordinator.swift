@@ -1,9 +1,76 @@
+import AppKit
 import SwiftUI
 
 @MainActor
 @Observable
 final class NoteDocumentSwipeCoordinator {
     typealias PreviewLoader = @MainActor (Int, NoteStore) async -> (url: URL, text: String)?
+
+    private struct PreviewColorSignature: Equatable {
+        let red: Int
+        let green: Int
+        let blue: Int
+        let alpha: Int
+
+        init(_ color: NSColor) {
+            let rgb = color.usingColorSpace(.deviceRGB) ?? .systemCyan
+            red = Int((rgb.redComponent * 1000).rounded())
+            green = Int((rgb.greenComponent * 1000).rounded())
+            blue = Int((rgb.blueComponent * 1000).rounded())
+            alpha = Int((rgb.alphaComponent * 1000).rounded())
+        }
+    }
+
+    private struct PreviewPrewarmConfiguration: Equatable {
+        let viewportSize: CGSize
+        let backingScale: CGFloat
+        let fontSize: CGFloat
+        let accentColor: PreviewColorSignature
+
+        init(viewportSize: CGSize, backingScale: CGFloat, fontSize: CGFloat, accentColor: NSColor) {
+            self.viewportSize = CGSize(
+                width: max(1, viewportSize.width),
+                height: max(1, viewportSize.height)
+            )
+            self.backingScale = max(1, backingScale)
+            self.fontSize = MarkdownTaskLayout.normalizedFontSize(fontSize)
+            self.accentColor = PreviewColorSignature(accentColor)
+        }
+
+        var pixelWidth: Int {
+            Int((viewportSize.width * backingScale).rounded(.up))
+        }
+
+        var pixelHeight: Int {
+            Int((viewportSize.height * backingScale).rounded(.up))
+        }
+    }
+
+    private struct PrewarmedPreview {
+        let id: String
+        let url: URL
+        let text: String
+        let position: MarkdownDocumentPosition?
+        let revision: Int
+        let preRenderedImage: NSImage
+        let modificationDate: Date?
+        let configuration: PreviewPrewarmConfiguration
+
+        func preview(offset: Int) -> NoteDocumentSwipePreview {
+            NoteDocumentSwipePreview(
+                id: id,
+                url: url,
+                offset: offset,
+                text: text,
+                position: position,
+                revision: revision,
+                preRenderedImage: preRenderedImage
+            )
+        }
+    }
+
+    private static let prewarmOffsets = [-1, 1]
+    private static let maximumPrewarmPixelDimension = 4096
 
     var progress: CGFloat = 0
     var isAnimating = false
@@ -16,6 +83,9 @@ final class NoteDocumentSwipeCoordinator {
     @ObservationIgnored private var unlockAnimationTask: Task<Void, Never>?
     @ObservationIgnored private var previewClearTask: Task<Void, Never>?
     @ObservationIgnored private var previewRevision = 0
+    @ObservationIgnored private var pendingProgress: CGFloat?
+    @ObservationIgnored private var prewarmConfiguration: PreviewPrewarmConfiguration?
+    @ObservationIgnored private var prewarmedPreviews: [Int: PrewarmedPreview] = [:]
 
     init(previewLoader: @escaping PreviewLoader = { offset, noteStore in
         await noteStore.loadWorkspaceDocumentPreview(offset: offset)
@@ -32,15 +102,64 @@ final class NoteDocumentSwipeCoordinator {
 
         let direction = newProgress > 0 ? 1 : -1
         preparePreview(offset: direction, noteStore: noteStore)
-        guard preview?.offset == direction || previewLoadingOffset == direction else {
+        guard preview?.offset == direction else {
+            if previewLoadingOffset == direction {
+                pendingProgress = newProgress
+                setProgressWithoutAnimation(0)
+                return
+            }
             cancel()
             return
         }
 
-        var transaction = Transaction(animation: nil)
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            progress = newProgress
+        pendingProgress = nil
+        setProgressWithoutAnimation(newProgress)
+    }
+
+    func prewarmAdjacentPreviews(
+        noteStore: NoteStore,
+        viewportSize: CGSize,
+        backingScale: CGFloat,
+        fontSize: Double,
+        accentColor: NSColor
+    ) async {
+        guard noteStore.canSwitchWorkspaceDocument,
+              !isAnimating,
+              abs(progress) <= 0.001
+        else { return }
+
+        let configuration = PreviewPrewarmConfiguration(
+            viewportSize: viewportSize,
+            backingScale: backingScale,
+            fontSize: CGFloat(fontSize),
+            accentColor: accentColor
+        )
+        guard configuration.pixelWidth > 1,
+              configuration.pixelHeight > 1,
+              configuration.pixelWidth <= Self.maximumPrewarmPixelDimension,
+              configuration.pixelHeight <= Self.maximumPrewarmPixelDimension
+        else {
+            prewarmConfiguration = nil
+            prewarmedPreviews.removeAll()
+            return
+        }
+
+        if prewarmConfiguration != configuration {
+            prewarmConfiguration = configuration
+            prewarmedPreviews.removeAll()
+        }
+
+        for offset in Self.prewarmOffsets {
+            guard !Task.isCancelled,
+                  !isAnimating,
+                  abs(progress) <= 0.001
+            else { return }
+            await prewarmPreview(
+                offset: offset,
+                noteStore: noteStore,
+                configuration: configuration,
+                accentColor: accentColor
+            )
         }
     }
 
@@ -50,6 +169,7 @@ final class NoteDocumentSwipeCoordinator {
         previewTask?.cancel()
         previewTask = nil
         previewLoadingOffset = nil
+        pendingProgress = nil
         previewClearTask?.cancel()
         previewClearTask = nil
         guard abs(progress) > 0.001 else {
@@ -79,21 +199,30 @@ final class NoteDocumentSwipeCoordinator {
 
         isAnimating = true
 
-        withAnimation(.snappy(duration: NoteWindowTiming.documentSwipeCommitAnimation)) {
-            progress = signedDirection
-        }
-
         commitAnimationTask?.cancel()
         unlockAnimationTask?.cancel()
         previewClearTask?.cancel()
         commitAnimationTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(NoteWindowTiming.documentSwipeCommitAnimation))
-            guard !Task.isCancelled, let self else { return }
+            guard let self else { return }
 
             if self.preview?.offset != direction,
                self.previewLoadingOffset == direction {
                 await self.previewTask?.value
             }
+            guard !Task.isCancelled else { return }
+            guard self.preview?.offset == direction else {
+                self.cancelPreviewTask()
+                self.setProgressWithoutAnimation(0)
+                self.preview = nil
+                self.scheduleAnimationUnlock()
+                return
+            }
+
+            withAnimation(.snappy(duration: NoteWindowTiming.documentSwipeCommitAnimation)) {
+                self.progress = signedDirection
+            }
+
+            try? await Task.sleep(for: .seconds(NoteWindowTiming.documentSwipeCommitAnimation))
             guard !Task.isCancelled else { return }
 
             let matchingPreview = self.preview?.offset == direction ? self.preview : nil
@@ -131,12 +260,20 @@ final class NoteDocumentSwipeCoordinator {
         progress = 0
         preview = nil
         isAnimating = false
+        pendingProgress = nil
+        prewarmConfiguration = nil
+        prewarmedPreviews.removeAll()
     }
 
     private func preparePreview(offset: Int, noteStore: NoteStore) {
         guard offset != 0 else { return }
         previewClearTask?.cancel()
         previewClearTask = nil
+        if let prewarmedPreview = validPrewarmedPreview(offset: offset, noteStore: noteStore) {
+            cancelPreviewTask()
+            preview = prewarmedPreview.preview(offset: offset)
+            return
+        }
         if preview?.offset == offset || previewLoadingOffset == offset {
             return
         }
@@ -159,6 +296,7 @@ final class NoteDocumentSwipeCoordinator {
             previewTask = nil
 
             guard let loadedPreview else {
+                pendingProgress = nil
                 if preview?.offset == offset {
                     preview = nil
                 }
@@ -174,13 +312,119 @@ final class NoteDocumentSwipeCoordinator {
                 position: noteStore.documentPosition(for: loadedPreview.url),
                 revision: previewRevision
             )
+            applyPendingProgressIfNeeded(for: offset)
         }
+    }
+
+    private func prewarmPreview(
+        offset: Int,
+        noteStore: NoteStore,
+        configuration: PreviewPrewarmConfiguration,
+        accentColor: NSColor
+    ) async {
+        guard offset != 0 else { return }
+        if validPrewarmedPreview(offset: offset, noteStore: noteStore) != nil {
+            return
+        }
+        guard let targetURL = noteStore.workspaceDocumentURL(offset: offset) else {
+            prewarmedPreviews[offset] = nil
+            return
+        }
+        let targetPosition = noteStore.documentPosition(for: targetURL)
+        if let reusablePreview = reusablePrewarmedPreview(
+            for: targetURL,
+            configuration: configuration,
+            position: targetPosition
+        ) {
+            prewarmedPreviews[offset] = reusablePreview
+            return
+        }
+
+        let targetPath = targetURL.standardizedFileURL.path
+        guard let loadedPreview = await previewLoader(offset, noteStore),
+              !Task.isCancelled,
+              loadedPreview.url.standardizedFileURL.path == targetPath
+        else { return }
+
+        guard let image = MarkdownStaticPreviewRenderer.render(
+            text: loadedPreview.text,
+            fontSize: configuration.fontSize,
+            accentColor: accentColor,
+            documentPosition: targetPosition,
+            size: configuration.viewportSize,
+            backingScale: configuration.backingScale
+        ) else { return }
+
+        previewRevision &+= 1
+        prewarmedPreviews[offset] = PrewarmedPreview(
+            id: "\(loadedPreview.url.standardizedFileURL.path)#prewarm-\(previewRevision)",
+            url: loadedPreview.url,
+            text: loadedPreview.text,
+            position: targetPosition,
+            revision: previewRevision,
+            preRenderedImage: image,
+            modificationDate: fileModificationDate(for: loadedPreview.url),
+            configuration: configuration
+        )
+    }
+
+    private func validPrewarmedPreview(offset: Int, noteStore: NoteStore) -> PrewarmedPreview? {
+        guard let prewarmedPreview = prewarmedPreviews[offset],
+              let prewarmConfiguration,
+              prewarmedPreview.configuration == prewarmConfiguration,
+              let targetURL = noteStore.workspaceDocumentURL(offset: offset),
+              prewarmedPreview.url.standardizedFileURL.path == targetURL.standardizedFileURL.path,
+              prewarmedPreview.modificationDate == fileModificationDate(for: targetURL),
+              prewarmedPreview.position == noteStore.documentPosition(for: targetURL)
+        else { return nil }
+        return prewarmedPreview
+    }
+
+    private func reusablePrewarmedPreview(
+        for targetURL: URL,
+        configuration: PreviewPrewarmConfiguration,
+        position: MarkdownDocumentPosition?
+    ) -> PrewarmedPreview? {
+        let targetPath = targetURL.standardizedFileURL.path
+        let modificationDate = fileModificationDate(for: targetURL)
+        return prewarmedPreviews.values.first { preview in
+            preview.configuration == configuration
+                && preview.url.standardizedFileURL.path == targetPath
+                && preview.modificationDate == modificationDate
+                && preview.position == position
+        }
+    }
+
+    private func fileModificationDate(for url: URL) -> Date? {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.standardizedFileURL.path)
+        return attributes?[.modificationDate] as? Date
     }
 
     private func cancelPreviewTask() {
         previewTask?.cancel()
         previewTask = nil
         previewLoadingOffset = nil
+        pendingProgress = nil
+    }
+
+    private func applyPendingProgressIfNeeded(for offset: Int) {
+        guard !isAnimating,
+              let pendingProgress,
+              (pendingProgress > 0 ? 1 : -1) == offset,
+              preview?.offset == offset
+        else { return }
+
+        self.pendingProgress = nil
+        setProgressWithoutAnimation(pendingProgress)
+    }
+
+    private func setProgressWithoutAnimation(_ newProgress: CGFloat) {
+        guard progress != newProgress else { return }
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            progress = newProgress
+        }
     }
 
     private func cancelCommitAnimationTasks() {

@@ -111,6 +111,9 @@ final class MarkdownTaskTextView: NSTextView, @preconcurrency NSLayoutManagerDel
         didSet { needsDisplay = true }
     }
 
+    private(set) var hiddenSyntaxRanges: [NSRange] = []
+    private(set) var hiddenSyntaxCharacterMap: [UInt8] = []
+
     private var copiedCodeBlockRange: NSRange?
     private var suppressSelectionScrollForUserEvent = false
     private var selectionScrollSuppressionGeneration = 0
@@ -161,25 +164,25 @@ final class MarkdownTaskTextView: NSTextView, @preconcurrency NSLayoutManagerDel
         font aFont: NSFont,
         forGlyphRange glyphRange: NSRange
     ) -> Int {
-        guard let textStorage else { return 0 }
-
-        var properties: [NSLayoutManager.GlyphProperty] = []
-        properties.reserveCapacity(glyphRange.length)
-        var didHideSyntax = false
-
-        for index in 0..<glyphRange.length {
-            var property = props[index]
-            let characterIndex = charIndexes[index]
-            if characterIndex >= 0,
-               characterIndex < textStorage.length,
-               textStorage.attribute(.markdownHiddenSyntax, at: characterIndex, effectiveRange: nil) != nil {
-                property.insert(.null)
-                didHideSyntax = true
-            }
-            properties.append(property)
+        guard containsHiddenSyntaxCharacter(in: charIndexes, length: glyphRange.length) else {
+            return 0
         }
 
-        guard didHideSyntax else { return 0 }
+        var properties = Array(UnsafeBufferPointer(start: props, count: glyphRange.length))
+        hiddenSyntaxCharacterMap.withUnsafeBufferPointer { map in
+            guard let baseAddress = map.baseAddress else { return }
+            let upperBound = map.count
+            var index = 0
+            while index < glyphRange.length {
+                let characterIndex = charIndexes[index]
+                if characterIndex >= 0,
+                   characterIndex < upperBound,
+                   baseAddress[characterIndex] != 0 {
+                    properties[index].insert(.null)
+                }
+                index += 1
+            }
+        }
 
         properties.withUnsafeBufferPointer { propertyBuffer in
             guard let baseAddress = propertyBuffer.baseAddress else { return }
@@ -192,6 +195,83 @@ final class MarkdownTaskTextView: NSTextView, @preconcurrency NSLayoutManagerDel
             )
         }
         return glyphRange.length
+    }
+
+    func updateHiddenSyntaxRanges(from storage: NSTextStorage) {
+        guard storage.length > 0 else {
+            hiddenSyntaxRanges = []
+            hiddenSyntaxCharacterMap = []
+            return
+        }
+
+        var ranges: [NSRange] = []
+        storage.enumerateAttribute(
+            .markdownHiddenSyntax,
+            in: NSRange(location: 0, length: storage.length),
+            options: []
+        ) { value, range, _ in
+            if value != nil {
+                ranges.append(range)
+            }
+        }
+        hiddenSyntaxRanges = MarkdownRangeHelpers.normalizedRanges(ranges, upperBound: storage.length)
+        hiddenSyntaxCharacterMap = Self.makeHiddenSyntaxCharacterMap(
+            ranges: hiddenSyntaxRanges,
+            length: storage.length
+        )
+    }
+
+    func clearHiddenSyntaxRanges() {
+        hiddenSyntaxRanges = []
+        hiddenSyntaxCharacterMap = []
+    }
+
+    func containsHiddenSyntaxCharacters(_ characterIndexes: [Int]) -> Bool {
+        characterIndexes.withUnsafeBufferPointer { buffer in
+            guard let baseAddress = buffer.baseAddress else { return false }
+            return containsHiddenSyntaxCharacter(in: baseAddress, length: buffer.count)
+        }
+    }
+
+    func isHiddenSyntaxCharacter(at characterIndex: Int) -> Bool {
+        characterIndex >= 0
+            && characterIndex < hiddenSyntaxCharacterMap.count
+            && hiddenSyntaxCharacterMap[characterIndex] != 0
+    }
+
+    private func containsHiddenSyntaxCharacter(in characterIndexes: UnsafePointer<Int>, length: Int) -> Bool {
+        guard length > 0, !hiddenSyntaxCharacterMap.isEmpty else { return false }
+
+        return hiddenSyntaxCharacterMap.withUnsafeBufferPointer { map in
+            guard let baseAddress = map.baseAddress else { return false }
+            let upperBound = map.count
+            var index = 0
+            while index < length {
+                let characterIndex = characterIndexes[index]
+                if characterIndex >= 0,
+                   characterIndex < upperBound,
+                   baseAddress[characterIndex] != 0 {
+                    return true
+                }
+                index += 1
+            }
+            return false
+        }
+    }
+
+    private static func makeHiddenSyntaxCharacterMap(ranges: [NSRange], length: Int) -> [UInt8] {
+        guard length > 0, !ranges.isEmpty else { return [] }
+
+        var map = Array(repeating: UInt8(0), count: length)
+        for range in ranges {
+            let start = max(0, range.location)
+            let end = min(length, range.location + range.length)
+            guard start < end else { continue }
+            for index in start..<end {
+                map[index] = 1
+            }
+        }
+        return map
     }
 
     override func insertNewline(_ sender: Any?) {

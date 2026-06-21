@@ -55,7 +55,13 @@ enum MarkdownInlineStyler {
             if let visibleRange = MarkdownStyleRules.visibleContentRange(for: match, style: rule.style) {
                 storage.addAttributes(styles.attributes(for: rule.style), range: visibleRange)
                 if !MarkdownRangeHelpers.ranges(activeSelectionRanges, touch: match.range) {
-                    hideSyntax(in: storage, fullRange: match.range, visibleRanges: [visibleRange], attributes: styles)
+                    styleSyntax(
+                        in: storage,
+                        fullRange: match.range,
+                        visibleRanges: [visibleRange],
+                        hidesSyntax: rule.hidesSyntax,
+                        attributes: styles
+                    )
                 }
             } else {
                 storage.addAttributes(styles.attributes(for: rule.style), range: match.range)
@@ -64,14 +70,15 @@ enum MarkdownInlineStyler {
         return matches.map(\.range)
     }
 
-    private static func hideSyntax(
+    private static func styleSyntax(
         in storage: NSTextStorage,
         fullRange: NSRange,
         visibleRanges: [NSRange],
+        hidesSyntax: Bool,
         attributes styles: MarkdownStyleAttributes
     ) {
         MarkdownRangeHelpers.syntaxRanges(in: fullRange, visibleRanges: visibleRanges).forEach { range in
-            storage.addAttributes(styles.hiddenSyntaxAttributes(), range: range)
+            storage.addAttributes(hidesSyntax ? styles.hiddenSyntaxAttributes() : styles.markerAttributes(), range: range)
         }
     }
 }

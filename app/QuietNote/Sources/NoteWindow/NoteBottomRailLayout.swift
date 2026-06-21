@@ -10,6 +10,7 @@ struct NoteBottomRailLayoutMetrics {
     let labelFontSize: CGFloat
     let percentWidth: CGFloat
     let opacityEndpointLabelWidth: CGFloat
+    let opacityGroupMaximumWidth: CGFloat
     let allowsFlexibleOpacityExpansion: Bool
     let buttonCount: Int
 
@@ -42,12 +43,13 @@ enum NoteBottomRailLayout {
             progress: progress,
             spacing: spacing,
             horizontalPadding: horizontalPadding,
-            sliderWidth: 66 - progress * 14,
+            sliderWidth: 66 - progress * 20,
             buttonSize: buttonSize,
             utilityButtonHitSize: 26 - progress * 3,
             labelFontSize: 11.2 - progress * 1.1,
             percentWidth: 32 - progress * 6,
             opacityEndpointLabelWidth: 0,
+            opacityGroupMaximumWidth: 263 - progress * 189,
             allowsFlexibleOpacityExpansion: true,
             buttonCount: 7
         )

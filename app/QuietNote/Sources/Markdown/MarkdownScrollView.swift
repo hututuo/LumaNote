@@ -7,6 +7,7 @@ final class MarkdownScrollView: NSScrollView {
     private var lastViewportWidth: CGFloat = 0
     private var lastViewportHeight: CGFloat = 0
     private var liveResizeState = MarkdownScrollViewLiveResizeState()
+    private var layoutRefreshState = MarkdownScrollViewLayoutRefreshState()
     private weak var observedWindow: NSWindow?
     private static let bottomBreathingSpaceRatio: CGFloat = 2.0 / 3.0
 
@@ -26,6 +27,7 @@ final class MarkdownScrollView: NSScrollView {
 
     override var documentView: NSView? {
         didSet {
+            layoutRefreshState.reset()
             observeScrollGeometry()
             refreshScrollIndicator()
         }
@@ -39,6 +41,12 @@ final class MarkdownScrollView: NSScrollView {
 
     override func layout() {
         super.layout()
+        guard layoutRefreshState.shouldRefreshLayout(
+            boundsSize: bounds.size,
+            viewportSize: contentView.bounds.size,
+            hasCachedDocumentHeight: cachedDocumentHeight != nil
+        ) else { return }
+
         invalidateDocumentHeightIfNeeded()
         layoutScrollIndicator()
         refreshScrollIndicator()
@@ -350,6 +358,40 @@ struct MarkdownScrollViewLiveResizeState {
     mutating func consumeNeedsPostResizeRefresh() -> Bool {
         defer { needsPostResizeRefresh = false }
         return needsPostResizeRefresh
+    }
+}
+
+struct MarkdownScrollViewLayoutRefreshState {
+    private var lastBoundsSize: CGSize?
+    private var lastViewportSize: CGSize?
+
+    mutating func shouldRefreshLayout(
+        boundsSize: CGSize,
+        viewportSize: CGSize,
+        hasCachedDocumentHeight: Bool
+    ) -> Bool {
+        defer {
+            lastBoundsSize = boundsSize
+            lastViewportSize = viewportSize
+        }
+
+        guard hasCachedDocumentHeight,
+              let lastBoundsSize,
+              let lastViewportSize
+        else { return true }
+
+        return hasSizeChanged(boundsSize, from: lastBoundsSize)
+            || hasSizeChanged(viewportSize, from: lastViewportSize)
+    }
+
+    mutating func reset() {
+        lastBoundsSize = nil
+        lastViewportSize = nil
+    }
+
+    private func hasSizeChanged(_ size: CGSize, from previousSize: CGSize) -> Bool {
+        abs(size.width - previousSize.width) > 0.5
+            || abs(size.height - previousSize.height) > 0.5
     }
 }
 

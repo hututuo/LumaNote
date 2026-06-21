@@ -67,6 +67,27 @@ enum MarkdownDocumentPositionApplicator {
     }
 }
 
+struct MarkdownRenderingEditorInteractionMode: Equatable {
+    let isEditable: Bool
+    let isSelectable: Bool
+    let allowsUndo: Bool
+    let observesDocumentPosition: Bool
+
+    static let editable = MarkdownRenderingEditorInteractionMode(
+        isEditable: true,
+        isSelectable: true,
+        allowsUndo: true,
+        observesDocumentPosition: true
+    )
+
+    static let readOnlyPreview = MarkdownRenderingEditorInteractionMode(
+        isEditable: false,
+        isSelectable: false,
+        allowsUndo: false,
+        observesDocumentPosition: false
+    )
+}
+
 struct MarkdownRenderingEditor: NSViewRepresentable {
     @Binding var text: String
     var documentID: String = ""
@@ -76,6 +97,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
     var documentPosition: MarkdownDocumentPosition?
     var emphasisCommand: MarkdownEmphasisCommand?
     var onDocumentPositionChange: ((MarkdownDocumentPosition) -> Void)?
+    var interactionMode: MarkdownRenderingEditorInteractionMode = .editable
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -83,6 +105,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             documentID: documentID,
             contentRevision: contentRevision,
             fontSize: CGFloat(fontSize),
+            interactionMode: interactionMode,
             onDocumentPositionChange: onDocumentPositionChange
         )
     }
@@ -95,12 +118,12 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         scrollView.borderType = .noBorder
 
         let textView = MarkdownTaskTextView()
-        textView.delegate = context.coordinator
+        textView.delegate = interactionMode.isEditable ? context.coordinator : nil
         textView.drawsBackground = false
         textView.isRichText = false
-        textView.isEditable = true
-        textView.isSelectable = true
-        textView.allowsUndo = true
+        textView.isEditable = interactionMode.isEditable
+        textView.isSelectable = interactionMode.isSelectable
+        textView.allowsUndo = interactionMode.allowsUndo
         textView.importsGraphics = false
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
@@ -129,7 +152,9 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         scrollView.setMarkdownTextView(textView)
         scrollView.refreshScrollIndicator()
         context.coordinator.textView = textView
-        context.coordinator.observeScrollView(scrollView)
+        if interactionMode.observesDocumentPosition {
+            context.coordinator.observeScrollView(scrollView)
+        }
         context.coordinator.applyDocumentPosition(
             documentPosition ?? .top,
             scrollView: scrollView
@@ -148,7 +173,17 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         let didChangeTextRevision = context.coordinator.contentRevision != contentRevision
         let taskTextView = textView as? MarkdownTaskTextView
         let didChangeAccentColor = taskTextView.map { !$0.taskAccentColor.isEqual(accentColor) } ?? false
-        context.coordinator.onDocumentPositionChange = onDocumentPositionChange
+        context.coordinator.interactionMode = interactionMode
+        textView.delegate = interactionMode.isEditable ? context.coordinator : nil
+        textView.isEditable = interactionMode.isEditable
+        textView.isSelectable = interactionMode.isSelectable
+        textView.allowsUndo = interactionMode.allowsUndo
+        context.coordinator.onDocumentPositionChange = interactionMode.observesDocumentPosition ? onDocumentPositionChange : nil
+        if interactionMode.observesDocumentPosition {
+            markdownScrollView.map { context.coordinator.observeScrollView($0) }
+        } else {
+            context.coordinator.stopObservingScrollView()
+        }
         if didChangeFontSize {
             context.coordinator.fontSize = newFontSize
             taskTextView?.bodyFontSize = newFontSize
@@ -198,6 +233,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         var documentID: String
         var contentRevision: Int
         var fontSize: CGFloat
+        var interactionMode: MarkdownRenderingEditorInteractionMode
         var onDocumentPositionChange: ((MarkdownDocumentPosition) -> Void)?
         weak var textView: NSTextView?
         private var isStyling = false
@@ -215,13 +251,15 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             documentID: String = "",
             contentRevision: Int,
             fontSize: CGFloat,
+            interactionMode: MarkdownRenderingEditorInteractionMode = .editable,
             onDocumentPositionChange: ((MarkdownDocumentPosition) -> Void)? = nil
         ) {
             _text = text
             self.documentID = documentID
             self.contentRevision = contentRevision
             self.fontSize = MarkdownTaskLayout.normalizedFontSize(fontSize)
-            self.onDocumentPositionChange = onDocumentPositionChange
+            self.interactionMode = interactionMode
+            self.onDocumentPositionChange = interactionMode.observesDocumentPosition ? onDocumentPositionChange : nil
         }
 
         deinit {
@@ -235,6 +273,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         }
 
         func observeScrollView(_ scrollView: MarkdownScrollView) {
+            guard interactionMode.observesDocumentPosition else { return }
             guard observedClipView !== scrollView.contentView else { return }
             if let observedClipView {
                 NotificationCenter.default.removeObserver(
@@ -251,6 +290,17 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                 name: NSView.boundsDidChangeNotification,
                 object: scrollView.contentView
             )
+        }
+
+        func stopObservingScrollView() {
+            guard let observedClipView else { return }
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSView.boundsDidChangeNotification,
+                object: observedClipView
+            )
+            observedClipView.postsBoundsChangedNotifications = false
+            self.observedClipView = nil
         }
 
         func textDidChange(_ notification: Notification) {
@@ -294,6 +344,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                 (textView as? MarkdownTaskTextView)?.taskItems = []
                 (textView as? MarkdownTaskTextView)?.codeBlocks = []
                 (textView as? MarkdownTaskTextView)?.headingItems = []
+                (textView as? MarkdownTaskTextView)?.clearHiddenSyntaxRanges()
                 return
             }
 
@@ -317,6 +368,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
                 taskTextView.taskItems = blockResult.taskItems
                 taskTextView.codeBlocks = blockResult.codeBlocks
                 taskTextView.headingItems = blockResult.headingItems
+                taskTextView.updateHiddenSyntaxRanges(from: storage)
             }
             if let taskTextView = textView as? MarkdownTaskTextView {
                 taskTextView.restoreSelectedRangesWithoutScroll(selectedRanges)
