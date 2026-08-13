@@ -676,7 +676,7 @@ final class NoteStore {
             token: writeToken
         )
         if case let .saved(identity) = result {
-            recordSuccessfulWrite(for: url, identity: identity, revision: revision)
+            recordSuccessfulWrite(for: url, identity: identity, revision: revision, token: writeToken)
         }
         return mapWriteResult(result)
     }
@@ -695,7 +695,7 @@ final class NoteStore {
             token: writeToken
         )
         if case let .saved(identity) = result {
-            recordSuccessfulWrite(for: url, identity: identity, revision: revision)
+            recordSuccessfulWrite(for: url, identity: identity, revision: revision, token: writeToken)
         }
         return mapWriteResult(result)
     }
@@ -707,12 +707,15 @@ final class NoteStore {
     private func recordSuccessfulWrite(
         for url: URL,
         identity: NoteFileModificationIdentity?,
-        revision: Int
+        revision: Int,
+        token: Int
     ) {
         // A cancelled off-main write may finish after a newer write has
         // already replaced the file. Do not let that stale completion roll
         // the in-memory baseline back to the older identity.
-        guard fileOperations.modificationIdentity(for: url) == identity else { return }
+        guard fileOperations.isLatestWrite(token, for: url),
+              fileOperations.modificationIdentity(for: url) == identity
+        else { return }
         let path = url.standardizedFileURL.path
         filePersistenceStates[path] = FilePersistenceState(
             identity: identity,
@@ -817,7 +820,7 @@ final class NoteStore {
                 token: writeToken
             )
             if case let .saved(identity) = result {
-                self.recordSuccessfulWrite(for: url, identity: identity, revision: revision)
+                self.recordSuccessfulWrite(for: url, identity: identity, revision: revision, token: writeToken)
             }
             guard !Task.isCancelled,
                   self.saveGeneration == generation,

@@ -56,7 +56,7 @@ private final class NoteFileWriteCoordinator: @unchecked Sendable {
         }
     }
 
-    private func isLatest(_ token: Int, for url: URL) -> Bool {
+    func isLatest(_ token: Int, for url: URL) -> Bool {
         tokenLock.lock()
         defer { tokenLock.unlock() }
         return latestTokenByPath[url.standardizedFileURL.path] == token
@@ -134,6 +134,10 @@ struct NoteFileOperations: @unchecked Sendable {
 
     func beginWrite(for url: URL) -> Int {
         coordinator.beginWrite(for: url)
+    }
+
+    func isLatestWrite(_ token: Int, for url: URL) -> Bool {
+        coordinator.isLatest(token, for: url)
     }
 
     func writeIfIdentityMatches(
