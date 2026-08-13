@@ -72,7 +72,7 @@ cat SHA256SUMS-v0.1.5.txt
 curl -fsSL https://raw.githubusercontent.com/hututuo/LumaNote/main/install.sh | bash
 ```
 
-这个脚本会克隆或更新源码到 `~/.lumanote/source`，在本机用 Swift 构建并 ad-hoc 签名，然后安装到 `~/Applications/LumaNote.app` 并打开应用。它需要 macOS 14+ 和 Swift / Xcode Command Line Tools。
+这个脚本会克隆或更新官方仓库到 `~/.lumanote/source`，检出 `main` 上最新的正式版本标签，在本机用 Swift 的 release 配置构建并 ad-hoc 签名，然后原子替换并打开 `~/Applications/LumaNote.app`。已有源码目录必须是干净且来源匹配的 Git worktree；脚本不会删除无法确认用途的目录。它需要 macOS 14+ 和 Swift / Xcode Command Line Tools。可用 `LUMANOTE_REF=v0.1.5` 显式固定版本。
 
 ## 更新
 
@@ -80,7 +80,7 @@ App 内置 Sparkle 更新检查。首次引导、设置页或底部 More 菜单�
 
 也可以在 App 菜单或设置里手动点“检查更新”。
 
-如果你是通过源码一行安装，也可以重新运行安装命令，它会拉取最新源码并重新构建本地 App。
+如果你是通过源码一行安装，也可以重新运行安装命令，它会获取最新正式标签并重新构建本地 App。
 
 ## 本地数据与隐私
 
@@ -220,7 +220,7 @@ Backup source install:
 curl -fsSL https://raw.githubusercontent.com/hututuo/LumaNote/main/install.sh | bash
 ```
 
-This script clones or updates the source under `~/.lumanote/source`, builds and ad-hoc signs the app locally with Swift, installs it to `~/Applications/LumaNote.app`, and opens it. It requires macOS 14+ and Swift / Xcode Command Line Tools.
+This script clones or updates the official repository under `~/.lumanote/source`, checks out the newest stable tag reachable from `main`, builds a release configuration, ad-hoc signs it, then atomically replaces and opens `~/Applications/LumaNote.app`. An existing source directory must be a clean Git worktree with the expected origin; the installer will not delete an unknown directory. It requires macOS 14+ and Swift / Xcode Command Line Tools. Set `LUMANOTE_REF=v0.1.5` to pin an explicit version.
 
 ## Update
 
@@ -228,7 +228,7 @@ The app includes Sparkle update checking. You can enable automatic update checks
 
 You can also click Check for Updates from the app menu or Settings.
 
-If you installed from source with the one-line installer, re-run the command to pull the latest source and rebuild the local app.
+If you installed from source with the one-line installer, re-run the command to fetch the newest stable tag and rebuild the local app.
 
 ## Local Data And Privacy
 
