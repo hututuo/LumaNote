@@ -20,6 +20,9 @@ struct NoteWindowView: View {
     @State private var chromeAutoHide = NoteChromeAutoHideController()
     @State private var documentSwipe = NoteDocumentSwipeCoordinator()
     @State private var contentEditorViewportSize: CGSize = .zero
+    @State private var windowBackingScale: CGFloat = 2
+    @State private var windowAppearanceIdentity = ""
+    @State private var windowIsLiveResizing = false
     @State private var emphasisCommandSerial = 0
     @State private var emphasisCommand: MarkdownEmphasisCommand?
     @Namespace private var extractionIslandNamespace
@@ -100,6 +103,17 @@ struct NoteWindowView: View {
                 }
                 .zIndex(80)
             }
+        }
+        .background {
+            NoteWindowMetricsBridge { metrics in
+                DispatchQueue.main.async {
+                    windowBackingScale = metrics.backingScale
+                    windowAppearanceIdentity = metrics.appearanceIdentity
+                    windowIsLiveResizing = metrics.isLiveResizing
+                }
+            }
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
         }
         .frame(
             minWidth: NoteWindowLayout.minimumSize.width,
@@ -489,6 +503,7 @@ struct NoteWindowView: View {
             swipeProgress: documentSwipe.progress,
             fontSize: settings.editorFontSize,
             accentColor: settings.accentNSColor,
+            appearanceIdentity: windowAppearanceIdentity,
             emphasisCommand: emphasisCommand,
             topFadeHeight: markdownTopFadeHeight,
             bottomFadeHeight: markdownBottomFadeHeight,
@@ -563,8 +578,9 @@ struct NoteWindowView: View {
         let workspacePaths = noteStore.activeWorkspaceFileURLs
             .map { $0.standardizedFileURL.path }
             .joined(separator: "\u{1F}")
-        let viewportWidth = Int((contentEditorViewportSize.width * 100).rounded())
-        let viewportHeight = Int((contentEditorViewportSize.height * 100).rounded())
+        let quantizedViewport = NoteDocumentSwipePrewarmLayout.quantizedViewportSize(contentEditorViewportSize)
+        let viewportWidth = Int(quantizedViewport.width.rounded())
+        let viewportHeight = Int(quantizedViewport.height.rounded())
         let fontSize = Int((settings.editorFontSize * 100).rounded())
 
         return [
@@ -573,6 +589,9 @@ struct NoteWindowView: View {
             "\(viewportWidth)x\(viewportHeight)",
             "\(fontSize)",
             settings.themeColor.rawValue,
+            "scale:\(Int((windowBackingScale * 1000).rounded()))",
+            "appearance:\(windowAppearanceIdentity)",
+            windowIsLiveResizing ? "resizing" : "stable",
             settings.hasCompletedOnboarding ? "ready" : "onboarding"
         ].joined(separator: "\u{1E}")
     }
@@ -590,18 +609,24 @@ struct NoteWindowView: View {
     }
 
     private func prewarmDocumentSwipePreviews() async {
+        let quantizedViewport = NoteDocumentSwipePrewarmLayout.quantizedViewportSize(contentEditorViewportSize)
         guard settings.hasCompletedOnboarding,
               noteStore.canSwitchWorkspaceDocument,
-              contentEditorViewportSize.width > 1,
-              contentEditorViewportSize.height > 1
+              !windowIsLiveResizing,
+              quantizedViewport.width > 1,
+              quantizedViewport.height > 1
         else { return }
+
+        try? await Task.sleep(for: .milliseconds(120))
+        guard !Task.isCancelled, !windowIsLiveResizing else { return }
 
         await documentSwipe.prewarmAdjacentPreviews(
             noteStore: noteStore,
-            viewportSize: contentEditorViewportSize,
-            backingScale: NSScreen.main?.backingScaleFactor ?? 2,
+            viewportSize: quantizedViewport,
+            backingScale: windowBackingScale,
             fontSize: settings.editorFontSize,
-            accentColor: settings.accentNSColor
+            accentColor: settings.accentNSColor,
+            appearanceIdentity: windowAppearanceIdentity
         )
     }
 

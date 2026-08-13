@@ -10,6 +10,7 @@ struct MarkdownStaticPreviewView: NSViewRepresentable {
     let documentPosition: MarkdownDocumentPosition?
     let initialSize: CGSize
     let preRenderedImage: NSImage?
+    var appearanceIdentity: String = ""
 
     func makeNSView(context: Context) -> MarkdownStaticPreviewNSView {
         let view = MarkdownStaticPreviewNSView()
@@ -22,7 +23,8 @@ struct MarkdownStaticPreviewView: NSViewRepresentable {
             accentColor: accentColor,
             documentPosition: documentPosition,
             initialSize: initialSize,
-            preRenderedImage: preRenderedImage
+            preRenderedImage: preRenderedImage,
+            appearanceIdentity: appearanceIdentity
         )
         return view
     }
@@ -36,8 +38,37 @@ struct MarkdownStaticPreviewView: NSViewRepresentable {
             accentColor: accentColor,
             documentPosition: documentPosition,
             initialSize: initialSize,
-            preRenderedImage: preRenderedImage
+            preRenderedImage: preRenderedImage,
+            appearanceIdentity: appearanceIdentity
         )
+    }
+}
+
+enum MarkdownStaticPreviewLimits {
+    static let maximumPixelDimension = 4096
+    static let maximumPixelCount = 8_000_000
+    static let maximumBitmapBytes = 32 * 1024 * 1024
+
+    static func pixelDimensions(size: CGSize, backingScale: CGFloat) -> (width: Int, height: Int) {
+        let scale = max(1, backingScale)
+        let width = max(1, Int((max(1, size.width) * scale).rounded(.up)))
+        let height = max(1, Int((max(1, size.height) * scale).rounded(.up)))
+        return (width, height)
+    }
+
+    static func isWithinBudget(pixelWidth: Int, pixelHeight: Int) -> Bool {
+        guard pixelWidth > 0, pixelHeight > 0,
+              pixelWidth <= maximumPixelDimension,
+              pixelHeight <= maximumPixelDimension,
+              pixelWidth <= maximumPixelCount / max(1, pixelHeight)
+        else { return false }
+        let pixels = pixelWidth * pixelHeight
+        return pixels <= maximumPixelCount
+            && pixels <= maximumBitmapBytes / 4
+    }
+
+    static func scaleIdentity(_ backingScale: CGFloat) -> Int {
+        Int((max(1, backingScale) * 1000).rounded())
     }
 }
 
@@ -51,6 +82,7 @@ final class MarkdownStaticPreviewNSView: NSView {
         let documentPosition: MarkdownDocumentPosition?
         let initialSize: CGSize
         let preRenderedImage: NSImage?
+        let appearanceIdentity: String
     }
 
     private struct RenderKey: Equatable {
@@ -62,6 +94,8 @@ final class MarkdownStaticPreviewNSView: NSView {
         let documentPosition: MarkdownDocumentPosition?
         let pixelWidth: Int
         let pixelHeight: Int
+        let backingScale: Int
+        let appearanceIdentity: String
     }
 
     private struct ColorSignature: Equatable {
@@ -113,7 +147,8 @@ final class MarkdownStaticPreviewNSView: NSView {
         accentColor: NSColor,
         documentPosition: MarkdownDocumentPosition?,
         initialSize: CGSize,
-        preRenderedImage: NSImage? = nil
+        preRenderedImage: NSImage? = nil,
+        appearanceIdentity: String = ""
     ) {
         configuration = Configuration(
             text: text,
@@ -123,7 +158,8 @@ final class MarkdownStaticPreviewNSView: NSView {
             accentColor: accentColor,
             documentPosition: documentPosition,
             initialSize: initialSize,
-            preRenderedImage: preRenderedImage
+            preRenderedImage: preRenderedImage,
+            appearanceIdentity: appearanceIdentity
         )
         renderIfNeeded()
     }
@@ -143,10 +179,19 @@ final class MarkdownStaticPreviewNSView: NSView {
     private func renderIfNeeded() {
         guard let configuration else { return }
         let scale = max(1, window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2)
+        let appearanceIdentity = configuration.appearanceIdentity.isEmpty
+            ? (window?.effectiveAppearance.name.rawValue ?? "")
+            : configuration.appearanceIdentity
         let renderSize = resolvedRenderSize(configuration: configuration)
-        let pixelWidth = Int((renderSize.width * scale).rounded(.up))
-        let pixelHeight = Int((renderSize.height * scale).rounded(.up))
-        guard pixelWidth > 1, pixelHeight > 1 else { return }
+        let dimensions = MarkdownStaticPreviewLimits.pixelDimensions(size: renderSize, backingScale: scale)
+        guard dimensions.width > 1,
+              dimensions.height > 1,
+              MarkdownStaticPreviewLimits.isWithinBudget(pixelWidth: dimensions.width, pixelHeight: dimensions.height)
+        else {
+            imageView.image = nil
+            renderedKey = nil
+            return
+        }
 
         let key = RenderKey(
             documentID: configuration.documentID,
@@ -155,8 +200,10 @@ final class MarkdownStaticPreviewNSView: NSView {
             fontSize: Int((configuration.fontSize * 100).rounded()),
             accentColor: ColorSignature(configuration.accentColor),
             documentPosition: configuration.documentPosition,
-            pixelWidth: pixelWidth,
-            pixelHeight: pixelHeight
+            pixelWidth: dimensions.width,
+            pixelHeight: dimensions.height,
+            backingScale: MarkdownStaticPreviewLimits.scaleIdentity(scale),
+            appearanceIdentity: appearanceIdentity
         )
         guard key != renderedKey else { return }
 
@@ -173,7 +220,8 @@ final class MarkdownStaticPreviewNSView: NSView {
             accentColor: configuration.accentColor,
             documentPosition: configuration.documentPosition,
             size: renderSize,
-            backingScale: scale
+            backingScale: scale,
+            appearance: NSAppearance(named: NSAppearance.Name(rawValue: appearanceIdentity))
         ) else { return }
 
         renderedKey = key
@@ -191,8 +239,19 @@ final class MarkdownStaticPreviewNSView: NSView {
     }
 
     private static func canReusePreRenderedImage(_ image: NSImage, for renderSize: CGSize) -> Bool {
-        abs(image.size.width - renderSize.width) <= 0.5
-            && abs(image.size.height - renderSize.height) <= 0.5
+        guard abs(image.size.width - renderSize.width) <= 0.5,
+              abs(image.size.height - renderSize.height) <= 0.5
+        else { return false }
+        guard let representation = image.representations.first else {
+            // An NSImage created with only a logical size is a valid placeholder
+            // used by callers/tests; with no bitmap representation there is no
+            // pixel allocation to reject against the preview budget.
+            return true
+        }
+        return MarkdownStaticPreviewLimits.isWithinBudget(
+            pixelWidth: representation.pixelsWide,
+            pixelHeight: representation.pixelsHigh
+        )
     }
 }
 
@@ -204,9 +263,17 @@ enum MarkdownStaticPreviewRenderer {
         accentColor: NSColor,
         documentPosition: MarkdownDocumentPosition?,
         size: CGSize,
-        backingScale: CGFloat
+        backingScale: CGFloat,
+        appearance: NSAppearance? = nil
     ) -> NSImage? {
         let renderSize = CGSize(width: max(1, size.width), height: max(1, size.height))
+        let dimensions = MarkdownStaticPreviewLimits.pixelDimensions(size: renderSize, backingScale: backingScale)
+        guard MarkdownStaticPreviewLimits.isWithinBudget(
+            pixelWidth: dimensions.width,
+            pixelHeight: dimensions.height
+        ) else { return nil }
+
+        let renderBody: () -> NSImage? = {
         let bounds = NSRect(origin: .zero, size: renderSize)
         let scrollView = preparedScrollView(
             text: text,
@@ -216,12 +283,10 @@ enum MarkdownStaticPreviewRenderer {
             size: renderSize
         )
 
-        let pixelWidth = max(1, Int((renderSize.width * max(1, backingScale)).rounded(.up)))
-        let pixelHeight = max(1, Int((renderSize.height * max(1, backingScale)).rounded(.up)))
         guard let representation = NSBitmapImageRep(
             bitmapDataPlanes: nil,
-            pixelsWide: pixelWidth,
-            pixelsHigh: pixelHeight,
+            pixelsWide: dimensions.width,
+            pixelsHigh: dimensions.height,
             bitsPerSample: 8,
             samplesPerPixel: 4,
             hasAlpha: true,
@@ -237,6 +302,16 @@ enum MarkdownStaticPreviewRenderer {
         let image = NSImage(size: renderSize)
         image.addRepresentation(representation)
         return image
+        }
+
+        if let appearance {
+            var renderedImage: NSImage?
+            appearance.performAsCurrentDrawingAppearance {
+                renderedImage = renderBody()
+            }
+            return renderedImage
+        }
+        return renderBody()
     }
 
     @MainActor
@@ -310,6 +385,10 @@ enum MarkdownStaticPreviewRenderer {
         scrollView.contentView.frame = bounds
         scrollView.layoutSubtreeIfNeeded()
         applyScrollPosition(documentPosition ?? .top, scrollView: scrollView)
+        // Swipe snapshots are read-like previews. Restore only their scroll
+        // position; an editor caret inside a heading must not reveal Markdown
+        // source markers and create a transient indent before the real editor
+        // settles.
         applyMarkdownStyle(to: textView, fontSize: fontSize, activeSelectionRanges: [])
         scrollView.invalidateDocumentHeight()
         scrollView.refreshScrollIndicator()
@@ -376,44 +455,21 @@ enum MarkdownStaticPreviewRenderer {
         fontSize: CGFloat,
         activeSelectionRanges: [NSRange]
     ) {
-        guard let storage = textView.textStorage else { return }
-        let selectedRanges = textView.selectedRanges
-        let fullRange = NSRange(location: 0, length: storage.length)
-        guard fullRange.length > 0 else {
-            textView.taskItems = []
-            textView.codeBlocks = []
-            textView.headingItems = []
-            textView.clearHiddenSyntaxRanges()
-            return
-        }
-
-        let styles = MarkdownStyleAttributes(fontSize: fontSize)
-        storage.beginEditing()
-        storage.setAttributes(styles.baseAttributes(), range: fullRange)
-        let blockResult = MarkdownBlockStyler.styleBlocks(
-            in: storage,
-            activeSelectionRanges: activeSelectionRanges,
+        MarkdownEditorStyling.apply(
+            to: textView,
             fontSize: fontSize,
-            attributes: styles
+            activeSelectionRanges: activeSelectionRanges
         )
-        MarkdownInlineStyler.styleInline(
-            in: storage,
-            excluding: blockResult.inlineExclusionRanges,
-            activeSelectionRanges: activeSelectionRanges,
-            attributes: styles
-        )
-        storage.endEditing()
-
-        textView.taskItems = blockResult.taskItems
-        textView.codeBlocks = blockResult.codeBlocks
-        textView.headingItems = blockResult.headingItems
-        textView.updateHiddenSyntaxRanges(from: storage)
-        textView.restoreSelectedRangesWithoutScroll(selectedRanges)
     }
 
     @MainActor
     private static func applyScrollPosition(_ position: MarkdownDocumentPosition, scrollView: MarkdownScrollView) {
-        scrollView.scroll(toY: CGFloat(position.scrollY))
+        guard let textView = scrollView.markdownTextView else { return }
+        MarkdownDocumentPositionApplicator.apply(
+            position,
+            textView: textView,
+            scrollView: scrollView
+        )
     }
 
     @MainActor

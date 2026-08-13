@@ -73,6 +73,81 @@ final class NoteDocumentSwipeCoordinatorTests: XCTestCase {
     }
 
     @MainActor
+    func testPrewarmViewportQuantizationKeepsNearbySizesInOneCacheBucket() {
+        XCTAssertEqual(
+            NoteDocumentSwipePrewarmLayout.quantizedViewportSize(
+                CGSize(width: 241, height: 159)
+            ),
+            CGSize(width: 240, height: 160)
+        )
+        XCTAssertEqual(
+            NoteDocumentSwipePrewarmLayout.quantizedViewportSize(
+                CGSize(width: 243, height: 161)
+            ),
+            CGSize(width: 240, height: 160)
+        )
+        XCTAssertEqual(
+            NoteDocumentSwipePrewarmLayout.quantizedViewportSize(
+                CGSize(width: 245, height: 165)
+            ),
+            CGSize(width: 248, height: 168)
+        )
+        XCTAssertEqual(
+            NoteDocumentSwipePrewarmLayout.quantizedViewportSize(.zero),
+            .zero
+        )
+    }
+
+    @MainActor
+    func testCancellingPrewarmTaskStopsBeforeLoadingNextPreview() async throws {
+        let first = try makeNote(named: "first.md", title: "First")
+        let second = try makeNote(named: "second.md", title: "Second")
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+        var loadedOffsets: [Int] = []
+        var firstLoadContinuation: CheckedContinuation<(url: URL, text: String)?, Never>?
+        let coordinator = NoteDocumentSwipeCoordinator(previewLoader: { offset, noteStore in
+            loadedOffsets.append(offset)
+            guard let targetURL = noteStore.workspaceDocumentURL(offset: offset) else {
+                return nil
+            }
+            if firstLoadContinuation == nil {
+                return await withCheckedContinuation { continuation in
+                    firstLoadContinuation = continuation
+                }
+            }
+            let text = (try? String(contentsOf: targetURL, encoding: .utf8)) ?? ""
+            return (url: targetURL, text: text)
+        })
+
+        store.openFile(at: first)
+        try await waitForCurrentFile(first, in: store)
+        store.openFile(at: second)
+        try await waitForCurrentFile(second, in: store)
+
+        let prewarmTask = Task { @MainActor in
+            await coordinator.prewarmAdjacentPreviews(
+                noteStore: store,
+                viewportSize: CGSize(width: 240, height: 160),
+                backingScale: 1,
+                fontSize: 15.5,
+                accentColor: .systemCyan
+            )
+        }
+        for _ in 0..<80 where firstLoadContinuation == nil {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertNotNil(firstLoadContinuation)
+
+        prewarmTask.cancel()
+        firstLoadContinuation?.resume(returning: (url: first, text: "# First\n\nBody"))
+        await prewarmTask.value
+
+        XCTAssertEqual(loadedOffsets.count, 1)
+        XCTAssertEqual(coordinator.progress, 0)
+        XCTAssertNil(coordinator.preview)
+    }
+
+    @MainActor
     func testLoadedSwipePreviewUsesTargetDocumentPosition() async throws {
         let first = try makeNote(named: "first.md", title: "First")
         let second = try makeNote(named: "second.md", title: "Second")

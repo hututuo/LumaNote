@@ -189,6 +189,47 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         XCTAssertLessThanOrEqual(restoredHeadingOrigin ?? .greatestFiniteMagnitude, 8)
     }
 
+    func testStaticPreviewAndReadOnlyEditorShareRestoredPositionSyntaxAndLayout() {
+        let markdown = "# Preview title\n\n**Bold** and [link](https://example.com)\n\n- [ ] Task"
+        let size = CGSize(width: 320, height: 180)
+        let restoredPosition = MarkdownDocumentPosition(
+            selectedLocation: range(of: "Bold", in: markdown).location + 1,
+            selectedLength: 0,
+            scrollY: 48
+        )
+        let previewStorage = MarkdownStaticPreviewRenderer.styledStorageForTesting(
+            text: markdown,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: restoredPosition,
+            size: size
+        )
+        let editorStorage = styledStorage(markdown)
+
+        let length = (markdown as NSString).length
+        XCTAssertEqual(previewStorage.length, length)
+        XCTAssertEqual(editorStorage.length, length)
+        for location in 0..<length {
+            XCTAssertEqual(
+                isHiddenSyntax(at: location, in: previewStorage),
+                isHiddenSyntax(at: location, in: editorStorage),
+                "Preview and settled editor disagree about Markdown syntax at character \(location)"
+            )
+        }
+
+        let titleLocation = range(of: "Preview", in: markdown).location
+        XCTAssertEqual(
+            paragraphStyle(at: titleLocation, in: previewStorage)?.headIndent ?? -1,
+            paragraphStyle(at: titleLocation, in: editorStorage)?.headIndent ?? -2,
+            accuracy: 0.01
+        )
+        XCTAssertEqual(
+            paragraphStyle(at: titleLocation, in: previewStorage)?.firstLineHeadIndent ?? -1,
+            paragraphStyle(at: titleLocation, in: editorStorage)?.firstLineHeadIndent ?? -2,
+            accuracy: 0.01
+        )
+    }
+
     func testHeadingMarkerIsHiddenUntilHeadingIsActive() {
         let markdown = "# Title"
         let storage = styledStorage(markdown)
@@ -341,6 +382,44 @@ final class MarkdownRenderingEditorTests: XCTestCase {
 
         XCTAssertEqual(text, textView.string)
         XCTAssertTrue(isHiddenSyntax(at: 0, in: textView.textStorage ?? NSTextStorage()))
+    }
+
+    func testMarkedTextCannotOverwriteNewDocumentDuringDocumentReplacement() {
+        var text = "# New document"
+        let binding = Binding<String>(
+            get: { text },
+            set: { text = $0 }
+        )
+        let coordinator = MarkdownRenderingEditor.Coordinator(
+            text: binding,
+            documentID: "old.md",
+            contentRevision: 1,
+            fontSize: 15.5
+        )
+        let textView = NSTextView()
+        textView.string = "old document"
+        textView.delegate = coordinator
+        textView.setSelectedRange(NSRange(location: (textView.string as NSString).length, length: 0))
+        textView.setMarkedText(
+            "composition",
+            selectedRange: NSRange(location: 11, length: 0),
+            replacementRange: NSRange(location: NSNotFound, length: 0)
+        )
+        coordinator.textView = textView
+
+        coordinator.replaceDocumentSafely(
+            text: text,
+            documentID: "new.md",
+            contentRevision: 2,
+            documentPosition: .top,
+            scrollView: nil
+        )
+
+        XCTAssertFalse(textView.hasMarkedText())
+        XCTAssertEqual(textView.string, text)
+        XCTAssertEqual(coordinator.documentID, "new.md")
+        XCTAssertEqual(coordinator.contentRevision, 2)
+        XCTAssertEqual(text, "# New document", "IME commit from the old document must not overwrite the new binding")
     }
 
     func testCoordinatorAppliesEmphasisCommandToBoundMarkdown() {

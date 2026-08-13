@@ -9,6 +9,7 @@ struct NoteDocumentSwipePreview: Identifiable, Equatable {
     let position: MarkdownDocumentPosition?
     let revision: Int
     let preRenderedImage: NSImage?
+    let modificationDate: Date?
 
     init(
         id: String,
@@ -17,7 +18,8 @@ struct NoteDocumentSwipePreview: Identifiable, Equatable {
         text: String,
         position: MarkdownDocumentPosition?,
         revision: Int,
-        preRenderedImage: NSImage? = nil
+        preRenderedImage: NSImage? = nil,
+        modificationDate: Date? = nil
     ) {
         self.id = id
         self.url = url
@@ -26,6 +28,7 @@ struct NoteDocumentSwipePreview: Identifiable, Equatable {
         self.position = position
         self.revision = revision
         self.preRenderedImage = preRenderedImage
+        self.modificationDate = modificationDate
     }
 
     static func == (lhs: NoteDocumentSwipePreview, rhs: NoteDocumentSwipePreview) -> Bool {
@@ -36,6 +39,7 @@ struct NoteDocumentSwipePreview: Identifiable, Equatable {
             && lhs.position == rhs.position
             && lhs.revision == rhs.revision
             && lhs.preRenderedImage === rhs.preRenderedImage
+            && lhs.modificationDate == rhs.modificationDate
     }
 }
 
@@ -171,6 +175,7 @@ struct NoteContentEditorView: View {
     let swipeProgress: CGFloat
     let fontSize: Double
     let accentColor: NSColor
+    let appearanceIdentity: String
     let emphasisCommand: MarkdownEmphasisCommand?
     let topFadeHeight: CGFloat
     let bottomFadeHeight: CGFloat
@@ -221,7 +226,8 @@ struct NoteContentEditorView: View {
                         accentColor: accentColor,
                         documentPosition: preview.position,
                         initialSize: layout.editorFrame.size,
-                        preRenderedImage: preview.preRenderedImage
+                        preRenderedImage: preview.preRenderedImage,
+                        appearanceIdentity: appearanceIdentity
                     )
                     .id(preview.id)
                     .frame(width: layout.editorFrame.width, height: layout.editorFrame.height)

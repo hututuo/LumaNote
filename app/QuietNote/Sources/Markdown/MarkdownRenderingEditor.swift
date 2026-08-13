@@ -88,6 +88,57 @@ struct MarkdownRenderingEditorInteractionMode: Equatable {
     )
 }
 
+/// Applies the complete Markdown presentation in one place so the live editor
+/// and the static swipe snapshot cannot drift in their active-selection rules.
+@MainActor
+enum MarkdownEditorStyling {
+    static func apply(
+        to textView: NSTextView,
+        fontSize: CGFloat,
+        activeSelectionRanges: [NSRange]
+    ) {
+        guard let storage = textView.textStorage else { return }
+        let selectedRanges = textView.selectedRanges
+        let fullRange = NSRange(location: 0, length: storage.length)
+        guard fullRange.length > 0 else {
+            if let taskTextView = textView as? MarkdownTaskTextView {
+                taskTextView.taskItems = []
+                taskTextView.codeBlocks = []
+                taskTextView.headingItems = []
+                taskTextView.clearHiddenSyntaxRanges()
+            }
+            return
+        }
+
+        let styles = MarkdownStyleAttributes(fontSize: fontSize)
+        storage.beginEditing()
+        storage.setAttributes(styles.baseAttributes(), range: fullRange)
+        let blockResult = MarkdownBlockStyler.styleBlocks(
+            in: storage,
+            activeSelectionRanges: activeSelectionRanges,
+            fontSize: fontSize,
+            attributes: styles
+        )
+        MarkdownInlineStyler.styleInline(
+            in: storage,
+            excluding: blockResult.inlineExclusionRanges,
+            activeSelectionRanges: activeSelectionRanges,
+            attributes: styles
+        )
+        storage.endEditing()
+
+        if let taskTextView = textView as? MarkdownTaskTextView {
+            taskTextView.taskItems = blockResult.taskItems
+            taskTextView.codeBlocks = blockResult.codeBlocks
+            taskTextView.headingItems = blockResult.headingItems
+            taskTextView.updateHiddenSyntaxRanges(from: storage)
+            taskTextView.restoreSelectedRangesWithoutScroll(selectedRanges)
+        } else {
+            textView.selectedRanges = selectedRanges
+        }
+    }
+}
+
 struct MarkdownRenderingEditor: NSViewRepresentable {
     @Binding var text: String
     var documentID: String = ""
@@ -194,23 +245,38 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             taskTextView?.taskAccentColor = accentColor
         }
         if didChangeTextRevision, textView.string != text {
-            guard !textView.hasMarkedText() else { return }
-            context.coordinator.contentRevision = contentRevision
-            textView.string = text
-            context.coordinator.applyDocumentPosition(
-                documentPosition ?? .top,
-                scrollView: markdownScrollView
-            )
+            if textView.hasMarkedText() {
+                context.coordinator.replaceDocumentSafely(
+                    text: text,
+                    documentID: documentID,
+                    contentRevision: contentRevision,
+                    documentPosition: documentPosition ?? .top,
+                    scrollView: markdownScrollView
+                )
+            } else {
+                context.coordinator.contentRevision = contentRevision
+                textView.string = text
+                context.coordinator.applyDocumentPosition(
+                    documentPosition ?? .top,
+                    scrollView: markdownScrollView
+                )
+            }
             didReplaceText = true
         } else if didChangeTextRevision {
             context.coordinator.contentRevision = contentRevision
         }
         if didChangeDocument {
-            context.coordinator.documentID = documentID
-            context.coordinator.applyDocumentPosition(
-                documentPosition ?? .top,
-                scrollView: markdownScrollView
-            )
+            if !didReplaceText {
+                context.coordinator.replaceDocumentSafely(
+                    text: text,
+                    documentID: documentID,
+                    contentRevision: contentRevision,
+                    documentPosition: documentPosition ?? .top,
+                    scrollView: markdownScrollView
+                )
+            } else {
+                context.coordinator.documentID = documentID
+            }
         }
         if didReplaceText || didChangeFontSize {
             context.coordinator.applyMarkdownStyle()
@@ -238,6 +304,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         weak var textView: NSTextView?
         private var isStyling = false
         private var isApplyingDocumentPosition = false
+        private var isReplacingDocument = false
         private var lastStyledSelectionRanges: [NSRange] = []
         private weak var observedClipView: NSClipView?
         private var lastEmittedPosition: MarkdownDocumentPosition?
@@ -306,6 +373,11 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let textView else { return }
             let markdownScrollView = textView.enclosingScrollView as? MarkdownScrollView
+            guard !isReplacingDocument else {
+                markdownScrollView?.invalidateDocumentHeight()
+                markdownScrollView?.refreshScrollIndicator()
+                return
+            }
             guard !textView.hasMarkedText() else {
                 markdownScrollView?.invalidateDocumentHeight()
                 markdownScrollView?.refreshScrollIndicator()
@@ -321,6 +393,7 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
         func textViewDidChangeSelection(_ notification: Notification) {
             guard !isStyling,
                   !isApplyingDocumentPosition,
+                  !isReplacingDocument,
                   let textView,
                   !textView.hasMarkedText(),
                   MarkdownRangeHelpers.nsRanges(from: textView.selectedRanges) != lastStyledSelectionRanges
@@ -338,43 +411,46 @@ struct MarkdownRenderingEditor: NSViewRepresentable {
             let selectedRanges = textView.selectedRanges
             let activeSelectionRanges = MarkdownRangeHelpers.nsRanges(from: selectedRanges)
             lastStyledSelectionRanges = activeSelectionRanges
-            let storage = textView.textStorage ?? NSTextStorage()
-            let fullRange = NSRange(location: 0, length: storage.length)
-            guard fullRange.length > 0 else {
-                (textView as? MarkdownTaskTextView)?.taskItems = []
-                (textView as? MarkdownTaskTextView)?.codeBlocks = []
-                (textView as? MarkdownTaskTextView)?.headingItems = []
-                (textView as? MarkdownTaskTextView)?.clearHiddenSyntaxRanges()
-                return
+            MarkdownEditorStyling.apply(
+                to: textView,
+                fontSize: fontSize,
+                activeSelectionRanges: activeSelectionRanges
+            )
+        }
+
+        /// Ends an IME composition in an isolated transaction before replacing
+        /// the bound document. AppKit may emit a final text-change callback when
+        /// `unmarkText()` commits the composition; the guard prevents that old
+        /// document payload from being written into the new binding.
+        func replaceDocumentSafely(
+            text: String,
+            documentID: String,
+            contentRevision: Int,
+            documentPosition: MarkdownDocumentPosition,
+            scrollView: MarkdownScrollView?
+        ) {
+            guard let textView else { return }
+            isReplacingDocument = true
+            isApplyingDocumentPosition = true
+            defer {
+                isApplyingDocumentPosition = false
+                isReplacingDocument = false
             }
 
-            let styles = self.styles
-            storage.beginEditing()
-            storage.setAttributes(styles.baseAttributes(), range: fullRange)
-            let blockResult = MarkdownBlockStyler.styleBlocks(
-                in: storage,
-                activeSelectionRanges: activeSelectionRanges,
-                fontSize: fontSize,
-                attributes: styles
-            )
-            MarkdownInlineStyler.styleInline(
-                in: storage,
-                excluding: blockResult.inlineExclusionRanges,
-                activeSelectionRanges: activeSelectionRanges,
-                attributes: styles
-            )
-            storage.endEditing()
-            if let taskTextView = textView as? MarkdownTaskTextView {
-                taskTextView.taskItems = blockResult.taskItems
-                taskTextView.codeBlocks = blockResult.codeBlocks
-                taskTextView.headingItems = blockResult.headingItems
-                taskTextView.updateHiddenSyntaxRanges(from: storage)
+            if textView.hasMarkedText() {
+                textView.unmarkText()
             }
-            if let taskTextView = textView as? MarkdownTaskTextView {
-                taskTextView.restoreSelectedRangesWithoutScroll(selectedRanges)
-            } else {
-                textView.selectedRanges = selectedRanges
-            }
+            self.documentID = documentID
+            self.contentRevision = contentRevision
+            textView.string = text
+            textView.undoManager?.removeAllActions()
+            MarkdownDocumentPositionApplicator.apply(
+                documentPosition,
+                textView: textView,
+                scrollView: scrollView
+            )
+            applyMarkdownStyle()
+            lastEmittedPosition = currentDocumentPosition()
         }
 
         func baseTypingAttributes() -> [NSAttributedString.Key: Any] {

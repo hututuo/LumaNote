@@ -26,8 +26,15 @@ final class NoteDocumentSwipeCoordinator {
         let backingScale: CGFloat
         let fontSize: CGFloat
         let accentColor: PreviewColorSignature
+        let appearanceIdentity: String
 
-        init(viewportSize: CGSize, backingScale: CGFloat, fontSize: CGFloat, accentColor: NSColor) {
+        init(
+            viewportSize: CGSize,
+            backingScale: CGFloat,
+            fontSize: CGFloat,
+            accentColor: NSColor,
+            appearanceIdentity: String
+        ) {
             self.viewportSize = CGSize(
                 width: max(1, viewportSize.width),
                 height: max(1, viewportSize.height)
@@ -35,6 +42,7 @@ final class NoteDocumentSwipeCoordinator {
             self.backingScale = max(1, backingScale)
             self.fontSize = MarkdownTaskLayout.normalizedFontSize(fontSize)
             self.accentColor = PreviewColorSignature(accentColor)
+            self.appearanceIdentity = appearanceIdentity
         }
 
         var pixelWidth: Int {
@@ -65,7 +73,8 @@ final class NoteDocumentSwipeCoordinator {
                 text: text,
                 position: position,
                 revision: revision,
-                preRenderedImage: preRenderedImage
+                preRenderedImage: preRenderedImage,
+                modificationDate: modificationDate
             )
         }
 
@@ -81,7 +90,7 @@ final class NoteDocumentSwipeCoordinator {
     }
 
     private static let prewarmOffsets = [-1, 1]
-    private static let maximumPrewarmPixelDimension = 4096
+    private static let maximumSynchronousReverseSnapshotCharacters = 20_000
 
     var progress: CGFloat = 0
     var isAnimating = false
@@ -93,6 +102,7 @@ final class NoteDocumentSwipeCoordinator {
     @ObservationIgnored private var commitAnimationTask: Task<Void, Never>?
     @ObservationIgnored private var unlockAnimationTask: Task<Void, Never>?
     @ObservationIgnored private var previewClearTask: Task<Void, Never>?
+    @ObservationIgnored private var reversePreviewTask: Task<Void, Never>?
     @ObservationIgnored private var previewRevision = 0
     @ObservationIgnored private var pendingProgress: CGFloat?
     @ObservationIgnored private var prewarmConfiguration: PreviewPrewarmConfiguration?
@@ -133,7 +143,8 @@ final class NoteDocumentSwipeCoordinator {
         viewportSize: CGSize,
         backingScale: CGFloat,
         fontSize: Double,
-        accentColor: NSColor
+        accentColor: NSColor,
+        appearanceIdentity: String = ""
     ) async {
         guard noteStore.canSwitchWorkspaceDocument,
               !isAnimating,
@@ -144,12 +155,15 @@ final class NoteDocumentSwipeCoordinator {
             viewportSize: viewportSize,
             backingScale: backingScale,
             fontSize: CGFloat(fontSize),
-            accentColor: accentColor
+            accentColor: accentColor,
+            appearanceIdentity: appearanceIdentity
         )
         guard configuration.pixelWidth > 1,
               configuration.pixelHeight > 1,
-              configuration.pixelWidth <= Self.maximumPrewarmPixelDimension,
-              configuration.pixelHeight <= Self.maximumPrewarmPixelDimension
+              MarkdownStaticPreviewLimits.isWithinBudget(
+                  pixelWidth: configuration.pixelWidth,
+                  pixelHeight: configuration.pixelHeight
+              )
         else {
             prewarmConfiguration = nil
             prewarmAccentColor = nil
@@ -186,6 +200,8 @@ final class NoteDocumentSwipeCoordinator {
         pendingProgress = nil
         previewClearTask?.cancel()
         previewClearTask = nil
+        reversePreviewTask?.cancel()
+        reversePreviewTask = nil
         guard abs(progress) > 0.001 else {
             preview = nil
             return
@@ -245,9 +261,14 @@ final class NoteDocumentSwipeCoordinator {
                 position: noteStore.currentDocumentPosition
             )
             let matchingPreview = self.preview?.offset == direction ? self.preview : nil
+            let canUsePreloadedPreview = matchingPreview.map {
+                self.isFreshPreview($0, for: $0.url)
+            } ?? false
             let didSwitchDocument = noteStore.switchWorkspaceDocument(
                 offset: direction,
-                preloadedPreview: matchingPreview.map { ($0.url, $0.text) }
+                preloadedPreview: canUsePreloadedPreview
+                    ? matchingPreview.map { ($0.url, $0.text) }
+                    : nil
             )
 
             if didSwitchDocument {
@@ -259,10 +280,11 @@ final class NoteDocumentSwipeCoordinator {
                     self.progress = 0
                     self.preview = nil
                 }
-                self.cacheReversePreview(snapshot: currentSnapshot, noteStore: noteStore)
+                self.cacheReversePreviewIfCheap(snapshot: currentSnapshot, noteStore: noteStore)
                 self.scheduleAnimationUnlock(
                     continuationPrewarmOffset: direction,
-                    noteStore: noteStore
+                    noteStore: noteStore,
+                    deferredReverseSnapshot: currentSnapshot
                 )
             } else {
                 self.cancelPreviewTask()
@@ -284,6 +306,8 @@ final class NoteDocumentSwipeCoordinator {
         preview = nil
         isAnimating = false
         pendingProgress = nil
+        reversePreviewTask?.cancel()
+        reversePreviewTask = nil
         prewarmConfiguration = nil
         prewarmAccentColor = nil
         prewarmedPreviews.removeAll()
@@ -298,7 +322,12 @@ final class NoteDocumentSwipeCoordinator {
             preview = prewarmedPreview.preview(offset: offset)
             return
         }
-        if preview?.offset == offset || previewLoadingOffset == offset {
+        if preview?.offset == offset {
+            if let existing = preview, isFreshPreview(existing, for: existing.url) {
+                return
+            }
+            preview = nil
+        } else if previewLoadingOffset == offset {
             return
         }
 
@@ -334,7 +363,8 @@ final class NoteDocumentSwipeCoordinator {
                 offset: offset,
                 text: loadedPreview.text,
                 position: noteStore.documentPosition(for: loadedPreview.url),
-                revision: previewRevision
+                revision: previewRevision,
+                modificationDate: fileModificationDate(for: loadedPreview.url)
             )
             applyPendingProgressIfNeeded(for: offset)
         }
@@ -377,7 +407,8 @@ final class NoteDocumentSwipeCoordinator {
             accentColor: accentColor,
             documentPosition: targetPosition,
             size: configuration.viewportSize,
-            backingScale: configuration.backingScale
+            backingScale: configuration.backingScale,
+            appearance: NSAppearance(named: NSAppearance.Name(rawValue: configuration.appearanceIdentity))
         ) else { return }
 
         previewRevision &+= 1
@@ -422,10 +453,23 @@ final class NoteDocumentSwipeCoordinator {
         }
     }
 
-    private func cacheReversePreview(snapshot: CurrentDocumentSnapshot, noteStore: NoteStore) {
+    private func cacheReversePreviewIfCheap(snapshot: CurrentDocumentSnapshot, noteStore: NoteStore) {
         guard let configuration = prewarmConfiguration,
               let accentColor = prewarmAccentColor
         else { return }
+
+        if prewarmedPreviews.values.contains(where: {
+            $0.url.standardizedFileURL.path == snapshot.url.standardizedFileURL.path
+                && $0.text == snapshot.text
+                && $0.position == snapshot.position
+                && $0.configuration == configuration
+                && $0.matchesModificationDate(fileModificationDate(for: snapshot.url))
+        }) {
+            return
+        }
+        guard snapshot.text.utf8.count <= Self.maximumSynchronousReverseSnapshotCharacters else {
+            return
+        }
 
         let snapshotPath = snapshot.url.standardizedFileURL.path
         let matchingOffsets = Self.prewarmOffsets.filter { offset in
@@ -438,7 +482,8 @@ final class NoteDocumentSwipeCoordinator {
                 accentColor: accentColor,
                 documentPosition: snapshot.position,
                 size: configuration.viewportSize,
-                backingScale: configuration.backingScale
+                backingScale: configuration.backingScale,
+                appearance: NSAppearance(named: NSAppearance.Name(rawValue: configuration.appearanceIdentity))
               )
         else { return }
 
@@ -452,7 +497,7 @@ final class NoteDocumentSwipeCoordinator {
             preRenderedImage: image,
             modificationDate: fileModificationDate(for: snapshot.url),
             configuration: configuration,
-            requiresCurrentModificationDate: false
+            requiresCurrentModificationDate: true
         )
 
         for offset in matchingOffsets {
@@ -470,6 +515,10 @@ final class NoteDocumentSwipeCoordinator {
         previewTask = nil
         previewLoadingOffset = nil
         pendingProgress = nil
+    }
+
+    private func isFreshPreview(_ preview: NoteDocumentSwipePreview, for url: URL) -> Bool {
+        preview.modificationDate == fileModificationDate(for: url)
     }
 
     private func applyPendingProgressIfNeeded(for offset: Int) {
@@ -501,7 +550,8 @@ final class NoteDocumentSwipeCoordinator {
 
     private func scheduleAnimationUnlock(
         continuationPrewarmOffset: Int? = nil,
-        noteStore: NoteStore? = nil
+        noteStore: NoteStore? = nil,
+        deferredReverseSnapshot: CurrentDocumentSnapshot? = nil
     ) {
         unlockAnimationTask?.cancel()
         unlockAnimationTask = Task { @MainActor [weak self] in
@@ -511,10 +561,26 @@ final class NoteDocumentSwipeCoordinator {
             unlockAnimationTask = nil
             commitAnimationTask = nil
             if let continuationPrewarmOffset, let noteStore {
-                await prewarmContinuationPreview(
-                    offset: continuationPrewarmOffset,
-                    noteStore: noteStore
-                )
+                Task { @MainActor [weak self] in
+                    await Task.yield()
+                    guard let self else { return }
+                    await self.prewarmContinuationPreview(
+                        offset: continuationPrewarmOffset,
+                        noteStore: noteStore
+                    )
+                }
+            }
+            if let deferredReverseSnapshot, let noteStore {
+                reversePreviewTask?.cancel()
+                reversePreviewTask = Task { @MainActor [weak self] in
+                    await Task.yield()
+                    guard !Task.isCancelled, let self else { return }
+                    self.cacheReversePreviewIfCheap(
+                        snapshot: deferredReverseSnapshot,
+                        noteStore: noteStore
+                    )
+                    self.reversePreviewTask = nil
+                }
             }
         }
     }
