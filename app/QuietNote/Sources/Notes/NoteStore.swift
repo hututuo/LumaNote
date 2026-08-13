@@ -14,6 +14,7 @@ final class NoteStore {
             markdownRevision &+= 1
             refreshDisplayTitle()
             if !isReplacingText {
+                cancelPendingOpen()
                 scheduleSave()
             }
         }
@@ -29,6 +30,7 @@ final class NoteStore {
 
     private let defaultFileURL: URL
     private let defaults: UserDefaults
+    private let fileOperations: NoteFileOperations
     @ObservationIgnored
     private var saveTask: Task<Void, Never>?
     @ObservationIgnored
@@ -51,9 +53,35 @@ final class NoteStore {
     private var workspacePreviewCache: [String: DocumentPreviewCacheEntry] = [:]
     @ObservationIgnored
     private var documentPositions: [String: MarkdownDocumentPosition] = [:]
+    @ObservationIgnored
+    private var filePersistenceStates: [String: FilePersistenceState] = [:]
+
+    private enum FileLoadStatus {
+        case deferred
+        case loaded
+        case failed
+    }
+
+    private struct FilePersistenceState {
+        var identity: NoteFileModificationIdentity?
+        var status: FileLoadStatus
+        var baselineRevision: Int
+    }
+
+    private enum SaveOutcome: Equatable {
+        case saved
+        case failed
+        case conflict
+        case blocked
+    }
+
+    private enum FileReadOutcome {
+        case success(text: String, identity: NoteFileModificationIdentity?)
+        case failed(identity: NoteFileModificationIdentity?)
+    }
 
     private struct DocumentPreviewCacheEntry {
-        let modificationDate: Date?
+        let identity: NoteFileModificationIdentity?
         let text: String
     }
 
@@ -104,6 +132,11 @@ final class NoteStore {
         await task?.value
     }
 
+    func waitForInitialLoadForTesting() async {
+        let task = initialLoadTask
+        await task?.value
+    }
+
     func hasCachedWorkspacePreviewForTesting(_ url: URL) -> Bool {
         workspacePreviewCache[url.standardizedFileURL.path] != nil
     }
@@ -126,9 +159,11 @@ final class NoteStore {
     init(
         defaults: UserDefaults = .standard,
         supportDirectory: URL? = nil,
-        initialLoadMode: InitialLoadMode = .immediate
+        initialLoadMode: InitialLoadMode = .immediate,
+        fileOperations: NoteFileOperations = .live
     ) {
         self.defaults = defaults
+        self.fileOperations = fileOperations
         let support = supportDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "QuietNote", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
@@ -154,6 +189,11 @@ final class NoteStore {
         }
         let standardizedInitialFileURL = initialFileURL.standardizedFileURL
         currentFileURL = standardizedInitialFileURL
+        // Initialize the observed document before using instance helpers below.
+        // The initial contents are assigned in the load/create branches that
+        // follow, but Swift requires the stored property to be initialized
+        // before `self` can be passed to `readFileSynchronously`.
+        markdown = ""
         defaults.set(standardizedInitialFileURL.path, forKey: NoteStoreDefaultsKey.currentFilePath)
         recentFileURLs = NoteWorkspaceSupport.loadRecentFileURLs(from: defaults)
 
@@ -161,13 +201,52 @@ final class NoteStore {
         let shouldDeferInitialRead = initialLoadMode == .deferred && initialFileExists
         if shouldDeferInitialRead {
             markdown = ""
+            filePersistenceStates[standardizedInitialFileURL.path] = FilePersistenceState(
+                identity: fileOperations.modificationIdentity(for: standardizedInitialFileURL),
+                status: .deferred,
+                baselineRevision: markdownRevision
+            )
             lastSavedText = "Loading..."
-        } else if initialFileExists,
-                  let text = NoteFileReader.read(initialFileURL) {
-            markdown = text
+        } else if initialFileExists {
+            switch readFileSynchronously(from: standardizedInitialFileURL) {
+            case let .success(text, identity):
+                markdown = text
+                filePersistenceStates[standardizedInitialFileURL.path] = FilePersistenceState(
+                    identity: identity,
+                    status: .loaded,
+                    baselineRevision: markdownRevision
+                )
+            case let .failed(identity):
+                // Keep an empty, recoverable in-memory document, but never
+                // replace bytes that could not be decoded or read.
+                markdown = ""
+                filePersistenceStates[standardizedInitialFileURL.path] = FilePersistenceState(
+                    identity: identity,
+                    status: .failed,
+                    baselineRevision: markdownRevision
+                )
+                lastSavedText = "Open failed"
+            }
         } else {
             markdown = NoteDocumentMetadata.exampleMarkdown
-            _ = NoteFileWriter.write(NoteDocumentMetadata.exampleMarkdown, to: currentFileURL)
+            let expectedIdentity = fileOperations.modificationIdentity(for: standardizedInitialFileURL)
+            let result = fileOperations.writeIfIdentityMatches(
+                NoteDocumentMetadata.exampleMarkdown,
+                to: standardizedInitialFileURL,
+                expectedIdentity: expectedIdentity
+            )
+            let identity: NoteFileModificationIdentity?
+            if case let .saved(savedIdentity) = result {
+                identity = savedIdentity
+            } else {
+                identity = expectedIdentity
+                lastSavedText = "Save failed"
+            }
+            filePersistenceStates[standardizedInitialFileURL.path] = FilePersistenceState(
+                identity: identity,
+                status: .loaded,
+                baselineRevision: markdownRevision
+            )
         }
 
         workspaces = NoteWorkspaceSupport.loadWorkspaces(from: defaults)
@@ -194,17 +273,23 @@ final class NoteStore {
         initialLoadTask?.cancel()
     }
 
-    func saveNow() {
+    @discardableResult
+    func saveNow() -> Bool {
         cancelPendingSave()
+        // A synchronous save is an explicit boundary: an older open task must
+        // not resume later and replace the document after this snapshot has
+        // been written.
+        cancelPendingOpen()
         if hasActiveInitialLoadPlaceholder {
-            return
+            return false
         }
-        if NoteFileWriter.write(markdown, to: currentFileURL) {
-            invalidateWorkspacePreview(for: currentFileURL)
-            lastSavedText = "Saved just now"
-        } else {
-            lastSavedText = "Save failed"
-        }
+        let outcome = saveCurrentSnapshot(
+            text: markdown,
+            url: currentFileURL,
+            revision: markdownRevision
+        )
+        applySaveOutcome(outcome, for: currentFileURL)
+        return outcome == .saved
     }
 
     func openFile(at url: URL) {
@@ -232,8 +317,9 @@ final class NoteStore {
 
         let previousURL = currentFileURL
         let previousText = markdown
+        let previousRevision = markdownRevision
         let previousPath = previousURL.standardizedFileURL.path
-        let shouldSavePrevious = !hasActiveInitialLoadPlaceholder
+        let shouldSavePrevious = !hasActiveInitialLoadPlaceholder && !isCurrentFileLoadUnusableWithoutEdits
         if targetPath == previousPath {
             if shouldSavePrevious {
                 saveNow()
@@ -241,33 +327,33 @@ final class NoteStore {
             return
         }
 
-        cancelInitialLoad()
+        let targetIdentity = fileOperations.modificationIdentity(for: standardizedURL)
+        cancelInitialLoad(preservePlaceholder: !shouldSavePrevious)
+
         if let preloadedText {
+            if shouldSavePrevious {
+                let outcome = saveCurrentSnapshot(
+                    text: previousText,
+                    url: previousURL,
+                    revision: previousRevision
+                )
+                guard outcome == .saved else {
+                    applySaveOutcome(outcome, for: previousURL)
+                    return
+                }
+            }
+
+            guard fileOperations.modificationIdentity(for: standardizedURL) == targetIdentity else {
+                lastSavedText = "Open failed"
+                return
+            }
+
             applyOpenedFile(
                 text: preloadedText,
                 url: standardizedURL,
+                identity: targetIdentity,
                 moveToFrontInWorkspace: moveToFrontInWorkspace
             )
-
-            guard shouldSavePrevious else { return }
-
-            openGeneration &+= 1
-            let generation = openGeneration
-            openTask = Task { [weak self] in
-                let didSavePrevious = await NoteFileWriter.writeOffMain(previousText, to: previousURL)
-                guard !Task.isCancelled,
-                      let self,
-                      self.openGeneration == generation,
-                      self.currentFileURL.standardizedFileURL.path == targetPath
-                else { return }
-
-                if didSavePrevious {
-                    self.invalidateWorkspacePreview(for: previousURL)
-                } else {
-                    self.lastSavedText = "Save failed"
-                }
-                self.openTask = nil
-            }
             return
         }
 
@@ -275,27 +361,35 @@ final class NoteStore {
         openGeneration &+= 1
         let generation = openGeneration
         openTask = Task { [weak self] in
-            let didSavePrevious: Bool
-            let text: String?
+            guard let self else { return }
+
             if shouldSavePrevious {
-                async let savedPrevious = NoteFileWriter.writeOffMain(previousText, to: previousURL)
-                async let loadedText = NoteFileReader.readOffMain(standardizedURL)
-                (didSavePrevious, text) = await (savedPrevious, loadedText)
-            } else {
-                didSavePrevious = true
-                text = await NoteFileReader.readOffMain(standardizedURL)
+                let outcome = await self.saveCurrentSnapshotOffMain(
+                    text: previousText,
+                    url: previousURL,
+                    revision: previousRevision
+                )
+                guard !Task.isCancelled,
+                      self.openGeneration == generation,
+                      self.currentFileURL.standardizedFileURL.path == previousPath,
+                      self.markdownRevision == previousRevision
+                else { return }
+
+                guard outcome == .saved else {
+                    self.applySaveOutcome(outcome, for: previousURL)
+                    self.openTask = nil
+                    return
+                }
             }
 
+            let readOutcome = await self.readFileOffMain(from: standardizedURL)
             guard !Task.isCancelled,
-                  let self,
-                  self.openGeneration == generation
+                  self.openGeneration == generation,
+                  self.currentFileURL.standardizedFileURL.path == previousPath,
+                  self.markdownRevision == previousRevision
             else { return }
 
-            if didSavePrevious {
-                self.invalidateWorkspacePreview(for: previousURL)
-            }
-
-            guard let text else {
+            guard case let .success(text, identity) = readOutcome else {
                 self.lastSavedText = "Open failed"
                 self.openTask = nil
                 return
@@ -304,6 +398,7 @@ final class NoteStore {
             self.applyOpenedFile(
                 text: text,
                 url: standardizedURL,
+                identity: identity,
                 moveToFrontInWorkspace: moveToFrontInWorkspace
             )
             self.openTask = nil
@@ -313,27 +408,72 @@ final class NoteStore {
     func saveAs(to url: URL) {
         cancelPendingSave()
         cancelPendingOpen()
-        cancelInitialLoad()
+
+        guard !hasActiveInitialLoadPlaceholder else {
+            lastSavedText = "Save blocked"
+            return
+        }
+
         let standardizedURL = url.standardizedFileURL
+        let targetPath = standardizedURL.path
+        let currentPath = currentFileURL.standardizedFileURL.path
+        let targetIdentity = filePersistenceStates[targetPath]?.identity
+            ?? fileOperations.modificationIdentity(for: standardizedURL)
+
+        let outcome: SaveOutcome
+        if targetPath == currentPath {
+            outcome = saveCurrentSnapshot(
+                text: markdown,
+                url: currentFileURL,
+                revision: markdownRevision
+            )
+        } else {
+            outcome = writeSnapshot(
+                text: markdown,
+                url: standardizedURL,
+                revision: markdownRevision,
+                expectedIdentity: targetIdentity
+            )
+        }
+
+        guard outcome == .saved else {
+            applySaveOutcome(outcome, for: currentFileURL)
+            return
+        }
+
+        cancelInitialLoad()
         invalidateWorkspacePreview(for: standardizedURL)
         currentFileURL = standardizedURL
         defaults.set(standardizedURL.path, forKey: NoteStoreDefaultsKey.currentFilePath)
         rememberRecentFile(standardizedURL)
         rememberFileInActiveWorkspace(standardizedURL)
         refreshDisplayTitle()
-        saveNow()
+        lastSavedText = "Saved just now"
     }
 
     @discardableResult
     func createMarkdownFile(at url: URL, initialText: String = "") -> Bool {
-        saveNow()
+        // A deferred/failed initial read represents an existing file whose
+        // bytes we have not safely loaded. Creating a new document is still a
+        // valid explicit action, but must never save the empty/failed
+        // placeholder back to that existing file first.
+        if !isCurrentFileLoadUnusableWithoutEdits, !saveNow() {
+            return false
+        }
         cancelPendingSave()
         cancelPendingOpen()
         cancelInitialLoad()
 
         let standardizedURL = url.standardizedFileURL
-        guard NoteFileWriter.write(initialText, to: standardizedURL) else {
-            lastSavedText = "Create failed"
+        let expectedIdentity = fileOperations.modificationIdentity(for: standardizedURL)
+        let result = writeSnapshot(
+            text: initialText,
+            url: standardizedURL,
+            revision: markdownRevision,
+            expectedIdentity: expectedIdentity
+        )
+        guard case .saved = result else {
+            lastSavedText = result == .conflict ? "Create conflict" : "Create failed"
             return false
         }
 
@@ -417,17 +557,17 @@ final class NoteStore {
         guard let url = workspaceDocumentURL(offset: offset) else { return nil }
 
         let path = url.standardizedFileURL.path
-        let modificationDate = fileModificationDate(for: url)
+        let identity = fileOperations.modificationIdentity(for: url)
         if let cached = workspacePreviewCache[path],
-           cached.modificationDate == modificationDate {
+           cached.identity == identity {
             return (url, cached.text)
         }
 
-        guard let text = await NoteFileReader.readOffMain(url),
+        guard case let .success(text, loadedIdentity) = await readFileOffMain(from: url),
               workspaceDocumentURL(offset: offset)?.standardizedFileURL.path == path
         else { return nil }
 
-        workspacePreviewCache[path] = DocumentPreviewCacheEntry(modificationDate: modificationDate, text: text)
+        workspacePreviewCache[path] = DocumentPreviewCacheEntry(identity: loadedIdentity, text: text)
         return (url, text)
     }
 
@@ -491,6 +631,156 @@ final class NoteStore {
         persistWorkspaces()
     }
 
+    private func expectedIdentityForSave(of url: URL, revision: Int) -> NoteFileModificationIdentity? {
+        let path = url.standardizedFileURL.path
+        if let state = filePersistenceStates[path] {
+            return state.identity
+        }
+        // A URL can enter a workspace before it has ever been loaded. Treat
+        // the identity observed at save request time as the expected version
+        // instead of silently replacing an unknown external file.
+        return fileOperations.modificationIdentity(for: url)
+    }
+
+    private func saveCurrentSnapshot(text: String, url: URL, revision: Int) -> SaveOutcome {
+        let path = url.standardizedFileURL.path
+        if let state = filePersistenceStates[path],
+           (state.status == .deferred || state.status == .failed),
+           state.baselineRevision == revision {
+            return .blocked
+        }
+
+        let expectedIdentity = expectedIdentityForSave(of: url, revision: revision)
+        return writeSnapshot(
+            text: text,
+            url: url,
+            revision: revision,
+            expectedIdentity: expectedIdentity
+        )
+    }
+
+    private func saveCurrentSnapshotOffMain(text: String, url: URL, revision: Int) async -> SaveOutcome {
+        let path = url.standardizedFileURL.path
+        if let state = filePersistenceStates[path],
+           (state.status == .deferred || state.status == .failed),
+           state.baselineRevision == revision {
+            return .blocked
+        }
+
+        let expectedIdentity = expectedIdentityForSave(of: url, revision: revision)
+        let writeToken = beginWrite(for: url)
+        let result = await fileOperations.writeIfIdentityMatchesOffMain(
+            text,
+            to: url,
+            expectedIdentity: expectedIdentity,
+            token: writeToken
+        )
+        if case let .saved(identity) = result {
+            recordSuccessfulWrite(for: url, identity: identity, revision: revision)
+        }
+        return mapWriteResult(result)
+    }
+
+    private func writeSnapshot(
+        text: String,
+        url: URL,
+        revision: Int,
+        expectedIdentity: NoteFileModificationIdentity?
+    ) -> SaveOutcome {
+        let writeToken = beginWrite(for: url)
+        let result = fileOperations.writeIfIdentityMatches(
+            text,
+            to: url,
+            expectedIdentity: expectedIdentity,
+            token: writeToken
+        )
+        if case let .saved(identity) = result {
+            recordSuccessfulWrite(for: url, identity: identity, revision: revision)
+        }
+        return mapWriteResult(result)
+    }
+
+    private func beginWrite(for url: URL) -> Int {
+        fileOperations.beginWrite(for: url)
+    }
+
+    private func recordSuccessfulWrite(
+        for url: URL,
+        identity: NoteFileModificationIdentity?,
+        revision: Int
+    ) {
+        // A cancelled off-main write may finish after a newer write has
+        // already replaced the file. Do not let that stale completion roll
+        // the in-memory baseline back to the older identity.
+        guard fileOperations.modificationIdentity(for: url) == identity else { return }
+        let path = url.standardizedFileURL.path
+        filePersistenceStates[path] = FilePersistenceState(
+            identity: identity,
+            status: .loaded,
+            baselineRevision: revision
+        )
+    }
+
+    private func mapWriteResult(_ result: NoteFileWriteResult) -> SaveOutcome {
+        switch result {
+        case .saved:
+            return .saved
+        case .failed:
+            return .failed
+        case .conflict:
+            return .conflict
+        }
+    }
+
+    private func statusText(for result: NoteFileWriteResult) -> String {
+        switch result {
+        case .saved:
+            return "Saved just now"
+        case .failed:
+            return "Save failed"
+        case .conflict:
+            return "Save conflict"
+        }
+    }
+
+    private func applySaveOutcome(_ outcome: SaveOutcome, for url: URL) {
+        switch outcome {
+        case .saved:
+            invalidateWorkspacePreview(for: url)
+            lastSavedText = "Saved just now"
+        case .failed:
+            lastSavedText = "Save failed"
+        case .conflict:
+            lastSavedText = "Save conflict"
+        case .blocked:
+            lastSavedText = "Save blocked"
+        }
+    }
+
+    private func readFileSynchronously(from url: URL) -> FileReadOutcome {
+        let before = fileOperations.modificationIdentity(for: url)
+        guard let text = fileOperations.read(url) else {
+            return .failed(identity: before)
+        }
+        let after = fileOperations.modificationIdentity(for: url)
+        guard before == after else {
+            return .failed(identity: after)
+        }
+        return .success(text: text, identity: after)
+    }
+
+    private func readFileOffMain(from url: URL) async -> FileReadOutcome {
+        let before = fileOperations.modificationIdentity(for: url)
+        guard let text = await fileOperations.readOffMain(url) else {
+            return .failed(identity: before)
+        }
+        let after = fileOperations.modificationIdentity(for: url)
+        guard before == after else {
+            return .failed(identity: after)
+        }
+        return .success(text: text, identity: after)
+    }
+
     private func scheduleSave() {
         cancelInitialLoad()
         lastSavedText = "Saving..."
@@ -499,18 +789,46 @@ final class NoteStore {
         saveTask?.cancel()
         let text = markdown
         let url = currentFileURL
+        let revision = markdownRevision
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(280))
             guard !Task.isCancelled else { return }
-            let didSave = await NoteFileWriter.writeOffMain(text, to: url)
-            guard !Task.isCancelled,
-                  let self,
-                  self.saveGeneration == generation
+            guard let self,
+                  self.saveGeneration == generation,
+                  self.currentFileURL.standardizedFileURL.path == url.standardizedFileURL.path,
+                  self.markdownRevision == revision
             else { return }
-            if didSave {
+
+            let path = url.standardizedFileURL.path
+            if let state = self.filePersistenceStates[path],
+               (state.status == .deferred || state.status == .failed),
+               state.baselineRevision == revision {
+                self.lastSavedText = "Save blocked"
+                self.saveTask = nil
+                return
+            }
+
+            let expectedIdentity = self.expectedIdentityForSave(of: url, revision: revision)
+            let writeToken = self.beginWrite(for: url)
+            let result = await self.fileOperations.writeIfIdentityMatchesOffMain(
+                text,
+                to: url,
+                expectedIdentity: expectedIdentity,
+                token: writeToken
+            )
+            if case let .saved(identity) = result {
+                self.recordSuccessfulWrite(for: url, identity: identity, revision: revision)
+            }
+            guard !Task.isCancelled,
+                  self.saveGeneration == generation,
+                  self.currentFileURL.standardizedFileURL.path == url.standardizedFileURL.path,
+                  self.markdownRevision == revision
+            else { return }
+
+            if case .saved = result {
                 self.invalidateWorkspacePreview(for: url)
             }
-            self.lastSavedText = didSave ? "Saved just now" : "Save failed"
+            self.lastSavedText = self.statusText(for: result)
             self.saveTask = nil
         }
     }
@@ -535,7 +853,7 @@ final class NoteStore {
         initialLoadPlaceholderRevision = placeholderRevision
         initialLoadTask?.cancel()
         initialLoadTask = Task { [weak self] in
-            let text = await NoteFileReader.readOffMain(url)
+            let outcome = await self?.readFileOffMain(from: url)
             guard !Task.isCancelled,
                   let self,
                   self.initialLoadGeneration == generation,
@@ -546,8 +864,30 @@ final class NoteStore {
                 return
             }
 
-            guard let text else {
+            guard let outcome else {
                 self.lastSavedText = "Open failed"
+                self.filePersistenceStates[path] = FilePersistenceState(
+                    identity: self.fileOperations.modificationIdentity(for: url),
+                    status: .failed,
+                    baselineRevision: self.markdownRevision
+                )
+                self.finishInitialLoad(generation: generation)
+                return
+            }
+
+            guard case let .success(text, identity) = outcome else {
+                self.lastSavedText = "Open failed"
+                let failedIdentity: NoteFileModificationIdentity?
+                if case let .failed(identity) = outcome {
+                    failedIdentity = identity
+                } else {
+                    failedIdentity = self.fileOperations.modificationIdentity(for: url)
+                }
+                self.filePersistenceStates[path] = FilePersistenceState(
+                    identity: failedIdentity,
+                    status: .failed,
+                    baselineRevision: self.markdownRevision
+                )
                 self.finishInitialLoad(generation: generation)
                 return
             }
@@ -555,6 +895,11 @@ final class NoteStore {
             self.isReplacingText = true
             self.markdown = text
             self.isReplacingText = false
+            self.filePersistenceStates[path] = FilePersistenceState(
+                identity: identity,
+                status: .loaded,
+                baselineRevision: self.markdownRevision
+            )
             self.refreshDisplayTitle()
             self.lastSavedText = "Opened"
             self.finishInitialLoad(generation: generation)
@@ -568,13 +913,23 @@ final class NoteStore {
         return currentFileURL.standardizedFileURL.path == path && markdownRevision == revision
     }
 
-    private func cancelInitialLoad() {
+    private var isCurrentFileLoadUnusableWithoutEdits: Bool {
+        let path = currentFileURL.standardizedFileURL.path
+        guard let state = filePersistenceStates[path],
+              state.baselineRevision == markdownRevision
+        else { return false }
+        return state.status == .deferred || state.status == .failed
+    }
+
+    private func cancelInitialLoad(preservePlaceholder: Bool = false) {
         guard initialLoadTask != nil || initialLoadPlaceholderPath != nil else { return }
         initialLoadGeneration &+= 1
         initialLoadTask?.cancel()
         initialLoadTask = nil
-        initialLoadPlaceholderPath = nil
-        initialLoadPlaceholderRevision = nil
+        if !preservePlaceholder {
+            initialLoadPlaceholderPath = nil
+            initialLoadPlaceholderRevision = nil
+        }
     }
 
     private func finishInitialLoad(generation: Int) {
@@ -584,7 +939,13 @@ final class NoteStore {
         initialLoadPlaceholderRevision = nil
     }
 
-    private func applyOpenedFile(text: String, url: URL, moveToFrontInWorkspace: Bool) {
+    private func applyOpenedFile(
+        text: String,
+        url: URL,
+        identity: NoteFileModificationIdentity?,
+        moveToFrontInWorkspace: Bool
+    ) {
+        cancelInitialLoad()
         invalidateWorkspacePreview(for: url)
         currentFileURL = url
         defaults.set(url.path, forKey: NoteStoreDefaultsKey.currentFilePath)
@@ -593,6 +954,11 @@ final class NoteStore {
         isReplacingText = true
         markdown = text
         isReplacingText = false
+        filePersistenceStates[url.standardizedFileURL.path] = FilePersistenceState(
+            identity: identity,
+            status: .loaded,
+            baselineRevision: markdownRevision
+        )
         refreshDisplayTitle()
         lastSavedText = "Opened"
     }
@@ -645,11 +1011,6 @@ final class NoteStore {
             guard FileManager.default.fileExists(atPath: path) || path == currentPath else { return nil }
             return URL(fileURLWithPath: path).standardizedFileURL
         }
-    }
-
-    private func fileModificationDate(for url: URL) -> Date? {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: url.standardizedFileURL.path)
-        return attributes?[.modificationDate] as? Date
     }
 
     private func preferredURL(for workspace: NoteWorkspace) -> URL? {

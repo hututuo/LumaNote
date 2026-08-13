@@ -1,6 +1,60 @@
 import XCTest
 @testable import QuietNote
 
+private final class NoteStoreTestFileController: @unchecked Sendable {
+    private let lock = NSLock()
+    private var failedPaths: Set<String> = []
+    private(set) var writes: [(path: String, text: String)] = []
+
+    func failWrites(to url: URL) {
+        lock.lock()
+        failedPaths.insert(url.standardizedFileURL.path)
+        lock.unlock()
+    }
+
+    func operations() -> NoteFileOperations {
+        NoteFileOperations(
+            reader: { NoteFileReader.read($0) },
+            writer: { [weak self] text, url in
+                guard let self else { return false }
+                return self.write(text, to: url, expectedIdentity: NoteFileReader.modificationIdentity(url))
+            },
+            identityReader: { NoteFileReader.modificationIdentity($0) },
+            conditionalWriter: { [weak self] text, url, expectedIdentity in
+                guard let self else { return .failed }
+                return self.writeResult(text, to: url, expectedIdentity: expectedIdentity)
+            }
+        )
+    }
+
+    private func write(
+        _ text: String,
+        to url: URL,
+        expectedIdentity: NoteFileModificationIdentity?
+    ) -> Bool {
+        if case .saved = writeResult(text, to: url, expectedIdentity: expectedIdentity) {
+            return true
+        }
+        return false
+    }
+
+    private func writeResult(
+        _ text: String,
+        to url: URL,
+        expectedIdentity: NoteFileModificationIdentity?
+    ) -> NoteFileWriteResult {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let path = url.standardizedFileURL.path
+        guard !failedPaths.contains(path) else { return .failed }
+        guard NoteFileReader.modificationIdentity(url) == expectedIdentity else { return .conflict }
+        guard NoteFileWriter.write(text, to: url) else { return .failed }
+        writes.append((path: path, text: text))
+        return .saved(NoteFileReader.modificationIdentity(url))
+    }
+}
+
 final class NoteStoreWorkspaceTests: XCTestCase {
     private var temporaryDirectory: URL!
     private var defaults: UserDefaults!
@@ -94,6 +148,90 @@ final class NoteStoreWorkspaceTests: XCTestCase {
     }
 
     @MainActor
+    func testEditDuringDeferredInitialLoadSavesOnlyExplicitUserText() async throws {
+        let legacyURL = try makeNote(named: "note.md", title: "Old Note")
+        let store = NoteStore(
+            defaults: defaults,
+            supportDirectory: temporaryDirectory,
+            initialLoadMode: .deferred
+        )
+
+        store.markdown = "# User edit\n\nBody"
+        XCTAssertTrue(store.saveNow())
+        await store.waitForInitialLoadForTesting()
+
+        XCTAssertEqual(try String(contentsOf: legacyURL, encoding: .utf8), "# User edit\n\nBody")
+        XCTAssertEqual(store.markdown, "# User edit\n\nBody")
+    }
+
+    @MainActor
+    func testInvalidUTF8IsPreservedWhenSaveNowRuns() throws {
+        let invalidURL = temporaryDirectory.appending(path: "invalid.md")
+        let invalidData = Data([0x23, 0x20, 0xFF, 0xFE, 0x0A])
+        try invalidData.write(to: invalidURL)
+        defaults.set(invalidURL.path, forKey: NoteStoreDefaultsKey.currentFilePath)
+
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+
+        XCTAssertEqual(store.markdown, "")
+        XCTAssertFalse(store.saveNow())
+        XCTAssertEqual(try Data(contentsOf: invalidURL), invalidData)
+        XCTAssertEqual(store.lastSavedText, "Save blocked")
+    }
+
+    @MainActor
+    func testOpenAfterInvalidInitialReadDoesNotOverwriteOrBlockOtherFile() async throws {
+        let invalidURL = temporaryDirectory.appending(path: "invalid.md")
+        let invalidData = Data([0x23, 0x20, 0xFF, 0xFE, 0x0A])
+        try invalidData.write(to: invalidURL)
+        let secondURL = try makeNote(named: "second.md", title: "Second")
+        defaults.set(invalidURL.path, forKey: NoteStoreDefaultsKey.currentFilePath)
+
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+        store.openFile(at: secondURL)
+        await store.waitForPendingOpenForTesting()
+
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, secondURL.standardizedFileURL.path)
+        XCTAssertEqual(store.markdown, "# Second\n\nBody")
+        XCTAssertEqual(try Data(contentsOf: invalidURL), invalidData)
+    }
+
+    @MainActor
+    func testCreateDuringDeferredInitialLoadDoesNotOverwriteExistingNote() async throws {
+        let legacyURL = try makeNote(named: "note.md", title: "Old Note")
+        let createdURL = temporaryDirectory.appending(path: "created.md")
+        let store = NoteStore(
+            defaults: defaults,
+            supportDirectory: temporaryDirectory,
+            initialLoadMode: .deferred
+        )
+
+        XCTAssertTrue(store.createMarkdownFile(at: createdURL, initialText: "# New note\n"))
+        await store.waitForInitialLoadForTesting()
+
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, createdURL.standardizedFileURL.path)
+        XCTAssertEqual(try String(contentsOf: createdURL, encoding: .utf8), "# New note\n")
+        XCTAssertEqual(try String(contentsOf: legacyURL, encoding: .utf8), "# Old Note\n\nBody")
+    }
+
+    @MainActor
+    func testDebouncedWritesKeepLatestSnapshot() async throws {
+        let controller = NoteStoreTestFileController()
+        let store = NoteStore(
+            defaults: defaults,
+            supportDirectory: temporaryDirectory,
+            fileOperations: controller.operations()
+        )
+
+        store.markdown = "# First\n\nBody"
+        store.markdown = "# Latest\n\nBody"
+        await store.waitForPendingSaveForTesting()
+
+        XCTAssertEqual(try String(contentsOf: store.currentFileURL, encoding: .utf8), "# Latest\n\nBody")
+        XCTAssertEqual(controller.writes.last?.text, "# Latest\n\nBody")
+    }
+
+    @MainActor
     func testOpeningAnotherFileDuringDeferredInitialLoadDoesNotOverwriteExistingNote() async throws {
         let legacyURL = try makeNote(named: "note.md", title: "Old Note")
         let secondURL = try makeNote(named: "second.md", title: "Second")
@@ -134,6 +272,111 @@ final class NoteStoreWorkspaceTests: XCTestCase {
         XCTAssertFalse(store.hasPendingOpenForTesting)
         XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, secondURL.standardizedFileURL.path)
         XCTAssertEqual(store.markdown, "# Second\n\nBody")
+    }
+
+    @MainActor
+    func testOpenSaveFailureKeepsCurrentDocumentAndMemoryEdits() async throws {
+        let firstURL = try makeNote(named: "first.md", title: "First")
+        let secondURL = try makeNote(named: "second.md", title: "Second")
+        let controller = NoteStoreTestFileController()
+        let store = NoteStore(
+            defaults: defaults,
+            supportDirectory: temporaryDirectory,
+            fileOperations: controller.operations()
+        )
+
+        store.openFile(at: firstURL)
+        await store.waitForPendingOpenForTesting()
+        store.markdown = "# Unsaved first\n\nKeep me"
+        controller.failWrites(to: firstURL)
+
+        store.openFile(at: secondURL)
+        await store.waitForPendingOpenForTesting()
+
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, firstURL.standardizedFileURL.path)
+        XCTAssertEqual(store.markdown, "# Unsaved first\n\nKeep me")
+        XCTAssertEqual(try String(contentsOf: secondURL, encoding: .utf8), "# Second\n\nBody")
+    }
+
+    @MainActor
+    func testPreloadedSwitchSaveFailureDoesNotDiscardCurrentDocument() async throws {
+        let firstURL = try makeNote(named: "first.md", title: "First")
+        let secondURL = try makeNote(named: "second.md", title: "Second")
+        let controller = NoteStoreTestFileController()
+        let store = NoteStore(
+            defaults: defaults,
+            supportDirectory: temporaryDirectory,
+            fileOperations: controller.operations()
+        )
+
+        store.openFile(at: firstURL)
+        await store.waitForPendingOpenForTesting()
+        store.openFile(at: secondURL)
+        await store.waitForPendingOpenForTesting()
+        store.markdown = "# Unsaved second\n\nKeep me"
+        controller.failWrites(to: secondURL)
+
+        XCTAssertTrue(store.switchWorkspaceDocument(
+            offset: 1,
+            preloadedPreview: (url: firstURL, text: "# First\n\nBody")
+        ))
+
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, secondURL.standardizedFileURL.path)
+        XCTAssertEqual(store.markdown, "# Unsaved second\n\nKeep me")
+    }
+
+    @MainActor
+    func testSaveAsFailureKeepsOriginalURLAndContent() async throws {
+        let firstURL = try makeNote(named: "first.md", title: "First")
+        let targetURL = temporaryDirectory.appending(path: "target.md")
+        let controller = NoteStoreTestFileController()
+        let store = NoteStore(
+            defaults: defaults,
+            supportDirectory: temporaryDirectory,
+            fileOperations: controller.operations()
+        )
+
+        store.openFile(at: firstURL)
+        await store.waitForPendingOpenForTesting()
+        controller.failWrites(to: targetURL)
+        store.markdown = "# Keep original\n\nBody"
+        store.saveAs(to: targetURL)
+
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, firstURL.standardizedFileURL.path)
+        XCTAssertEqual(store.markdown, "# Keep original\n\nBody")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: targetURL.path))
+    }
+
+    @MainActor
+    func testSaveAsSwitchesOnlyAfterTargetWriteSucceeds() async throws {
+        let firstURL = try makeNote(named: "first.md", title: "First")
+        let targetURL = temporaryDirectory.appending(path: "target.md")
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+
+        store.openFile(at: firstURL)
+        await store.waitForPendingOpenForTesting()
+        store.markdown = "# Saved copy\n\nBody"
+        store.saveAs(to: targetURL)
+
+        XCTAssertEqual(store.currentFileURL.standardizedFileURL.path, targetURL.standardizedFileURL.path)
+        XCTAssertEqual(try String(contentsOf: targetURL, encoding: .utf8), "# Saved copy\n\nBody")
+    }
+
+    @MainActor
+    func testExternalModificationIsDetectedBeforeSaveAndSamePathOpen() async throws {
+        let firstURL = try makeNote(named: "first.md", title: "First")
+        let store = NoteStore(defaults: defaults, supportDirectory: temporaryDirectory)
+        store.openFile(at: firstURL)
+        await store.waitForPendingOpenForTesting()
+
+        try "# External version\n\nDo not overwrite".write(to: firstURL, atomically: true, encoding: .utf8)
+        store.markdown = "# Local version\n\nKeep in memory"
+        XCTAssertFalse(store.saveNow())
+        XCTAssertEqual(try String(contentsOf: firstURL, encoding: .utf8), "# External version\n\nDo not overwrite")
+
+        store.openFile(at: firstURL)
+        XCTAssertEqual(store.markdown, "# Local version\n\nKeep in memory")
+        XCTAssertEqual(try String(contentsOf: firstURL, encoding: .utf8), "# External version\n\nDo not overwrite")
     }
 
     @MainActor
