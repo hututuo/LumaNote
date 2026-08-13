@@ -385,11 +385,15 @@ enum MarkdownStaticPreviewRenderer {
         scrollView.contentView.frame = bounds
         scrollView.layoutSubtreeIfNeeded()
         applyScrollPosition(documentPosition ?? .top, scrollView: scrollView)
-        // Swipe snapshots are read-like previews. Restore only their scroll
-        // position; an editor caret inside a heading must not reveal Markdown
-        // source markers and create a transient indent before the real editor
-        // settles.
-        applyMarkdownStyle(to: textView, fontSize: fontSize, activeSelectionRanges: [])
+        // Match the live editor's restored document position before styling.
+        // This keeps active Markdown syntax, paragraph metrics, and glyph
+        // origins identical while the static page is being swiped into place.
+        let activeSelectionRanges = MarkdownRangeHelpers.nsRanges(from: textView.selectedRanges)
+        applyMarkdownStyle(
+            to: textView,
+            fontSize: fontSize,
+            activeSelectionRanges: activeSelectionRanges
+        )
         scrollView.invalidateDocumentHeight()
         scrollView.refreshScrollIndicator()
         applyScrollPosition(documentPosition ?? .top, scrollView: scrollView)

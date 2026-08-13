@@ -89,7 +89,7 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         XCTAssertTrue(image === preRenderedImage)
     }
 
-    func testStaticPreviewStylingKeepsHeadingMarkersHiddenAtRestoredPosition() {
+    func testStaticPreviewStylingMatchesEditableHeadingMarkersAtRestoredPosition() {
         let markdown = "# Preview title\n\nBody"
         let position = MarkdownDocumentPosition(selectedLocation: 3, selectedLength: 0, scrollY: 0)
         let storage = MarkdownStaticPreviewRenderer.styledStorageForTesting(
@@ -100,9 +100,15 @@ final class MarkdownRenderingEditorTests: XCTestCase {
             size: CGSize(width: 240, height: 160)
         )
 
-        XCTAssertTrue(isHiddenSyntax(at: 0, in: storage))
-        XCTAssertEqual(foregroundAlpha(at: 0, in: storage), 0, accuracy: 0.01)
-        XCTAssertFalse(isHiddenSyntax(at: 2, in: storage))
+        let editableStorage = editableStyledStorage(
+            markdown: markdown,
+            documentPosition: position,
+            size: CGSize(width: 240, height: 160)
+        )
+
+        XCTAssertEqual(isHiddenSyntax(at: 0, in: storage), isHiddenSyntax(at: 0, in: editableStorage))
+        XCTAssertEqual(foregroundAlpha(at: 0, in: storage), foregroundAlpha(at: 0, in: editableStorage), accuracy: 0.01)
+        XCTAssertEqual(isHiddenSyntax(at: 2, in: storage), isHiddenSyntax(at: 2, in: editableStorage))
     }
 
     func testStaticPreviewSnapshotCollapsesHiddenHeadingMarkerBeforeDrawing() {
@@ -157,10 +163,15 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         XCTAssertEqual(staticX ?? -1, liveX ?? -2, accuracy: 1)
     }
 
-    func testStaticPreviewHeadingTextOriginIgnoresRestoredHeadingSelection() {
+    func testStaticPreviewHeadingTextOriginMatchesEditableRestoredSelection() {
         let markdown = "# Preview title\n\nBody"
         let size = CGSize(width: 320, height: 160)
         let titleLocation = range(of: "Preview", in: markdown).location
+        let restoredPosition = MarkdownDocumentPosition(
+            selectedLocation: titleLocation + 2,
+            selectedLength: 0,
+            scrollY: 0
+        )
         let inactiveOrigin = MarkdownStaticPreviewRenderer.glyphOriginXForTesting(
             text: markdown,
             fontSize: 15.5,
@@ -173,23 +184,25 @@ final class MarkdownRenderingEditorTests: XCTestCase {
             text: markdown,
             fontSize: 15.5,
             accentColor: .systemCyan,
-            documentPosition: MarkdownDocumentPosition(
-                selectedLocation: titleLocation + 2,
-                selectedLength: 0,
-                scrollY: 0
-            ),
+            documentPosition: restoredPosition,
+            size: size,
+            characterLocation: titleLocation
+        )
+        let editableOrigin = editableGlyphOriginX(
+            markdown: markdown,
+            documentPosition: restoredPosition,
             size: size,
             characterLocation: titleLocation
         )
 
         XCTAssertNotNil(inactiveOrigin)
         XCTAssertNotNil(restoredHeadingOrigin)
-        XCTAssertEqual(restoredHeadingOrigin ?? -1, inactiveOrigin ?? -2, accuracy: 0.5)
-        XCTAssertLessThanOrEqual(inactiveOrigin ?? .greatestFiniteMagnitude, 8)
-        XCTAssertLessThanOrEqual(restoredHeadingOrigin ?? .greatestFiniteMagnitude, 8)
+        XCTAssertNotNil(editableOrigin)
+        XCTAssertNotEqual(restoredHeadingOrigin ?? -1, inactiveOrigin ?? -2, accuracy: 0.5)
+        XCTAssertEqual(restoredHeadingOrigin ?? -1, editableOrigin ?? -2, accuracy: 0.5)
     }
 
-    func testStaticPreviewAndReadOnlyEditorShareRestoredPositionSyntaxAndLayout() {
+    func testStaticPreviewAndEditableEditorShareRestoredPositionSyntaxAndLayout() {
         let markdown = "# Preview title\n\n**Bold** and [link](https://example.com)\n\n- [ ] Task"
         let size = CGSize(width: 320, height: 180)
         let restoredPosition = MarkdownDocumentPosition(
@@ -204,7 +217,11 @@ final class MarkdownRenderingEditorTests: XCTestCase {
             documentPosition: restoredPosition,
             size: size
         )
-        let editorStorage = styledStorage(markdown)
+        let editorStorage = editableStyledStorage(
+            markdown: markdown,
+            documentPosition: restoredPosition,
+            size: size
+        )
 
         let length = (markdown as NSString).length
         XCTAssertEqual(previewStorage.length, length)
@@ -862,6 +879,66 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         return textView.textStorage ?? NSTextStorage(string: markdown)
     }
 
+    @MainActor
+    private func editableStyledStorage(
+        markdown: String,
+        documentPosition: MarkdownDocumentPosition,
+        size: CGSize
+    ) -> NSTextStorage {
+        let scrollView = configuredScrollView(markdown: markdown, size: size)
+        guard let textView = scrollView.markdownTextView else {
+            return NSTextStorage(string: markdown)
+        }
+        MarkdownDocumentPositionApplicator.apply(
+            documentPosition,
+            textView: textView,
+            scrollView: scrollView
+        )
+        MarkdownEditorStyling.apply(
+            to: textView,
+            fontSize: 15.5,
+            activeSelectionRanges: MarkdownRangeHelpers.nsRanges(from: textView.selectedRanges)
+        )
+        scrollView.invalidateDocumentHeight()
+        scrollView.refreshScrollIndicator()
+        if let textContainer = textView.textContainer {
+            textView.layoutManager?.ensureLayout(for: textContainer)
+        }
+        return NSTextStorage(attributedString: textView.textStorage ?? NSTextStorage(string: markdown))
+    }
+
+    @MainActor
+    private func editableGlyphOriginX(
+        markdown: String,
+        documentPosition: MarkdownDocumentPosition,
+        size: CGSize,
+        characterLocation: Int
+    ) -> CGFloat? {
+        let scrollView = configuredScrollView(markdown: markdown, size: size)
+        guard let textView = scrollView.markdownTextView,
+              let textContainer = textView.textContainer,
+              let layoutManager = textView.layoutManager
+        else { return nil }
+        MarkdownDocumentPositionApplicator.apply(
+            documentPosition,
+            textView: textView,
+            scrollView: scrollView
+        )
+        MarkdownEditorStyling.apply(
+            to: textView,
+            fontSize: 15.5,
+            activeSelectionRanges: MarkdownRangeHelpers.nsRanges(from: textView.selectedRanges)
+        )
+        layoutManager.ensureLayout(for: textContainer)
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterLocation)
+        guard glyphIndex < layoutManager.numberOfGlyphs else { return nil }
+        let rect = layoutManager.boundingRect(
+            forGlyphRange: NSRange(location: glyphIndex, length: 1),
+            in: textContainer
+        )
+        return textView.textContainerOrigin.x + rect.minX
+    }
+
     private func range(of substring: String, in text: String) -> NSRange {
         let nsText = text as NSString
         let range = nsText.range(of: substring)
@@ -942,12 +1019,17 @@ final class MarkdownRenderingEditorTests: XCTestCase {
     }
 
     private func configuredScrollView(markdown: String, viewportHeight: CGFloat) -> MarkdownScrollView {
-        let scrollView = MarkdownScrollView(frame: NSRect(x: 0, y: 0, width: 320, height: viewportHeight))
-        let textView = MarkdownTaskTextView(frame: NSRect(x: 0, y: 0, width: 320, height: viewportHeight))
+        configuredScrollView(markdown: markdown, size: CGSize(width: 320, height: viewportHeight))
+    }
+
+    private func configuredScrollView(markdown: String, size: CGSize) -> MarkdownScrollView {
+        let scrollView = MarkdownScrollView(frame: NSRect(origin: .zero, size: size))
+        let textView = MarkdownTaskTextView(frame: NSRect(origin: .zero, size: size))
         textView.drawsBackground = false
         textView.textContainerInset = NSSize(width: 0, height: 10)
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+        textView.layoutManager?.delegate = textView
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isVerticallyResizable = true
