@@ -76,8 +76,8 @@ enum OnboardingPage: Int, CaseIterable, Identifiable {
             icon: "square.on.square",
             title: .init(chinese: "本地剪切板库", english: "Local clipboard library"),
             detail: .init(
-                chinese: "复制内容后在本机保存并提取可用信息。",
-                english: "Saves copied text locally and extracts useful snippets."
+                chinese: "默认不读取剪切板；只有你明确开启本地监听后，才会保存并提取复制内容。",
+                english: "Clipboard monitoring is off by default; copied text is saved and extracted only after you explicitly enable it."
             )
         ),
         OnboardingFeatureItem(

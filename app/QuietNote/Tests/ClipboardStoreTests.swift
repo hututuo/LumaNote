@@ -46,6 +46,20 @@ final class ClipboardStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testFlushPersistsLatestSnapshotImmediately() async throws {
+        let store = ClipboardStore(supportDirectory: temporaryDirectory)
+
+        store.captureTextForTesting("flush@example.com")
+        await store.waitForPendingDetectionForTesting()
+        await store.flush()
+
+        let result = ClipboardPersistence.loadResult(
+            from: temporaryDirectory.appending(path: "clipboard.json")
+        )
+        XCTAssertEqual(result.items.first?.text, "flush@example.com")
+    }
+
+    @MainActor
     func testStartMonitoringWithoutEnabledSettingsDoesNotCreatePollingTimer() async throws {
         let store = ClipboardStore(supportDirectory: temporaryDirectory)
 

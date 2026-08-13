@@ -5,9 +5,15 @@ import Observation
 @MainActor
 @Observable
 final class ClipboardStore {
+    nonisolated static let maximumClipboardItemBytes = 256 * 1024
+    nonisolated static let maximumClipboardHistoryBytes = 8 * 1024 * 1024
+    nonisolated static let maximumSearchIndexCharacters = 16 * 1024
+
     private(set) var items: [ClipboardItem] = []
     private(set) var latestSuggestion: ClipboardDetection?
     private(set) var latestDetectedItem: ClipboardItem?
+    private(set) var persistenceStatus: ClipboardPersistence.LoadStatus = .missing
+    private(set) var persistenceWarning: String?
 
     @ObservationIgnored private var settings: AppSettings?
     @ObservationIgnored private var timer: Timer?
@@ -15,12 +21,19 @@ final class ClipboardStore {
     @ObservationIgnored private var saveGeneration = 0
     @ObservationIgnored private var detectionTask: Task<Void, Never>?
     @ObservationIgnored private var detectionGeneration = 0
-    @ObservationIgnored private var lastChangeCount = NSPasteboard.general.changeCount
+    @ObservationIgnored private var lastChangeCount: Int?
     @ObservationIgnored private var itemFingerprints: [UUID: UInt64] = [:]
     @ObservationIgnored private var itemSearchIndex: [UUID: String] = [:]
+    @ObservationIgnored private var persistenceWriteBlocked = false
+    @ObservationIgnored private let persistenceWriter: any ClipboardPersistenceWriting
     private let fileURL: URL
 
-    init(settings: AppSettings? = nil, supportDirectory: URL? = nil) {
+    init(
+        settings: AppSettings? = nil,
+        supportDirectory: URL? = nil,
+        persistenceWriter: any ClipboardPersistenceWriting = ClipboardPersistenceWriter()
+    ) {
+        self.persistenceWriter = persistenceWriter
         let support = supportDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "QuietNote", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
@@ -46,6 +59,9 @@ final class ClipboardStore {
             self?.trim(to: limit)
         }
 
+        // A stored true value is an existing user's explicit preference and is
+        // intentionally preserved across upgrades. Fresh settings default to
+        // false, so this branch cannot inspect the pasteboard during onboarding.
         if settings.monitorClipboard {
             startMonitoring()
         }
@@ -57,6 +73,9 @@ final class ClipboardStore {
             return
         }
         timer?.invalidate()
+
+        let pasteboard = NSPasteboard.general
+        lastChangeCount = pasteboard.changeCount
         capturePasteboard(force: true)
 
         let timer = Timer(timeInterval: 0.65, repeats: true) { [weak self] _ in
@@ -72,7 +91,10 @@ final class ClipboardStore {
         cancelPendingDetection()
         timer?.invalidate()
         timer = nil
-        lastChangeCount = NSPasteboard.general.changeCount
+        lastChangeCount = nil
+        if !items.isEmpty {
+            saveNow()
+        }
     }
 
     func copy(_ text: String) {
@@ -131,7 +153,18 @@ final class ClipboardStore {
         itemSearchIndex.removeAll()
         latestSuggestion = nil
         latestDetectedItem = nil
-        save(debounce: false)
+
+        // A corrupt source is never silently overwritten by an automatic save.
+        // Clearing is an explicit destructive action, so preserve a forensic
+        // copy first and then allow the new empty envelope to be written.
+        if persistenceWriteBlocked {
+            if let backupURL = ClipboardPersistence.preserveUnreadableFile(at: fileURL) {
+                persistenceWarning = "Unreadable clipboard history was preserved at \(backupURL.lastPathComponent)."
+            }
+            persistenceWriteBlocked = false
+            persistenceStatus = .loaded
+        }
+        saveNow(force: true)
     }
 
     private func capturePasteboard(force: Bool) {
@@ -141,7 +174,8 @@ final class ClipboardStore {
         guard force || pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
 
-        guard let text = pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
+        guard let rawText = pasteboard.string(forType: .string),
+              let text = Self.boundedClipboardText(rawText),
               !text.isEmpty,
               !Self.isLikelyCorruptedClipboardText(text)
         else { return }
@@ -150,8 +184,8 @@ final class ClipboardStore {
     }
 
     func captureTextForTesting(_ rawText: String) {
-        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty,
+        guard let text = Self.boundedClipboardText(rawText),
+              !text.isEmpty,
               !Self.isLikelyCorruptedClipboardText(text)
         else { return }
         enqueueClipboardText(text)
@@ -165,6 +199,16 @@ final class ClipboardStore {
     func waitForPendingSaveForTesting() async {
         let task = saveTask
         await task?.value
+    }
+
+    /// Synchronously flush the latest in-memory snapshot. This is intentionally
+    /// available to application termination and window-close paths.
+    func saveNow() {
+        saveNow(force: false)
+    }
+
+    func flush() async {
+        saveNow()
     }
 
     var hasPendingSaveForTesting: Bool {
@@ -232,7 +276,11 @@ final class ClipboardStore {
         latestSuggestion = detections.first
         latestDetectedItem = detections.isEmpty ? nil : item
 
-        trim(to: settings?.clipboardLimit ?? 200)
+        trim(to: settings?.clipboardLimit ?? AppSettings.defaultClipboardLimit, persist: false)
+        if !items.contains(where: { $0.id == item.id }) {
+            latestSuggestion = nil
+            latestDetectedItem = nil
+        }
         save()
     }
 
@@ -242,35 +290,78 @@ final class ClipboardStore {
         detectionTask = nil
     }
 
-    private func trim(to limit: Int) {
+    private func trim(to limit: Int, persist: Bool = true) {
         let normalizedLimit = max(0, limit)
-        guard items.count > normalizedLimit else { return }
-        items = Array(items.prefix(normalizedLimit))
+        let bounded = boundedHistory(items, limit: normalizedLimit)
+        guard bounded != items else { return }
+        items = bounded
         rebuildItemCaches()
-        save()
+        if persist {
+            save()
+        }
     }
 
     private func load() {
-        items = ClipboardPersistence.load(from: fileURL) ?? []
+        let result = ClipboardPersistence.loadResult(from: fileURL)
+        persistenceStatus = result.status
+        persistenceWarning = result.warning
+        persistenceWriteBlocked = !result.canWrite
+        // Load all records allowed by the persisted format first. A user's
+        // saved clipboardLimit may be higher than the default; binding settings
+        // must not silently discard those older records during migration.
+        items = boundedHistory(result.items, limit: AppSettings.maximumClipboardLimit)
         rebuildItemCaches()
     }
 
     private func save(debounce: Bool = true) {
+        guard !persistenceWriteBlocked else { return }
+        guard !items.isEmpty || FileManager.default.fileExists(atPath: fileURL.path) else { return }
+
         saveGeneration &+= 1
         let generation = saveGeneration
         saveTask?.cancel()
         let snapshot = items
         let fileURL = fileURL
+        let writer = persistenceWriter
         saveTask = Task { [weak self] in
             if debounce {
-                try? await Task.sleep(for: .milliseconds(160))
+                do {
+                    try await Task.sleep(for: .milliseconds(160))
+                } catch {
+                    return
+                }
             }
             guard !Task.isCancelled else { return }
-            _ = await ClipboardPersistence.saveOffMain(snapshot, to: fileURL)
+            let didSave = await ClipboardPersistence.saveOffMain(
+                snapshot,
+                to: fileURL,
+                writer: writer,
+                generation: generation
+            )
             guard !Task.isCancelled,
-                  self?.saveGeneration == generation
+                  let self,
+                  self.saveGeneration == generation
             else { return }
-            self?.saveTask = nil
+            self.saveTask = nil
+            if !didSave {
+                self.persistenceWarning = "Clipboard history could not be saved."
+            }
+        }
+    }
+
+    private func saveNow(force: Bool) {
+        guard force || !persistenceWriteBlocked else { return }
+        guard force || !items.isEmpty || FileManager.default.fileExists(atPath: fileURL.path) else { return }
+
+        saveGeneration &+= 1
+        let generation = saveGeneration
+        saveTask?.cancel()
+        saveTask = nil
+        let didSave = persistenceWriter.save(items, to: fileURL, generation: generation)
+        if didSave {
+            persistenceStatus = .loaded
+        } else {
+            persistenceWarning = "Clipboard history could not be saved."
         }
     }
 
@@ -281,6 +372,44 @@ final class ClipboardStore {
             }
         )
         itemSearchIndex.removeAll()
+    }
+
+    private func boundedHistory(_ source: [ClipboardItem], limit: Int) -> [ClipboardItem] {
+        var result: [ClipboardItem] = []
+        result.reserveCapacity(min(limit, source.count))
+        var totalBytes = 0
+
+        for item in source.prefix(limit) {
+            let itemBytes = Self.estimatedStorageBytes(for: item)
+            guard itemBytes <= Self.maximumClipboardItemBytes else { continue }
+            guard totalBytes + itemBytes <= Self.maximumClipboardHistoryBytes else { break }
+            result.append(item)
+            totalBytes += itemBytes
+        }
+        return result
+    }
+
+    private static func boundedClipboardText(_ rawText: String) -> String? {
+        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let maximumTextBytes = maximumClipboardItemBytes - 512
+        guard trimmed.utf8.count > maximumTextBytes else { return trimmed }
+
+        // String(decoding:) safely repairs a cut UTF-8 scalar; trim any repair
+        // marker if it would exceed the byte budget.
+        var clipped = String(decoding: trimmed.utf8.prefix(maximumTextBytes), as: UTF8.self)
+        while clipped.utf8.count > maximumTextBytes, !clipped.isEmpty {
+            clipped.removeLast()
+        }
+        return clipped.isEmpty ? nil : clipped
+    }
+
+    private static func estimatedStorageBytes(for item: ClipboardItem) -> Int {
+        128
+            + item.text.utf8.count
+            + item.detections.reduce(into: 0) { result, detection in
+                result += 64 + detection.value.utf8.count
+            }
     }
 
     nonisolated private static func contentFingerprint(for text: String) -> UInt64 {
@@ -308,8 +437,13 @@ final class ClipboardStore {
     }
 
     private static func searchableText(for item: ClipboardItem) -> String {
-        let detectedValues = item.detections.map(\.value).joined(separator: " ")
-        return normalizedSearchText("\(item.text) \(detectedValues)")
+        let textPrefix = String(item.text.prefix(maximumSearchIndexCharacters))
+        let detectionPrefix = item.detections
+            .lazy
+            .map(\.value)
+            .joined(separator: " ")
+        let combined = String("\(textPrefix) \(detectionPrefix)".prefix(maximumSearchIndexCharacters))
+        return normalizedSearchText(combined)
     }
 
     private static func normalizedSearchText(_ text: String) -> String {

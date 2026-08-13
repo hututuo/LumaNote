@@ -72,6 +72,36 @@ struct ClipboardDetection: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let kind: Kind
     let value: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case kind
+        case value
+    }
+
+    init(id: UUID, kind: Kind, value: String) {
+        self.id = id
+        self.kind = kind
+        self.value = value
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        let rawKind = try container.decode(String.self, forKey: .kind)
+        // Keep the containing record decodable when a future version adds a
+        // detection kind. The value remains useful as copyable text instead of
+        // making the whole history fail to decode.
+        kind = Kind(rawValue: rawKind) ?? .text
+        value = try container.decode(String.self, forKey: .value)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(value, forKey: .value)
+    }
 }
 
 struct ClipboardListSnapshot {
@@ -129,8 +159,12 @@ extension ClipboardDetection {
             let cleaned = value.filter { $0.isNumber || $0 == "+" }
             return cleaned.isEmpty ? nil : URL(string: "tel:\(cleaned)")
         case .address:
-            guard let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
-            return URL(string: "http://maps.apple.com/?q=\(encoded)")
+            var components = URLComponents()
+            components.scheme = "https"
+            components.host = "maps.apple.com"
+            components.path = "/"
+            components.queryItems = [URLQueryItem(name: "q", value: value)]
+            return components.url
         case .file:
             return fileURL
         case .number:

@@ -46,6 +46,13 @@ struct AppText {
     var clipboard: String { text("剪切板", "Clipboard") }
     var monitorClipboard: String { text("本地监听剪切板", "Monitor clipboard locally") }
     var monitorLocally: String { text("本地监听", "Monitor locally") }
+    var onboardingClipboardConsentTitle: String { text("明确选择本地剪切板监听", "Choose local clipboard monitoring") }
+    var onboardingClipboardConsentBody: String {
+        text(
+            "默认关闭。只有你在这里明确开启后，LumaNote 才会读取并在本机保存之后复制的文本。",
+            "Off by default. LumaNote reads and stores copied text locally only after you explicitly enable it here."
+        )
+    }
     var clear: String { text("清空", "Clear") }
     var clearClipboard: String { text("清空剪切板库", "Clear clipboard library") }
     var keyboardShortcutNote: String { text("快捷键保存在本机；系统或菜单冲突会在录入时提醒。", "Shortcuts are stored locally; system or menu conflicts are shown while recording.") }
