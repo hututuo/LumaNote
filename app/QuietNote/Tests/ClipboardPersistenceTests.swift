@@ -70,6 +70,33 @@ final class ClipboardPersistenceTests: XCTestCase {
         XCTAssertNotNil(object?["items"] as? [Any])
     }
 
+    func testSaveRestrictsNewAndAtomicallyReplacedHistoryToOwnerPermissions() throws {
+        let fileURL = temporaryDirectory.appending(path: "clipboard.json")
+        let item = ClipboardItem(
+            id: UUID(),
+            text: "private clipboard text",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            detections: []
+        )
+
+        XCTAssertTrue(ClipboardPersistence.save([item], to: fileURL))
+        try assertOwnerOnlyPermissions(at: fileURL)
+
+        // Simulate a pre-existing file with a broader mode. The next atomic
+        // replacement must tighten the new inode rather than inherit 0644.
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o644)],
+            ofItemAtPath: fileURL.path
+        )
+        XCTAssertEqual(
+            (try FileManager.default.attributesOfItem(atPath: fileURL.path)[.posixPermissions] as? NSNumber)?.intValue,
+            0o644
+        )
+
+        XCTAssertTrue(ClipboardPersistence.save([item], to: fileURL))
+        try assertOwnerOnlyPermissions(at: fileURL)
+    }
+
     func testPartiallyDamagedEnvelopeKeepsGoodRecordsAndDoesNotClearThemOnSave() async throws {
         let item = ClipboardItem(
             id: UUID(),
@@ -179,5 +206,14 @@ final class ClipboardPersistenceTests: XCTestCase {
             boundedStore.items.reduce(0) { $0 + $1.text.utf8.count }
         }
         XCTAssertLessThanOrEqual(totalBytes, ClipboardStore.maximumClipboardHistoryBytes)
+    }
+
+    private func assertOwnerOnlyPermissions(at fileURL: URL, file: StaticString = #filePath, line: UInt = #line) throws {
+        let permissions = try XCTUnwrap(
+            FileManager.default.attributesOfItem(atPath: fileURL.path)[.posixPermissions] as? NSNumber,
+            file: file,
+            line: line
+        ).intValue
+        XCTAssertEqual(permissions, 0o600, file: file, line: line)
     }
 }

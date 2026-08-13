@@ -139,6 +139,15 @@ enum ClipboardPersistence {
         guard let data = try? JSONEncoder().encode(envelope) else { return false }
         do {
             try data.write(to: fileURL, options: .atomic)
+            // `Data.write(..., .atomic)` replaces the destination with a new
+            // temporary file. Its mode is affected by the process umask (and
+            // does not inherit an existing destination's mode), so tighten the
+            // final inode explicitly after every save. Clipboard history is
+            // sensitive local data and must remain owner-readable/writable only.
+            try FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o600)],
+                ofItemAtPath: fileURL.path
+            )
             return true
         } catch {
             return false
