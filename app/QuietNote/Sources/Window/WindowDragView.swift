@@ -9,6 +9,15 @@ struct WindowDragView: NSViewRepresentable {
     func updateNSView(_ nsView: DragNSView, context: Context) {}
 }
 
+enum WindowDragMouseDownAction: Equatable {
+    case trackDragOrClick
+    case zoom
+
+    static func action(forClickCount clickCount: Int) -> Self {
+        clickCount >= 2 ? .zoom : .trackDragOrClick
+    }
+}
+
 struct WindowClickDragView: NSViewRepresentable {
     var onClick: () -> Void
     var dragStartsImmediately = false
@@ -125,6 +134,10 @@ final class DragNSView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard WindowDragMouseDownAction.action(forClickCount: event.clickCount) == .trackDragOrClick else {
+            window?.zoom(nil)
+            return
+        }
         window?.performDrag(with: event)
     }
 }
@@ -149,6 +162,11 @@ final class ClickDragNSView: NSView {
     override func mouseDown(with event: NSEvent) {
         guard let window else {
             coordinator.onClick()
+            return
+        }
+
+        guard WindowDragMouseDownAction.action(forClickCount: event.clickCount) == .trackDragOrClick else {
+            window.zoom(nil)
             return
         }
 

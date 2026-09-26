@@ -2,6 +2,18 @@ import XCTest
 @testable import QuietNote
 
 final class AppSettingsTests: XCTestCase {
+    @MainActor
+    func testFreshSettingsDoNotEnableClipboardMonitoringButStoredPreferenceSurvives() {
+        let suiteName = "LumaNoteSettingsTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        XCTAssertFalse(AppSettings(defaults: defaults).monitorClipboard)
+
+        defaults.set(true, forKey: "monitorClipboard")
+        XCTAssertTrue(AppSettings(defaults: defaults).monitorClipboard)
+    }
+
     func testNoteOpacityNormalizationMatchesSliderRange() {
         XCTAssertEqual(AppSettings.normalizedNoteOpacity(-1), AppSettings.minimumNoteOpacity)
         XCTAssertEqual(AppSettings.normalizedNoteOpacity(0), AppSettings.minimumNoteOpacity)
@@ -29,5 +41,14 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(AppSettings.normalizedClipboardLimit(0), AppSettings.minimumClipboardLimit)
         XCTAssertEqual(AppSettings.normalizedClipboardLimit(200), 200)
         XCTAssertEqual(AppSettings.normalizedClipboardLimit(10_000), AppSettings.maximumClipboardLimit)
+    }
+
+    func testOneTapEmphasisNormalizationFallsBackToBoldHighlight() {
+        XCTAssertEqual(AppSettings.normalizedOneTapEmphasisStyles(0), MarkdownEmphasisStyle.defaultOneTap)
+        XCTAssertEqual(AppSettings.normalizedOneTapEmphasisStyles(1 << 20), MarkdownEmphasisStyle.defaultOneTap)
+        XCTAssertEqual(
+            AppSettings.normalizedOneTapEmphasisStyles(MarkdownEmphasisStyle.italic.rawValue | MarkdownEmphasisStyle.smallHeading.rawValue),
+            [.italic, .smallHeading]
+        )
     }
 }

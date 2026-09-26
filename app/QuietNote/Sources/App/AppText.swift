@@ -31,10 +31,28 @@ struct AppText {
     var showNoteShortcut: String { text("只呼出便签：", "Show only:") }
     var hideNoteShortcut: String { text("只隐藏便签：", "Hide only:") }
     var clipboardShortcut: String { text("打开剪切板库：", "Open clipboard library:") }
+    var oneTapEmphasisShortcut: String { text("一键强调：", "One-tap emphasis:") }
+    var emphasis: String { text("强调", "Emphasis") }
+    var oneTapEmphasis: String { text("一键强调", "One-tap emphasis") }
+    var oneTapEmphasisStyle: String { text("一键强调样式", "One-tap emphasis style") }
+    var oneTapEmphasisHint: String { text("用于底栏“一键强调”和全局快捷键；默认是加粗 + 高亮。", "Used by the bottom-rail one-tap button and global shortcut; default is bold + highlight.") }
+    var applyEmphasis: String { text("应用强调", "Apply emphasis") }
+    var bold: String { text("加粗", "Bold") }
+    var italic: String { text("斜体", "Italic") }
+    var strikethrough: String { text("删除线", "Strikethrough") }
+    var highlight: String { text("高亮", "Highlight") }
+    var smallHeading: String { text("小标题", "Small heading") }
     var languageLabel: String { text("语言", "Language") }
     var clipboard: String { text("剪切板", "Clipboard") }
     var monitorClipboard: String { text("本地监听剪切板", "Monitor clipboard locally") }
     var monitorLocally: String { text("本地监听", "Monitor locally") }
+    var onboardingClipboardConsentTitle: String { text("明确选择本地剪切板监听", "Choose local clipboard monitoring") }
+    var onboardingClipboardConsentBody: String {
+        text(
+            "默认关闭。只有你在这里明确开启后，LumaNote 才会读取并在本机保存之后复制的文本。",
+            "Off by default. LumaNote reads and stores copied text locally only after you explicitly enable it here."
+        )
+    }
     var clear: String { text("清空", "Clear") }
     var clearClipboard: String { text("清空剪切板库", "Clear clipboard library") }
     var keyboardShortcutNote: String { text("快捷键保存在本机；系统或菜单冲突会在录入时提醒。", "Shortcuts are stored locally; system or menu conflicts are shown while recording.") }
@@ -143,6 +161,23 @@ struct AppText {
 
     func shortcutConflictLine(shortcut: String, actions: String) -> String {
         text("\(shortcut)：\(actions)", "\(shortcut): \(actions)")
+    }
+
+    func emphasisStyleName(_ style: MarkdownEmphasisStyle) -> String {
+        switch style {
+        case .bold:
+            bold
+        case .italic:
+            italic
+        case .strikethrough:
+            strikethrough
+        case .highlight:
+            highlight
+        case .smallHeading:
+            smallHeading
+        default:
+            ""
+        }
     }
 
     func switchToFile(_ filename: String) -> String {

@@ -5,6 +5,7 @@ enum NoteStoreDefaultsKey {
     static let recentFilePaths = "recentFilePaths"
     static let workspaces = "noteWorkspaces.v1"
     static let activeWorkspaceID = "activeNoteWorkspaceID.v1"
+    static let documentPositions = "documentPositions.v1"
 }
 
 enum NoteWorkspaceSupport {

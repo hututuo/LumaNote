@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "project_key": "hututuo--LumaNote",
+  "source_repository": "https://github.com/hututuo/LumaNote.git",
+  "public_documents": [
+    "README.md",
+    "docs/architecture.md",
+    "docs/development.md",
+    "AGENTS.md"
+  ],
+  "private_context": {
+    "repository_config_key": "project.devContextRepo",
+    "project_key_config_key": "project.devContextKey",
+    "path_config_key": "project.devContextPath"
+  }
+}

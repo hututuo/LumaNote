@@ -68,16 +68,16 @@ enum OnboardingPage: Int, CaseIterable, Identifiable {
             icon: "text.badge.checkmark",
             title: .init(chinese: "实时 Markdown", english: "Live Markdown"),
             detail: .init(
-                chinese: "边写边渲染，内容仍保存为普通 Markdown。",
-                english: "Styled while editing, saved as plain Markdown."
+                chinese: "边写边渲染、实时保存，内容仍是普通 Markdown，不怕丢失。",
+                english: "Styled while editing and saved live as plain Markdown, so your work is protected."
             )
         ),
         OnboardingFeatureItem(
             icon: "square.on.square",
             title: .init(chinese: "本地剪切板库", english: "Local clipboard library"),
             detail: .init(
-                chinese: "复制内容后在本机保存并提取可用信息。",
-                english: "Saves copied text locally and extracts useful snippets."
+                chinese: "默认不读取剪切板；只有你明确开启本地监听后，才会保存并提取复制内容。",
+                english: "Clipboard monitoring is off by default; copied text is saved and extracted only after you explicitly enable it."
             )
         ),
         OnboardingFeatureItem(
@@ -156,6 +156,14 @@ enum OnboardingPage: Int, CaseIterable, Identifiable {
             detail: .init(
                 chinese: "底部工具栏可以切换便签文件、另存为、置顶、固定控件、打开设置或关闭便签。",
                 english: "Use it to switch files, save as, pin, keep controls visible, open settings, or hide the note."
+            )
+        ),
+        OnboardingFeatureItem(
+            icon: "textformat",
+            title: .init(chinese: "一键强调", english: "One-tap emphasis"),
+            detail: .init(
+                chinese: "选中文字后点强调按钮，或用快捷键，把重点快速变成加粗、高亮、小标题等 Markdown。",
+                english: "Select text and use the emphasis button or shortcut to apply bold, highlight, small heading, and other Markdown styles."
             )
         )
     ]

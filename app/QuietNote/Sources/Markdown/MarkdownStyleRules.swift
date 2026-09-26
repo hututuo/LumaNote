@@ -25,17 +25,18 @@ enum MarkdownInlineStyle {
 struct MarkdownInlineRule {
     let regex: NSRegularExpression
     let style: MarkdownInlineStyle
+    var hidesSyntax = true
 }
 
 enum MarkdownStyleRules {
     static let inlineRules: [MarkdownInlineRule] = [
         MarkdownInlineRule(regex: regex(#"`([^`]+)`"#), style: .inlineCode),
         MarkdownInlineRule(regex: regex(#"\*\*\*([^*\n]+)\*\*\*"#), style: .boldItalic),
-        MarkdownInlineRule(regex: regex(#"___([^_\n]+)___"#), style: .boldItalic),
+        MarkdownInlineRule(regex: regex(#"___([^_\n]+)___"#), style: .boldItalic, hidesSyntax: false),
         MarkdownInlineRule(regex: regex(#"\*\*([^*]+)\*\*"#), style: .bold),
-        MarkdownInlineRule(regex: regex(#"__([^_]+)__"#), style: .bold),
+        MarkdownInlineRule(regex: regex(#"__([^_]+)__"#), style: .bold, hidesSyntax: false),
         MarkdownInlineRule(regex: regex(#"(?<!\*)\*([^*\n]+)\*(?!\*)"#), style: .italic),
-        MarkdownInlineRule(regex: regex(#"(?<!_)_([^_\n]+)_(?!_)"#), style: .italic),
+        MarkdownInlineRule(regex: regex(#"(?<!_)_([^_\n]+)_(?!_)"#), style: .italic, hidesSyntax: false),
         MarkdownInlineRule(regex: regex(#"~~([^~]+)~~"#), style: .strikethrough),
         MarkdownInlineRule(regex: regex(#"==([^=\n]+)=="#), style: .highlight),
         MarkdownInlineRule(regex: regex(#"!\[([^\]\n]*)\]\(\s*(?:<[^>\n]+>|(?:\\.|[^()\s\\]|\([^()\n]*\))+)(?:\s+["'][^"'\n]*["'])?\s*\)"#), style: .image),

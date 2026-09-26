@@ -10,13 +10,15 @@ final class HotKeyCenterTests: XCTestCase {
             toggleShortcut: nil,
             showShortcut: nil,
             hideShortcut: nil,
-            clipboardShortcut: nil
+            clipboardShortcut: nil,
+            emphasisShortcut: nil
         )
 
         XCTAssertEqual(plan.toggleShortcut, HotKeyCenter.toggleDefaultShortcut)
         XCTAssertEqual(plan.showShortcut, HotKeyCenter.showOnlyDefaultShortcut)
         XCTAssertEqual(plan.hideShortcut, HotKeyCenter.hideDefaultShortcut)
         XCTAssertEqual(plan.clipboardShortcut, HotKeyCenter.clipboardDefaultShortcut)
+        XCTAssertEqual(plan.emphasisShortcut, HotKeyCenter.emphasisDefaultShortcut)
         XCTAssertTrue(plan.shouldMarkMigrated)
     }
 
@@ -26,13 +28,15 @@ final class HotKeyCenterTests: XCTestCase {
             toggleShortcut: HotKeyCenter.toggleDefaultShortcut,
             showShortcut: KeyboardShortcuts.Shortcut(.space, modifiers: [.option]),
             hideShortcut: HotKeyCenter.hideDefaultShortcut,
-            clipboardShortcut: HotKeyCenter.clipboardDefaultShortcut
+            clipboardShortcut: HotKeyCenter.clipboardDefaultShortcut,
+            emphasisShortcut: HotKeyCenter.emphasisDefaultShortcut
         )
 
         XCTAssertNil(plan.toggleShortcut)
         XCTAssertEqual(plan.showShortcut, HotKeyCenter.showOnlyDefaultShortcut)
         XCTAssertNil(plan.hideShortcut)
         XCTAssertNil(plan.clipboardShortcut)
+        XCTAssertNil(plan.emphasisShortcut)
         XCTAssertTrue(plan.shouldMarkMigrated)
     }
 
@@ -42,13 +46,15 @@ final class HotKeyCenterTests: XCTestCase {
             toggleShortcut: HotKeyCenter.toggleDefaultShortcut,
             showShortcut: KeyboardShortcuts.Shortcut(.space, modifiers: [.option]),
             hideShortcut: HotKeyCenter.hideDefaultShortcut,
-            clipboardShortcut: HotKeyCenter.clipboardDefaultShortcut
+            clipboardShortcut: HotKeyCenter.clipboardDefaultShortcut,
+            emphasisShortcut: HotKeyCenter.emphasisDefaultShortcut
         )
 
         XCTAssertNil(plan.toggleShortcut)
         XCTAssertNil(plan.showShortcut)
         XCTAssertNil(plan.hideShortcut)
         XCTAssertNil(plan.clipboardShortcut)
+        XCTAssertNil(plan.emphasisShortcut)
         XCTAssertFalse(plan.shouldMarkMigrated)
     }
 }

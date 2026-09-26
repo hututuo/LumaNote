@@ -67,7 +67,7 @@ enum ClipboardDetector {
         appendNewExclusionRanges(from: matches, previousCount: previousCount, into: &excludedRanges)
 
         previousCount = matches.count
-        appendMatches(kind: .url, regex: Regexes.url, in: scanText, into: &matches, excluding: excludedRanges)
+        appendURLMatches(in: scanText, into: &matches, excluding: excludedRanges)
         appendNewExclusionRanges(from: matches, previousCount: previousCount, into: &excludedRanges)
 
         previousCount = matches.count
@@ -128,14 +128,23 @@ enum ClipboardDetector {
 
             let label = String(text[labelRange])
             let rawValue = String(text[valueRange])
+            // The scheme separator in `https://…` looks like a generic
+            // label/value colon to the broad fallback expression. Leave it for
+            // the URL detector so the scheme and its full range stay intact.
+            let normalizedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if rawValue.trimmingCharacters(in: .whitespaces).hasPrefix("//"),
+               (normalizedLabel.hasSuffix("http") || normalizedLabel.hasSuffix("https")) {
+                return
+            }
             let value = cleanedLabeledValue(rawValue)
             guard value.count >= 2 else { return }
 
             let valueNSRange = NSRange(valueRange, in: text)
             if let kind = kind(forLabel: label, value: value) {
+                let detectedValue = kind == .url ? cleanedURL(value) : value
                 matches.append(.init(
                     kind: kind,
-                    value: value,
+                    value: detectedValue,
                     range: valueNSRange,
                     priority: kind == .text ? .colonFallback : .confident
                 ))
@@ -145,7 +154,7 @@ enum ClipboardDetector {
 
             var nested: [DetectedMatch] = []
             appendFilePathMatches(in: value, into: &nested)
-            appendMatches(kind: .url, regex: Regexes.url, in: value, into: &nested)
+            appendURLMatches(in: value, into: &nested)
             appendMatches(kind: .email, regex: Regexes.email, in: value, into: &nested)
             appendPhoneMatches(in: value, into: &nested)
             appendLabeledNumberMatches(in: "\(label): \(value)", into: &nested)
@@ -243,7 +252,35 @@ enum ClipboardDetector {
             guard let match else { return }
             guard !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
             guard let swiftRange = Range(match.range, in: text) else { return }
-            matches.append(.init(kind: kind, value: String(text[swiftRange]), range: match.range, priority: .confident))
+            let rawValue = String(text[swiftRange])
+            let value = kind == .url ? cleanedURL(rawValue) : rawValue
+            guard !value.isEmpty else { return }
+            matches.append(.init(kind: kind, value: value, range: match.range, priority: .confident))
+            acceptedCount += 1
+        }
+    }
+
+    private static func appendURLMatches(
+        in text: String,
+        into matches: inout [DetectedMatch],
+        excluding excludedRanges: [NSRange] = [],
+        limit: Int = 8
+    ) {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        var acceptedCount = 0
+        Regexes.url.enumerateMatches(in: text, range: range) { match, _, stop in
+            guard acceptedCount < limit else {
+                stop.pointee = true
+                return
+            }
+            guard let match,
+                  !excludedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }),
+                  let swiftRange = Range(match.range, in: text)
+            else { return }
+
+            let value = cleanedURL(String(text[swiftRange]))
+            guard !value.isEmpty else { return }
+            matches.append(.init(kind: .url, value: value, range: match.range, priority: .confident))
             acceptedCount += 1
         }
     }
@@ -361,6 +398,35 @@ enum ClipboardDetector {
 
     private static func cleanedLabeledValue(_ value: String) -> String {
         value.trimmingCharacters(in: CharacterSets.labeledValueTrim)
+    }
+
+    private static func cleanedURL(_ rawValue: String) -> String {
+        var value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sentencePunctuation = CharacterSet(charactersIn: ".,;:!?")
+
+        while let last = value.last {
+            if String(last).rangeOfCharacter(from: sentencePunctuation) != nil {
+                value.removeLast()
+                continue
+            }
+
+            guard let opening = matchingOpeningBracket(for: last) else { break }
+            let openingCount = value.filter { $0 == opening }.count
+            let closingCount = value.filter { $0 == last }.count
+            guard closingCount > openingCount else { break }
+            value.removeLast()
+        }
+
+        return value
+    }
+
+    private static func matchingOpeningBracket(for closing: Character) -> Character? {
+        switch closing {
+        case ")": "("
+        case "]": "["
+        case "}": "{"
+        default: nil
+        }
     }
 
     private static func cleanedFilePath(_ value: String) -> String {

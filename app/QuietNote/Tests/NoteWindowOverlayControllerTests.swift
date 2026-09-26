@@ -44,6 +44,18 @@ final class NoteWindowOverlayControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testEmphasisOverlayBehavesLikeInlineFormattingPanel() {
+        let controller = NoteWindowOverlayController()
+
+        controller.toggle(.emphasis)
+
+        XCTAssertEqual(controller.activeOverlay, .emphasis)
+        XCTAssertTrue(controller.hasInlinePanel)
+        XCTAssertTrue(controller.keepsBottomChromeExpanded)
+        XCTAssertTrue(controller.hidesDetectedClipboardItem)
+    }
+
+    @MainActor
     func testCloseExtractionActionsOnlyClosesExtractionOverlay() {
         let controller = NoteWindowOverlayController()
 

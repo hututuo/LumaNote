@@ -106,6 +106,7 @@ final class AppSettings {
     nonisolated static let minimumEditorFontSize = 11.0
     nonisolated static let maximumEditorFontSize = 28.0
     nonisolated static let defaultEditorFontSize = 15.5
+    nonisolated static let defaultOneTapEmphasisStyles = MarkdownEmphasisStyle.defaultOneTap
     nonisolated static let minimumClipboardLimit = 25
     nonisolated static let maximumClipboardLimit = 1000
     nonisolated static let defaultClipboardLimit = 200
@@ -155,6 +156,16 @@ final class AppSettings {
         }
     }
 
+    var oneTapEmphasisStyles: MarkdownEmphasisStyle {
+        didSet {
+            let normalizedStyles = Self.normalizedOneTapEmphasisStyles(oneTapEmphasisStyles.rawValue)
+            if oneTapEmphasisStyles != normalizedStyles {
+                oneTapEmphasisStyles = normalizedStyles
+            }
+            defaults.set(oneTapEmphasisStyles.rawValue, forKey: Keys.oneTapEmphasisStyles)
+        }
+    }
+
     var alwaysOnTop: Bool {
         didSet {
             defaults.set(alwaysOnTop, forKey: Keys.alwaysOnTop)
@@ -200,7 +211,7 @@ final class AppSettings {
     @ObservationIgnored var monitorClipboardDidChange: ((Bool) -> Void)?
     @ObservationIgnored var clipboardLimitDidChange: ((Int) -> Void)?
 
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
     var accentColor: Color {
         themeColor.color
     }
@@ -225,7 +236,8 @@ final class AppSettings {
         )
     }
 
-    init() {
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         noteOpacity = Self.normalizedNoteOpacity(defaults.object(forKey: Keys.noteOpacity) as? Double ?? Self.defaultNoteOpacity)
         glassStrength = Self.normalizedGlassStrength(defaults.object(forKey: Keys.glassStrength) as? Double ?? Self.defaultGlassStrength)
         themeColor = AppThemeColor(rawValue: defaults.string(forKey: Keys.themeColor) ?? "") ?? .aqua
@@ -233,10 +245,14 @@ final class AppSettings {
         appearanceMode = storedAppearanceMode
         resolvedColorScheme = Self.resolvedColorScheme(for: storedAppearanceMode)
         editorFontSize = Self.normalizedEditorFontSize(defaults.object(forKey: Keys.editorFontSize) as? Double ?? Self.defaultEditorFontSize)
+        oneTapEmphasisStyles = Self.normalizedOneTapEmphasisStyles(defaults.object(forKey: Keys.oneTapEmphasisStyles) as? Int ?? Self.defaultOneTapEmphasisStyles.rawValue)
         alwaysOnTop = defaults.object(forKey: Keys.alwaysOnTop) as? Bool ?? true
         autoHideChrome = defaults.object(forKey: Keys.autoHideChrome) as? Bool ?? true
         launchAtLoginError = nil
-        monitorClipboard = defaults.object(forKey: Keys.monitorClipboard) as? Bool ?? true
+        // Clipboard monitoring is an opt-in capability. Existing users who have
+        // already saved a preference keep that exact preference; a fresh install
+        // must not inspect the pasteboard until the user enables it.
+        monitorClipboard = defaults.object(forKey: Keys.monitorClipboard) as? Bool ?? false
         clipboardLimit = Self.normalizedClipboardLimit(defaults.object(forKey: Keys.clipboardLimit) as? Int ?? Self.defaultClipboardLimit)
         language = AppLanguage(rawValue: defaults.string(forKey: Keys.language) ?? "") ?? .chinese
         hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding) as? Bool ?? false
@@ -260,8 +276,9 @@ final class AppSettings {
     }
 
     private func applyAppearanceMode() {
-        NSApp.appearance = appearanceMode.nsAppearance
-        NSApp.windows.forEach { window in
+        guard let app = NSApp else { return }
+        app.appearance = appearanceMode.nsAppearance
+        app.windows.forEach { window in
             window.appearance = appearanceMode.nsAppearance
             window.contentView?.appearance = appearanceMode.nsAppearance
             window.contentView?.needsLayout = true
@@ -318,12 +335,21 @@ final class AppSettings {
         return min(max(fontSize, minimumEditorFontSize), maximumEditorFontSize)
     }
 
+    nonisolated static func normalizedOneTapEmphasisStyles(_ rawValue: Int) -> MarkdownEmphasisStyle {
+        let allowedStyles = MarkdownEmphasisStyle.allControls.reduce(MarkdownEmphasisStyle()) { partialResult, style in
+            partialResult.union(style)
+        }
+        let styles = MarkdownEmphasisStyle(rawValue: rawValue).intersection(allowedStyles)
+        return styles.isEmpty ? defaultOneTapEmphasisStyles : styles
+    }
+
     private enum Keys {
         static let noteOpacity = "noteOpacity"
         static let glassStrength = "glassStrength"
         static let themeColor = "themeColor"
         static let appearanceMode = "appearanceMode"
         static let editorFontSize = "editorFontSize"
+        static let oneTapEmphasisStyles = "oneTapEmphasisStyles"
         static let alwaysOnTop = "alwaysOnTop"
         static let autoHideChrome = "autoHideChrome"
         static let monitorClipboard = "monitorClipboard"

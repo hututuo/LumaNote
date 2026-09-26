@@ -66,6 +66,34 @@ enum NoteWindowOverlayLayout {
         return NoteOverlayMetrics(width: width, height: height, centerX: centerX, centerY: centerY)
     }
 
+    static func emphasisMetrics(
+        in containerSize: CGSize,
+        anchorFrame: CGRect,
+        topDragPassthroughHeight: CGFloat
+    ) -> NoteOverlayMetrics {
+        let margin: CGFloat = 12
+        let width = max(214, min(274, containerSize.width - margin * 2))
+        let topClearance = topDragPassthroughHeight + 8
+        let bottomClearance: CGFloat = 10
+        let maxHeight = max(150, containerSize.height - topClearance - bottomClearance)
+        let height = min(212, maxHeight)
+        let anchor = anchorFrame == .zero
+            ? CGRect(x: containerSize.width - 146, y: containerSize.height - 34, width: 24, height: 24)
+            : anchorFrame
+
+        let preferredX = anchor.midX
+        let minX = margin + width / 2
+        let maxX = containerSize.width - margin - width / 2
+        let centerX = clamped(preferredX, min: minX, max: maxX)
+
+        let preferredY = anchor.minY - 8 - height / 2
+        let minY = topClearance + height / 2
+        let maxY = containerSize.height - bottomClearance - height / 2
+        let centerY = clamped(preferredY, min: minY, max: maxY)
+
+        return NoteOverlayMetrics(width: width, height: height, centerX: centerX, centerY: centerY)
+    }
+
     private static func clamped(_ value: CGFloat, min lowerBound: CGFloat, max upperBound: CGFloat) -> CGFloat {
         guard lowerBound <= upperBound else {
             return (lowerBound + upperBound) / 2
@@ -90,6 +118,17 @@ struct MoreButtonFramePreferenceKey: PreferenceKey {
 }
 
 struct FileSwitchButtonFramePreferenceKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero {
+            value = next
+        }
+    }
+}
+
+struct EmphasisButtonFramePreferenceKey: PreferenceKey {
     static let defaultValue: CGRect = .zero
 
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {

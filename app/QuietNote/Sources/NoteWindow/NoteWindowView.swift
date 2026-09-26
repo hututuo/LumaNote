@@ -15,9 +15,16 @@ struct NoteWindowView: View {
     @State private var overlayController = NoteWindowOverlayController()
     @State private var moreButtonFrame: CGRect = .zero
     @State private var fileSwitchButtonFrame: CGRect = .zero
+    @State private var emphasisButtonFrame: CGRect = .zero
     @State private var clipboardSuggestion = NoteClipboardSuggestionController()
     @State private var chromeAutoHide = NoteChromeAutoHideController()
     @State private var documentSwipe = NoteDocumentSwipeCoordinator()
+    @State private var contentEditorViewportSize: CGSize = .zero
+    @State private var windowBackingScale: CGFloat = 2
+    @State private var windowAppearanceIdentity = ""
+    @State private var windowIsLiveResizing = false
+    @State private var emphasisCommandSerial = 0
+    @State private var emphasisCommand: MarkdownEmphasisCommand?
     @Namespace private var extractionIslandNamespace
 
     private var copy: AppText {
@@ -47,8 +54,6 @@ struct NoteWindowView: View {
                 topBar
 
                 content
-                    .padding(.leading, NoteWindowChromeLayout.contentLeadingPadding)
-                    .padding(.trailing, NoteWindowChromeLayout.contentTrailingPadding)
                     .padding(.top, contentTopPadding)
                     .padding(.bottom, contentBottomInset)
             }
@@ -87,27 +92,7 @@ struct NoteWindowView: View {
                 .allowsHitTesting(false)
             }
         }
-        .overlay {
-            if activeOverlay == .clipboard {
-                clipboardInlineOverlay
-            }
-        }
-        .overlay {
-            if activeOverlay == .more {
-                moreInlineOverlay
-            }
-        }
-        .overlay {
-            if activeOverlay == .fileSwitcher {
-                fileSwitcherInlineOverlay
-            }
-        }
-        .overlay {
-            if activeOverlay == .extractionActions,
-               let item = activeDetectedItem {
-                extractionActionsInlineOverlay(item: item)
-            }
-        }
+        .overlay { activeInlineOverlay }
         .overlay {
             if !settings.hasCompletedOnboarding {
                 OnboardingView(
@@ -118,6 +103,17 @@ struct NoteWindowView: View {
                 }
                 .zIndex(80)
             }
+        }
+        .background {
+            NoteWindowMetricsBridge { metrics in
+                DispatchQueue.main.async {
+                    windowBackingScale = metrics.backingScale
+                    windowAppearanceIdentity = metrics.appearanceIdentity
+                    windowIsLiveResizing = metrics.isLiveResizing
+                }
+            }
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
         }
         .frame(
             minWidth: NoteWindowLayout.minimumSize.width,
@@ -130,6 +126,9 @@ struct NoteWindowView: View {
         .onPreferenceChange(FileSwitchButtonFramePreferenceKey.self) { frame in
             fileSwitchButtonFrame = frame
         }
+        .onPreferenceChange(EmphasisButtonFramePreferenceKey.self) { frame in
+            emphasisButtonFrame = frame
+        }
         .sheet(isPresented: shortcutSettingsPresented) {
             ShortcutSettingsView(settings: settings)
                 .frame(width: NoteWindowChromeLayout.shortcutSheetWidth)
@@ -140,6 +139,10 @@ struct NoteWindowView: View {
                 chromeAutoHide.controlsCollapsed = false
                 toggleClipboardOverlay()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quietNoteApplyOneTapEmphasis)) { _ in
+            issueEmphasisCommand(settings.oneTapEmphasisStyles)
+            markChromeActivity(revealIfCollapsed: true, forceReschedule: true)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
             closeTransientOverlaysOnFocusLoss()
@@ -179,6 +182,9 @@ struct NoteWindowView: View {
         .onChange(of: noteStore.markdown) { _, _ in
             markChromeActivity(revealIfCollapsed: false)
         }
+        .task(id: documentSwipePrewarmKey) {
+            await prewarmDocumentSwipePreviews()
+        }
         .onAppear {
             markChromeActivity(forceReschedule: true)
         }
@@ -192,6 +198,26 @@ struct NoteWindowView: View {
         .animation(.snappy(duration: NoteWindowTiming.chromeStateAnimation), value: clipboardSuggestion.hiddenItemID)
         .animation(.snappy(duration: NoteWindowTiming.chromeStateAnimation), value: chromeAutoHide.controlsCollapsed)
         .preferredColorScheme(settings.resolvedColorScheme)
+    }
+
+    @ViewBuilder
+    private var activeInlineOverlay: some View {
+        switch activeOverlay {
+        case .clipboard:
+            clipboardInlineOverlay
+        case .more:
+            moreInlineOverlay
+        case .fileSwitcher:
+            fileSwitcherInlineOverlay
+        case .emphasis:
+            emphasisInlineOverlay
+        case .extractionActions:
+            if let item = activeDetectedItem {
+                extractionActionsInlineOverlay(item: item)
+            }
+        case .shortcutSettings, nil:
+            EmptyView()
+        }
     }
 
     @ViewBuilder
@@ -345,6 +371,42 @@ struct NoteWindowView: View {
         }
     }
 
+    @ViewBuilder
+    private var emphasisInlineOverlay: some View {
+        GeometryReader { proxy in
+            let metrics = NoteWindowOverlayLayout.emphasisMetrics(
+                in: proxy.size,
+                anchorFrame: emphasisButtonFrame,
+                topDragPassthroughHeight: topDragPassthroughHeight
+            )
+
+            ZStack(alignment: .topLeading) {
+                dismissBackdropWithTopDragPassthrough {
+                    withAnimation(.snappy(duration: NoteWindowTiming.overlayDismissAnimation)) {
+                        closeTransientOverlays()
+                    }
+                }
+
+                EmphasisFormattingPanelView(
+                    settings: settings,
+                    copy: copy,
+                    applyStyles: { styles in
+                        issueEmphasisCommand(styles)
+                    }
+                )
+                .frame(width: metrics.width, height: metrics.height)
+                .floatingReadablePopupPanel(accentColor: settings.accentColor)
+                .position(x: metrics.centerX, y: metrics.centerY)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.95, anchor: .bottom).combined(with: .opacity),
+                    removal: .scale(scale: 0.985, anchor: .bottom).combined(with: .opacity)
+                ))
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .zIndex(33)
+        }
+    }
+
     private func extractionActionsInlineOverlay(item: ClipboardItem) -> some View {
         GeometryReader { proxy in
             let panelWidth = min(
@@ -434,14 +496,25 @@ struct NoteWindowView: View {
     private var content: some View {
         NoteContentEditorView(
             text: $noteStore.markdown,
+            documentID: noteStore.currentFileURL.standardizedFileURL.path,
             contentRevision: noteStore.markdownRevision,
+            documentPosition: noteStore.currentDocumentPosition,
             preview: documentSwipe.preview,
             swipeProgress: documentSwipe.progress,
             fontSize: settings.editorFontSize,
             accentColor: settings.accentNSColor,
+            appearanceIdentity: windowAppearanceIdentity,
+            emphasisCommand: emphasisCommand,
             topFadeHeight: markdownTopFadeHeight,
-            bottomFadeHeight: markdownBottomFadeHeight
-        )
+            bottomFadeHeight: markdownBottomFadeHeight,
+            contentLeadingInset: NoteWindowChromeLayout.contentLeadingPadding,
+            contentTrailingInset: NoteWindowChromeLayout.contentTrailingPadding,
+            onEditorViewportChange: { size in
+                updateContentEditorViewportSize(size)
+            }
+        ) { position in
+            noteStore.updateCurrentDocumentPosition(position)
+        }
     }
 
     private var bottomRailHeight: CGFloat {
@@ -501,6 +574,62 @@ struct NoteWindowView: View {
             && activeOverlay == nil
     }
 
+    private var documentSwipePrewarmKey: String {
+        let workspacePaths = noteStore.activeWorkspaceFileURLs
+            .map { $0.standardizedFileURL.path }
+            .joined(separator: "\u{1F}")
+        let quantizedViewport = NoteDocumentSwipePrewarmLayout.quantizedViewportSize(contentEditorViewportSize)
+        let viewportWidth = Int(quantizedViewport.width.rounded())
+        let viewportHeight = Int(quantizedViewport.height.rounded())
+        let fontSize = Int((settings.editorFontSize * 100).rounded())
+
+        return [
+            noteStore.currentFileURL.standardizedFileURL.path,
+            workspacePaths,
+            "\(viewportWidth)x\(viewportHeight)",
+            "\(fontSize)",
+            settings.themeColor.rawValue,
+            "scale:\(Int((windowBackingScale * 1000).rounded()))",
+            "appearance:\(windowAppearanceIdentity)",
+            windowIsLiveResizing ? "resizing" : "stable",
+            settings.hasCompletedOnboarding ? "ready" : "onboarding"
+        ].joined(separator: "\u{1E}")
+    }
+
+    private func updateContentEditorViewportSize(_ size: CGSize) {
+        let normalizedSize = CGSize(
+            width: max(0, size.width),
+            height: max(0, size.height)
+        )
+        guard abs(normalizedSize.width - contentEditorViewportSize.width) > 0.5
+            || abs(normalizedSize.height - contentEditorViewportSize.height) > 0.5
+        else { return }
+
+        contentEditorViewportSize = normalizedSize
+    }
+
+    private func prewarmDocumentSwipePreviews() async {
+        let quantizedViewport = NoteDocumentSwipePrewarmLayout.quantizedViewportSize(contentEditorViewportSize)
+        guard settings.hasCompletedOnboarding,
+              noteStore.canSwitchWorkspaceDocument,
+              !windowIsLiveResizing,
+              quantizedViewport.width > 1,
+              quantizedViewport.height > 1
+        else { return }
+
+        try? await Task.sleep(for: .milliseconds(120))
+        guard !Task.isCancelled, !windowIsLiveResizing else { return }
+
+        await documentSwipe.prewarmAdjacentPreviews(
+            noteStore: noteStore,
+            viewportSize: quantizedViewport,
+            backingScale: windowBackingScale,
+            fontSize: settings.editorFontSize,
+            accentColor: settings.accentNSColor,
+            appearanceIdentity: windowAppearanceIdentity
+        )
+    }
+
     private var topDragPassthroughHeight: CGFloat {
         NoteWindowChromeLayout.topDragPassthroughHeight
     }
@@ -556,12 +685,22 @@ struct NoteWindowView: View {
         toggleOverlay(.more)
     }
 
+    private func toggleEmphasisOverlay() {
+        toggleOverlay(.emphasis)
+    }
+
     private func toggleFileSwitcherOverlay() {
         toggleOverlay(.fileSwitcher)
     }
 
     private func toggleExtractionActionsOverlay() {
         toggleOverlay(.extractionActions)
+    }
+
+    private func issueEmphasisCommand(_ styles: MarkdownEmphasisStyle) {
+        let normalizedStyles = AppSettings.normalizedOneTapEmphasisStyles(styles.rawValue)
+        emphasisCommandSerial &+= 1
+        emphasisCommand = MarkdownEmphasisCommand(id: emphasisCommandSerial, styles: normalizedStyles)
     }
 
     private func toggleOverlay(_ overlay: NoteWindowTransientOverlay) {
@@ -636,6 +775,11 @@ struct NoteWindowView: View {
             toggleFileSwitcher: {
                 withAnimation(.snappy(duration: NoteWindowTiming.overlayDismissAnimation)) {
                     toggleFileSwitcherOverlay()
+                }
+            },
+            toggleEmphasis: {
+                withAnimation(.snappy(duration: NoteWindowTiming.overlayDismissAnimation)) {
+                    toggleEmphasisOverlay()
                 }
             },
             saveAs: {

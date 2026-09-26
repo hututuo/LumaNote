@@ -1,3 +1,11 @@
-# LumaNote public entry
+# LumaNote public document index
 
-Read README.md for public project information. In revisions that include AGENTS.md and .project-context.json, follow those entry points for private development context. Internal progress, local paths and operational evidence are maintained separately and are not public source documentation.
+- README.md and README.zh-CN.md: product and installation guidance.
+- AGENTS.md and .project-context.json: contributor and maintainer entry points.
+- docs/architecture.md: public architecture.
+- docs/development.md: build, verification and handoff configuration.
+- docs/markdown-compatibility.md: Markdown behavior.
+- docs/releases/: user-facing release notes.
+- .github/workflows/cloud-build.yml: checks and candidate packaging.
+
+Private progress and detailed operator records are maintained separately. Historical commits are not erased by changing these entry files.

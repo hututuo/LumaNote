@@ -4,7 +4,7 @@ import SwiftUI
 enum NoteWindowLayout {
     static let initialSize = NSSize(width: 360, height: 660)
     static let minimumSize = NSSize(width: 270, height: 270)
-    static let maximumSize = NSSize(width: 640, height: 980)
+    static let maximumSize = NSSize(width: 10_000, height: 10_000)
 }
 
 @MainActor
@@ -131,8 +131,14 @@ final class NotePanelController {
         show()
         NotificationCenter.default.post(name: .quietNoteToggleClipboard, object: nil)
     }
+
+    func applyOneTapEmphasis() {
+        show()
+        NotificationCenter.default.post(name: .quietNoteApplyOneTapEmphasis, object: nil)
+    }
 }
 
 extension Notification.Name {
     static let quietNoteToggleClipboard = Notification.Name("quietNoteToggleClipboard")
+    static let quietNoteApplyOneTapEmphasis = Notification.Name("quietNoteApplyOneTapEmphasis")
 }

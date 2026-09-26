@@ -1,6 +1,19 @@
 import AppKit
 import SwiftUI
 
+enum DocumentSwipeMonitorTiming {
+    static let triggerCooldown = NoteWindowTiming.documentSwipeCommitAnimation
+        + NoteWindowTiming.documentSwipeUnlockDelay
+}
+
+enum DocumentSwipeTriggerProgressPolicy {
+    private static let quickCommitStartMagnitude: CGFloat = 0.24
+
+    static func quickCommitStartProgress(for direction: CGFloat) -> CGFloat {
+        direction >= 0 ? quickCommitStartMagnitude : -quickCommitStartMagnitude
+    }
+}
+
 struct DocumentSwipeMonitorView: NSViewRepresentable {
     var isEnabled: Bool
     var onProgress: (CGFloat) -> Void = { _ in }
@@ -30,7 +43,11 @@ struct DocumentSwipeMonitorView: NSViewRepresentable {
 final class DocumentSwipeMonitorNSView: NSView {
     var isEnabled = true {
         didSet {
-            if !isEnabled, gestureMode == .horizontal {
+            if !isEnabled,
+               DocumentSwipeDisablePolicy.shouldCancelWhenDisabling(
+                   mode: gestureState.mode,
+                   didTriggerQuickSwipe: didTriggerQuickSwipe
+               ) {
                 onCancel()
             }
             if !isEnabled {
@@ -44,30 +61,23 @@ final class DocumentSwipeMonitorNSView: NSView {
     var onPrevious: () -> Void = {}
 
     private var eventMonitor: Any?
-    private var accumulatedX: CGFloat = 0
-    private var accumulatedY: CGFloat = 0
-    private var gestureMode: GestureMode = .undecided
+    private var gestureState = DocumentSwipeGestureAxisState()
+    private var progressPublisher = DocumentSwipeProgressPublisher()
     private var lastTriggerDate = Date.distantPast
-    private var lastPublishedProgress: CGFloat = 0
-    private var lastProgressUpdate = Date.distantPast
     private var idleFinishGeneration = 0
     private var idleFinishTask: Task<Void, Never>?
     private var gestureStartDate = Date.distantPast
     private var gestureSampleCount = 0
     private var didTriggerQuickSwipe = false
 
-    private let triggerThreshold: CGFloat = 55
-    private let lockThreshold: CGFloat = 8
+    private let triggerThreshold: CGFloat = 42
     private let progressTravelThreshold: CGFloat = 220
     private let dominanceRatio: CGFloat = 1.55
-    private let lockDominanceRatio: CGFloat = 1.22
     private let quickSwipeInitialWindow: TimeInterval = 0.16
     private let quickSwipeMaxSamples = 4
     private let quickSwipeDeltaThreshold: CGFloat = 18
     private let quickSwipeDominanceRatio: CGFloat = 2.1
-    private let triggerCooldown: TimeInterval = 0.46
-    private let progressUpdateInterval: TimeInterval = 1.0 / 120.0
-    private let progressEpsilon: CGFloat = 0.012
+    private let triggerCooldown: TimeInterval = DocumentSwipeMonitorTiming.triggerCooldown
     private let gestureIdleTimeout: TimeInterval = 0.18
 
     deinit {
@@ -115,7 +125,7 @@ final class DocumentSwipeMonitorNSView: NSView {
     }
 
     private func handleScrollWheel(_ event: NSEvent) -> Bool {
-        guard event.momentumPhase.isEmpty else { return gestureMode == .horizontal }
+        guard event.momentumPhase.isEmpty else { return gestureState.mode == .horizontal }
         guard event.hasPreciseScrollingDeltas || !event.phase.isEmpty else { return false }
 
         if event.phase.contains(.began) || event.phase.contains(.mayBegin) {
@@ -141,32 +151,32 @@ final class DocumentSwipeMonitorNSView: NSView {
                 gestureStartDate = Date()
             }
             gestureSampleCount += 1
-            accumulatedX += deltaX
-            accumulatedY += deltaY
-            updateGestureModeIfNeeded()
+            let previousMode = gestureState.mode
+            gestureState.add(deltaX: deltaX, deltaY: deltaY)
+            if previousMode != .horizontal, gestureState.mode == .horizontal {
+                publishProgressIfNeeded(force: true)
+            }
         }
 
         if shouldTriggerQuickSwipe(deltaX: deltaX) {
-            let direction: Direction = accumulatedX > 0 ? .next : .previous
-            onProgress(direction.progress)
+            let direction: Direction = gestureState.accumulatedX > 0 ? .next : .previous
+            onProgress(direction.quickCommitStartProgress)
             trigger(direction)
-            accumulatedX = 0
-            accumulatedY = 0
-            lastPublishedProgress = 0
-            gestureMode = .horizontal
+            gestureState.holdHorizontalAfterTrigger()
+            progressPublisher.reset()
             didTriggerQuickSwipe = true
             return true
         }
 
-        if gestureMode == .horizontal {
+        if gestureState.mode == .horizontal {
             publishProgressIfNeeded()
         }
 
-        let shouldConsume = gestureMode == .horizontal
+        let shouldConsume = gestureState.mode == .horizontal
 
         if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
             finishScrollGesture()
-        } else if gestureMode == .horizontal {
+        } else if gestureState.mode == .horizontal {
             scheduleIdleFinish()
         }
 
@@ -177,7 +187,7 @@ final class DocumentSwipeMonitorNSView: NSView {
         let deltaX = -event.deltaX
         guard abs(deltaX) > 0.1 else { return false }
         let direction: Direction = deltaX > 0 ? .next : .previous
-        onProgress(direction.progress)
+        onProgress(direction.quickCommitStartProgress)
         trigger(direction)
         resetGesture()
         return true
@@ -200,63 +210,39 @@ final class DocumentSwipeMonitorNSView: NSView {
         }
     }
 
-    private func updateGestureModeIfNeeded() {
-        guard gestureMode == .undecided else { return }
-
-        let horizontalDistance = abs(accumulatedX)
-        let verticalDistance = abs(accumulatedY)
-
-        if horizontalDistance >= lockThreshold,
-           horizontalDistance >= max(1, verticalDistance) * lockDominanceRatio {
-            gestureMode = .horizontal
-            publishProgressIfNeeded(force: true)
-        } else if verticalDistance >= lockThreshold,
-                  verticalDistance > max(1, horizontalDistance) * 1.1 {
-            gestureMode = .vertical
-        }
-    }
-
     private func shouldTriggerQuickSwipe(deltaX: CGFloat) -> Bool {
-        guard gestureMode == .horizontal else { return false }
+        guard gestureState.mode == .horizontal else { return false }
         guard gestureSampleCount > 0, gestureSampleCount <= quickSwipeMaxSamples else { return false }
         guard Date().timeIntervalSince(gestureStartDate) <= quickSwipeInitialWindow else { return false }
 
-        let horizontalDistance = abs(accumulatedX)
-        let verticalDistance = abs(accumulatedY)
-        guard horizontalDistance >= triggerThreshold else { return false }
-        guard abs(deltaX) >= quickSwipeDeltaThreshold else { return false }
-        guard horizontalDistance >= max(1, verticalDistance) * quickSwipeDominanceRatio else { return false }
-
-        return true
+        return gestureState.hasQuickSwipeDominance(
+            triggerThreshold: triggerThreshold,
+            currentDeltaX: deltaX,
+            currentDeltaThreshold: quickSwipeDeltaThreshold,
+            dominanceRatio: quickSwipeDominanceRatio
+        )
     }
 
     private func finishScrollGesture() {
         defer { resetGesture() }
 
-        guard gestureMode == .horizontal else { return }
+        guard gestureState.mode == .horizontal else { return }
         guard !didTriggerQuickSwipe else { return }
 
-        let horizontalDistance = abs(accumulatedX)
-        let verticalDistance = abs(accumulatedY)
-        if horizontalDistance >= triggerThreshold,
-           horizontalDistance >= max(1, verticalDistance) * dominanceRatio {
-            trigger(accumulatedX > 0 ? .next : .previous)
+        if gestureState.shouldCommitHorizontal(
+            triggerThreshold: triggerThreshold,
+            dominanceRatio: dominanceRatio
+        ) {
+            trigger(gestureState.accumulatedX > 0 ? .next : .previous)
         } else {
             onCancel()
         }
     }
 
     private func publishProgressIfNeeded(force: Bool = false) {
-        let rawProgress = accumulatedX / progressTravelThreshold
-        let progress = min(max(rawProgress, -1.12), 1.12)
-        let now = Date()
-        guard force
-                || abs(progress - lastPublishedProgress) >= progressEpsilon
-                || now.timeIntervalSince(lastProgressUpdate) >= progressUpdateInterval
-        else { return }
+        let progress = gestureState.progress(travelThreshold: progressTravelThreshold)
+        guard progressPublisher.shouldPublish(progress: progress, force: force) else { return }
 
-        lastPublishedProgress = progress
-        lastProgressUpdate = now
         onProgress(progress)
     }
 
@@ -281,10 +267,8 @@ final class DocumentSwipeMonitorNSView: NSView {
         idleFinishGeneration &+= 1
         idleFinishTask?.cancel()
         idleFinishTask = nil
-        accumulatedX = 0
-        accumulatedY = 0
-        gestureMode = .undecided
-        lastPublishedProgress = 0
+        gestureState.reset()
+        progressPublisher.reset()
         gestureStartDate = Date.distantPast
         gestureSampleCount = 0
         didTriggerQuickSwipe = false
@@ -294,17 +278,12 @@ final class DocumentSwipeMonitorNSView: NSView {
         case next
         case previous
 
-        var progress: CGFloat {
+        var quickCommitStartProgress: CGFloat {
             switch self {
-            case .next: 1
-            case .previous: -1
+            case .next: DocumentSwipeTriggerProgressPolicy.quickCommitStartProgress(for: 1)
+            case .previous: DocumentSwipeTriggerProgressPolicy.quickCommitStartProgress(for: -1)
             }
         }
     }
 
-    private enum GestureMode {
-        case undecided
-        case horizontal
-        case vertical
-    }
 }

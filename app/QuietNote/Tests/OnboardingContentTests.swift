@@ -17,7 +17,7 @@ final class OnboardingContentTests: XCTestCase {
         XCTAssertEqual(OnboardingPage.documents.featureItems.count, 3)
         XCTAssertEqual(OnboardingPage.ready.featureItems.count, 2)
         XCTAssertNil(OnboardingPage.documents.bottomToolbarTitle)
-        XCTAssertEqual(OnboardingPage.ready.bottomToolbarItems.count, 2)
+        XCTAssertEqual(OnboardingPage.ready.bottomToolbarItems.count, 3)
     }
 
     func testLocalizedFeatureTextResolvesByLanguage() {
@@ -25,6 +25,18 @@ final class OnboardingContentTests: XCTestCase {
 
         XCTAssertEqual(item.title.resolved(language: .chinese), "实时 Markdown")
         XCTAssertEqual(item.title.resolved(language: .english), "Live Markdown")
+    }
+
+    func testOnboardingMentionsLiveSaveAndEmphasisTool() {
+        let introDetails = OnboardingPage.intro.featureItems
+            .map { $0.detail.resolved(language: .chinese) }
+            .joined()
+        let bottomToolbarTitles = OnboardingPage.ready.bottomToolbarItems
+            .map { $0.title.resolved(language: .chinese) }
+
+        XCTAssertTrue(introDetails.contains("实时保存"))
+        XCTAssertTrue(introDetails.contains("不怕丢"))
+        XCTAssertTrue(bottomToolbarTitles.contains("一键强调"))
     }
 
     func testStepLabelsUseAppTextLanguage() {

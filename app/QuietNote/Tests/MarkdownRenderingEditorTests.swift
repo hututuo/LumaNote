@@ -5,6 +5,248 @@ import XCTest
 
 @MainActor
 final class MarkdownRenderingEditorTests: XCTestCase {
+    func testReadOnlyEditorModeDisablesEditingAndPositionObservationForSwipePreview() {
+        let mode = MarkdownRenderingEditorInteractionMode.readOnlyPreview
+
+        XCTAssertFalse(mode.isEditable)
+        XCTAssertFalse(mode.isSelectable)
+        XCTAssertFalse(mode.allowsUndo)
+        XCTAssertFalse(mode.observesDocumentPosition)
+    }
+
+    func testStaticPreviewRendererProducesImageAtRequestedSize() {
+        let size = CGSize(width: 240, height: 160)
+        let image = MarkdownStaticPreviewRenderer.render(
+            text: "# Preview\n\n- [ ] Task\n\n**Bold** body",
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: .top,
+            size: size,
+            backingScale: 1
+        )
+
+        XCTAssertEqual(image?.size, size)
+        XCTAssertEqual(image?.representations.first?.pixelsWide, Int(size.width))
+        XCTAssertEqual(image?.representations.first?.pixelsHigh, Int(size.height))
+    }
+
+    func testStaticPreviewNSViewRendersBeforeFirstLayoutUsingInitialSize() {
+        let size = CGSize(width: 240, height: 160)
+        let view = MarkdownStaticPreviewNSView()
+
+        view.configure(
+            text: "# Preview\n\nReady before layout",
+            documentID: "preview.md",
+            contentRevision: 1,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: .top,
+            initialSize: size
+        )
+
+        let image = view.subviews.compactMap { ($0 as? NSImageView)?.image }.first
+        XCTAssertEqual(image?.size, size)
+    }
+
+    func testStaticPreviewNSViewUsesPreRenderedImage() {
+        let size = CGSize(width: 240, height: 160)
+        let view = MarkdownStaticPreviewNSView()
+        let preRenderedImage = NSImage(size: size)
+
+        view.configure(
+            text: "# Preview\n\nReady before gesture",
+            documentID: "preview.md",
+            contentRevision: 1,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: .top,
+            initialSize: size,
+            preRenderedImage: preRenderedImage
+        )
+
+        let image = view.subviews.compactMap { ($0 as? NSImageView)?.image }.first
+        XCTAssertTrue(image === preRenderedImage)
+    }
+
+    func testStaticPreviewNSViewReusesPreRenderedImageAcrossTinySizeDrift() {
+        let preRenderedSize = CGSize(width: 240, height: 160)
+        let initialSize = CGSize(width: 240.25, height: 160.25)
+        let view = MarkdownStaticPreviewNSView()
+        let preRenderedImage = NSImage(size: preRenderedSize)
+
+        view.configure(
+            text: "# Preview\n\nReady before gesture",
+            documentID: "preview.md",
+            contentRevision: 1,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: .top,
+            initialSize: initialSize,
+            preRenderedImage: preRenderedImage
+        )
+
+        let image = view.subviews.compactMap { ($0 as? NSImageView)?.image }.first
+        XCTAssertTrue(image === preRenderedImage)
+    }
+
+    func testStaticPreviewStylingMatchesEditableHeadingMarkersAtRestoredPosition() {
+        let markdown = "# Preview title\n\nBody"
+        let position = MarkdownDocumentPosition(selectedLocation: 3, selectedLength: 0, scrollY: 0)
+        let storage = MarkdownStaticPreviewRenderer.styledStorageForTesting(
+            text: markdown,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: position,
+            size: CGSize(width: 240, height: 160)
+        )
+
+        let editableStorage = editableStyledStorage(
+            markdown: markdown,
+            documentPosition: position,
+            size: CGSize(width: 240, height: 160)
+        )
+
+        XCTAssertEqual(isHiddenSyntax(at: 0, in: storage), isHiddenSyntax(at: 0, in: editableStorage))
+        XCTAssertEqual(foregroundAlpha(at: 0, in: storage), foregroundAlpha(at: 0, in: editableStorage), accuracy: 0.01)
+        XCTAssertEqual(isHiddenSyntax(at: 2, in: storage), isHiddenSyntax(at: 2, in: editableStorage))
+    }
+
+    func testStaticPreviewSnapshotCollapsesHiddenHeadingMarkerBeforeDrawing() {
+        let image = MarkdownStaticPreviewRenderer.render(
+            text: "# Preview title\n\nBody",
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: .top,
+            size: CGSize(width: 320, height: 160),
+            backingScale: 1
+        )
+
+        let firstVisiblePointX = firstVisiblePointX(in: image)
+
+        XCTAssertNotNil(firstVisiblePointX)
+        XCTAssertLessThanOrEqual(firstVisiblePointX ?? .greatestFiniteMagnitude, 8)
+    }
+
+    func testStaticPreviewHeadingOriginMatchesReadOnlyEditorSnapshot() {
+        let size = CGSize(width: 320, height: 160)
+        var text = "# Preview title\n\nBody"
+        let staticImage = MarkdownStaticPreviewRenderer.render(
+            text: text,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: .top,
+            size: size,
+            backingScale: 1
+        )
+        let liveImage = renderedImage(
+            of: MarkdownRenderingEditor(
+                text: Binding(
+                    get: { text },
+                    set: { text = $0 }
+                ),
+                documentID: "preview.md",
+                contentRevision: 1,
+                fontSize: 15.5,
+                accentColor: .systemCyan,
+                documentPosition: .top,
+                interactionMode: .readOnlyPreview
+            )
+            .frame(width: size.width, height: size.height),
+            size: size
+        )
+
+        let staticX = firstVisiblePointX(in: staticImage)
+        let liveX = firstVisiblePointX(in: liveImage)
+
+        XCTAssertNotNil(staticX)
+        XCTAssertNotNil(liveX)
+        XCTAssertEqual(staticX ?? -1, liveX ?? -2, accuracy: 1)
+    }
+
+    func testStaticPreviewHeadingTextOriginMatchesEditableRestoredSelection() {
+        let markdown = "# Preview title\n\nBody"
+        let size = CGSize(width: 320, height: 160)
+        let titleLocation = range(of: "Preview", in: markdown).location
+        let restoredPosition = MarkdownDocumentPosition(
+            selectedLocation: titleLocation + 2,
+            selectedLength: 0,
+            scrollY: 0
+        )
+        let inactiveOrigin = MarkdownStaticPreviewRenderer.glyphOriginXForTesting(
+            text: markdown,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: .top,
+            size: size,
+            characterLocation: titleLocation
+        )
+        let restoredHeadingOrigin = MarkdownStaticPreviewRenderer.glyphOriginXForTesting(
+            text: markdown,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: restoredPosition,
+            size: size,
+            characterLocation: titleLocation
+        )
+        let editableOrigin = editableGlyphOriginX(
+            markdown: markdown,
+            documentPosition: restoredPosition,
+            size: size,
+            characterLocation: titleLocation
+        )
+
+        XCTAssertNotNil(inactiveOrigin)
+        XCTAssertNotNil(restoredHeadingOrigin)
+        XCTAssertNotNil(editableOrigin)
+        XCTAssertNotEqual(restoredHeadingOrigin ?? -1, inactiveOrigin ?? -2, accuracy: 0.5)
+        XCTAssertEqual(restoredHeadingOrigin ?? -1, editableOrigin ?? -2, accuracy: 0.5)
+    }
+
+    func testStaticPreviewAndEditableEditorShareRestoredPositionSyntaxAndLayout() {
+        let markdown = "# Preview title\n\n**Bold** and [link](https://example.com)\n\n- [ ] Task"
+        let size = CGSize(width: 320, height: 180)
+        let restoredPosition = MarkdownDocumentPosition(
+            selectedLocation: range(of: "Bold", in: markdown).location + 1,
+            selectedLength: 0,
+            scrollY: 48
+        )
+        let previewStorage = MarkdownStaticPreviewRenderer.styledStorageForTesting(
+            text: markdown,
+            fontSize: 15.5,
+            accentColor: .systemCyan,
+            documentPosition: restoredPosition,
+            size: size
+        )
+        let editorStorage = editableStyledStorage(
+            markdown: markdown,
+            documentPosition: restoredPosition,
+            size: size
+        )
+
+        let length = (markdown as NSString).length
+        XCTAssertEqual(previewStorage.length, length)
+        XCTAssertEqual(editorStorage.length, length)
+        for location in 0..<length {
+            XCTAssertEqual(
+                isHiddenSyntax(at: location, in: previewStorage),
+                isHiddenSyntax(at: location, in: editorStorage),
+                "Preview and settled editor disagree about Markdown syntax at character \(location)"
+            )
+        }
+
+        let titleLocation = range(of: "Preview", in: markdown).location
+        XCTAssertEqual(
+            paragraphStyle(at: titleLocation, in: previewStorage)?.headIndent ?? -1,
+            paragraphStyle(at: titleLocation, in: editorStorage)?.headIndent ?? -2,
+            accuracy: 0.01
+        )
+        XCTAssertEqual(
+            paragraphStyle(at: titleLocation, in: previewStorage)?.firstLineHeadIndent ?? -1,
+            paragraphStyle(at: titleLocation, in: editorStorage)?.firstLineHeadIndent ?? -2,
+            accuracy: 0.01
+        )
+    }
+
     func testHeadingMarkerIsHiddenUntilHeadingIsActive() {
         let markdown = "# Title"
         let storage = styledStorage(markdown)
@@ -36,6 +278,81 @@ final class MarkdownRenderingEditorTests: XCTestCase {
 
         XCTAssertTrue(isHiddenSyntax(at: 0, in: storage))
         XCTAssertTrue(isHiddenSyntax(at: 1, in: storage))
+        XCTAssertFalse(isHiddenSyntax(at: 2, in: storage))
+        XCTAssertTrue((storage.attribute(.font, at: 2, effectiveRange: nil) as? NSFont)?.fontDescriptor.symbolicTraits.contains(.bold) == true)
+    }
+
+    func testTaskTextViewCachesHiddenSyntaxRangesAfterStyling() {
+        var text = "**bold** and [link](https://example.com)"
+        let binding = Binding<String>(
+            get: { text },
+            set: { text = $0 }
+        )
+        let coordinator = MarkdownRenderingEditor.Coordinator(
+            text: binding,
+            contentRevision: 0,
+            fontSize: 15.5
+        )
+        let textView = MarkdownTaskTextView()
+        textView.string = text
+        coordinator.textView = textView
+
+        coordinator.applyMarkdownStyle()
+
+        XCTAssertFalse(textView.hiddenSyntaxRanges.isEmpty)
+        XCTAssertTrue(textView.isHiddenSyntaxCharacter(at: 0))
+        XCTAssertTrue(textView.isHiddenSyntaxCharacter(at: 1))
+        XCTAssertFalse(textView.isHiddenSyntaxCharacter(at: 2))
+    }
+
+    func testTaskTextViewDetectsHiddenSyntaxBeforeGlyphMutation() {
+        let storage = NSTextStorage(string: "**bold** text")
+        storage.addAttribute(
+            .markdownHiddenSyntax,
+            value: true,
+            range: NSRange(location: 0, length: 2)
+        )
+        storage.addAttribute(
+            .markdownHiddenSyntax,
+            value: true,
+            range: NSRange(location: 6, length: 2)
+        )
+        let textView = MarkdownTaskTextView()
+        textView.updateHiddenSyntaxRanges(from: storage)
+
+        XCTAssertFalse(textView.containsHiddenSyntaxCharacters([2, 3, 4, 5, 8, 9]))
+        XCTAssertTrue(textView.containsHiddenSyntaxCharacters([2, 3, 6]))
+    }
+
+    func testTaskTextViewBuildsDirectHiddenSyntaxLookup() {
+        let storage = NSTextStorage(string: "**bold** text")
+        storage.addAttribute(
+            .markdownHiddenSyntax,
+            value: true,
+            range: NSRange(location: 0, length: 2)
+        )
+        storage.addAttribute(
+            .markdownHiddenSyntax,
+            value: true,
+            range: NSRange(location: 6, length: 2)
+        )
+        let textView = MarkdownTaskTextView()
+
+        textView.updateHiddenSyntaxRanges(from: storage)
+
+        XCTAssertEqual(textView.hiddenSyntaxCharacterMap.count, storage.length)
+        XCTAssertEqual(textView.hiddenSyntaxCharacterMap[0], 1)
+        XCTAssertEqual(textView.hiddenSyntaxCharacterMap[2], 0)
+        XCTAssertEqual(textView.hiddenSyntaxCharacterMap[6], 1)
+    }
+
+    func testUnderscoreBoldMarkersStayVisibleWhileTextStaysBold() {
+        let markdown = "__bold__"
+        let storage = styledStorage(markdown)
+
+        XCTAssertFalse(isHiddenSyntax(at: 0, in: storage))
+        XCTAssertFalse(isHiddenSyntax(at: 1, in: storage))
+        XCTAssertGreaterThan(foregroundAlpha(at: 0, in: storage), 0.1)
         XCTAssertFalse(isHiddenSyntax(at: 2, in: storage))
         XCTAssertTrue((storage.attribute(.font, at: 2, effectiveRange: nil) as? NSFont)?.fontDescriptor.symbolicTraits.contains(.bold) == true)
     }
@@ -82,6 +399,77 @@ final class MarkdownRenderingEditorTests: XCTestCase {
 
         XCTAssertEqual(text, textView.string)
         XCTAssertTrue(isHiddenSyntax(at: 0, in: textView.textStorage ?? NSTextStorage()))
+    }
+
+    func testMarkedTextCannotOverwriteNewDocumentDuringDocumentReplacement() {
+        var text = "# New document"
+        let binding = Binding<String>(
+            get: { text },
+            set: { text = $0 }
+        )
+        let coordinator = MarkdownRenderingEditor.Coordinator(
+            text: binding,
+            documentID: "old.md",
+            contentRevision: 1,
+            fontSize: 15.5
+        )
+        let textView = NSTextView()
+        textView.string = "old document"
+        textView.delegate = coordinator
+        textView.setSelectedRange(NSRange(location: (textView.string as NSString).length, length: 0))
+        textView.setMarkedText(
+            "composition",
+            selectedRange: NSRange(location: 11, length: 0),
+            replacementRange: NSRange(location: NSNotFound, length: 0)
+        )
+        coordinator.textView = textView
+
+        coordinator.replaceDocumentSafely(
+            text: text,
+            documentID: "new.md",
+            contentRevision: 2,
+            documentPosition: .top,
+            scrollView: nil
+        )
+
+        XCTAssertFalse(textView.hasMarkedText())
+        XCTAssertEqual(textView.string, text)
+        XCTAssertEqual(coordinator.documentID, "new.md")
+        XCTAssertEqual(coordinator.contentRevision, 2)
+        XCTAssertEqual(text, "# New document", "IME commit from the old document must not overwrite the new binding")
+    }
+
+    func testCoordinatorAppliesEmphasisCommandToBoundMarkdown() {
+        var text = "hello world"
+        let binding = Binding<String>(
+            get: { text },
+            set: { text = $0 }
+        )
+        let coordinator = MarkdownRenderingEditor.Coordinator(
+            text: binding,
+            contentRevision: 0,
+            fontSize: 15.5
+        )
+        let textView = MarkdownTaskTextView()
+        textView.string = text
+        textView.setSelectedRange(NSRange(location: 6, length: 5))
+        coordinator.textView = textView
+
+        coordinator.applyEmphasis(styles: [.bold, .highlight])
+
+        XCTAssertEqual(text, "hello ==**world**==")
+        XCTAssertEqual(textView.string, "hello ==**world**==")
+        XCTAssertEqual(textView.selectedRange(), NSRange(location: 10, length: 5))
+        XCTAssertTrue((textView.textStorage?.attribute(.font, at: 10, effectiveRange: nil) as? NSFont)?.fontDescriptor.symbolicTraits.contains(.bold) == true)
+        XCTAssertNotNil(textView.textStorage?.attribute(.backgroundColor, at: 10, effectiveRange: nil))
+    }
+
+    func testHighlightUsesBrighterBackground() {
+        let markdown = "==important=="
+        let storage = styledStorage(markdown)
+        let color = storage.attribute(.backgroundColor, at: 2, effectiveRange: nil) as? NSColor
+
+        XCTAssertGreaterThanOrEqual(color?.alphaComponent ?? 0, 0.34)
     }
 
     func testActiveLinkRevealsDestinationForEditing() {
@@ -323,6 +711,99 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         XCTAssertEqual(scrollView.contentView.bounds.origin.y, before, accuracy: 0.5)
     }
 
+    func testDocumentReplacementAppliesTargetDocumentPosition() {
+        let viewportHeight: CGFloat = 160
+        let markdown = Array(repeating: "Line with enough content", count: 80).joined(separator: "\n")
+        let scrollView = configuredScrollView(markdown: markdown, viewportHeight: viewportHeight)
+        guard let textView = scrollView.markdownTextView else {
+            return XCTFail("Expected markdown text view")
+        }
+
+        textView.selectedRanges = [NSValue(range: NSRange(location: 120, length: 0))]
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: 220))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        let targetPosition = MarkdownDocumentPosition(
+            selectedLocation: 120,
+            selectedLength: 0,
+            scrollY: 64
+        )
+
+        MarkdownDocumentPositionApplicator.apply(
+            targetPosition,
+            textView: textView,
+            scrollView: scrollView
+        )
+
+        XCTAssertEqual(textView.selectedRange(), NSRange(location: 120, length: 0))
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 64, accuracy: 0.5)
+    }
+
+    func testDocumentPositionRestorePrefersSavedScrollOverStaleSelection() {
+        let viewportHeight: CGFloat = 160
+        let markdown = Array(repeating: "Line with enough content", count: 140).joined(separator: "\n")
+        let scrollView = configuredScrollView(markdown: markdown, viewportHeight: viewportHeight)
+        guard let textView = scrollView.markdownTextView else {
+            return XCTFail("Expected markdown text view")
+        }
+        let staleSelectionLocation = min(2600, (markdown as NSString).length - 1)
+        let targetPosition = MarkdownDocumentPosition(
+            selectedLocation: staleSelectionLocation,
+            selectedLength: 0,
+            scrollY: 72
+        )
+
+        MarkdownDocumentPositionApplicator.apply(
+            targetPosition,
+            textView: textView,
+            scrollView: scrollView
+        )
+
+        let visibleCharacterRange = visibleCharacterRange(in: scrollView, textView: textView)
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, targetPosition.scrollY, accuracy: 0.5)
+        XCTAssertTrue(
+            NSLocationInRange(textView.selectedRange().location, visibleCharacterRange),
+            "Restored selection should stay in the saved visible scroll range instead of jumping to stale location \(staleSelectionLocation); visible range: \(visibleCharacterRange), selected: \(textView.selectedRange())"
+        )
+    }
+
+    func testApplyingDocumentPositionDoesNotEmitIntermediatePosition() {
+        var text = Array(repeating: "Line with enough content", count: 120).joined(separator: "\n")
+        var emittedPositions: [MarkdownDocumentPosition] = []
+        let binding = Binding<String>(
+            get: { text },
+            set: { text = $0 }
+        )
+        let coordinator = MarkdownRenderingEditor.Coordinator(
+            text: binding,
+            documentID: "target.md",
+            contentRevision: 0,
+            fontSize: 15.5,
+            onDocumentPositionChange: { emittedPositions.append($0) }
+        )
+        let scrollView = configuredScrollView(markdown: text, viewportHeight: 160)
+        guard let textView = scrollView.markdownTextView else {
+            return XCTFail("Expected markdown text view")
+        }
+        textView.delegate = coordinator
+        coordinator.textView = textView
+        coordinator.observeScrollView(scrollView)
+
+        let targetPosition = MarkdownDocumentPosition(
+            selectedLocation: min(900, (text as NSString).length),
+            selectedLength: 0,
+            scrollY: 72
+        )
+
+        coordinator.applyDocumentPosition(
+            targetPosition,
+            scrollView: scrollView
+        )
+
+        XCTAssertTrue(emittedPositions.isEmpty)
+        XCTAssertTrue(NSLocationInRange(textView.selectedRange().location, visibleCharacterRange(in: scrollView, textView: textView)))
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, targetPosition.scrollY, accuracy: 0.5)
+    }
+
     func testLiveResizeReusesCachedDocumentHeightUntilResizeEnds() {
         var state = MarkdownScrollViewLiveResizeState()
 
@@ -365,6 +846,20 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         ))
     }
 
+    func testScrollViewLayoutRefreshSkipsUnchangedCachedGeometry() {
+        var state = MarkdownScrollViewLayoutRefreshState()
+        let size = CGSize(width: 320, height: 180)
+
+        XCTAssertTrue(state.shouldRefreshLayout(boundsSize: size, viewportSize: size, hasCachedDocumentHeight: true))
+        XCTAssertFalse(state.shouldRefreshLayout(boundsSize: size, viewportSize: size, hasCachedDocumentHeight: true))
+        XCTAssertTrue(state.shouldRefreshLayout(
+            boundsSize: CGSize(width: 360, height: 180),
+            viewportSize: CGSize(width: 360, height: 180),
+            hasCachedDocumentHeight: true
+        ))
+        XCTAssertTrue(state.shouldRefreshLayout(boundsSize: size, viewportSize: size, hasCachedDocumentHeight: false))
+    }
+
     private func styledStorage(_ markdown: String, selectedRange: NSRange = NSRange(location: 0, length: 0)) -> NSTextStorage {
         var text = markdown
         let binding = Binding<String>(
@@ -382,6 +877,66 @@ final class MarkdownRenderingEditorTests: XCTestCase {
         coordinator.textView = textView
         coordinator.applyMarkdownStyle()
         return textView.textStorage ?? NSTextStorage(string: markdown)
+    }
+
+    @MainActor
+    private func editableStyledStorage(
+        markdown: String,
+        documentPosition: MarkdownDocumentPosition,
+        size: CGSize
+    ) -> NSTextStorage {
+        let scrollView = configuredScrollView(markdown: markdown, size: size)
+        guard let textView = scrollView.markdownTextView else {
+            return NSTextStorage(string: markdown)
+        }
+        MarkdownDocumentPositionApplicator.apply(
+            documentPosition,
+            textView: textView,
+            scrollView: scrollView
+        )
+        MarkdownEditorStyling.apply(
+            to: textView,
+            fontSize: 15.5,
+            activeSelectionRanges: MarkdownRangeHelpers.nsRanges(from: textView.selectedRanges)
+        )
+        scrollView.invalidateDocumentHeight()
+        scrollView.refreshScrollIndicator()
+        if let textContainer = textView.textContainer {
+            textView.layoutManager?.ensureLayout(for: textContainer)
+        }
+        return NSTextStorage(attributedString: textView.textStorage ?? NSTextStorage(string: markdown))
+    }
+
+    @MainActor
+    private func editableGlyphOriginX(
+        markdown: String,
+        documentPosition: MarkdownDocumentPosition,
+        size: CGSize,
+        characterLocation: Int
+    ) -> CGFloat? {
+        let scrollView = configuredScrollView(markdown: markdown, size: size)
+        guard let textView = scrollView.markdownTextView,
+              let textContainer = textView.textContainer,
+              let layoutManager = textView.layoutManager
+        else { return nil }
+        MarkdownDocumentPositionApplicator.apply(
+            documentPosition,
+            textView: textView,
+            scrollView: scrollView
+        )
+        MarkdownEditorStyling.apply(
+            to: textView,
+            fontSize: 15.5,
+            activeSelectionRanges: MarkdownRangeHelpers.nsRanges(from: textView.selectedRanges)
+        )
+        layoutManager.ensureLayout(for: textContainer)
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterLocation)
+        guard glyphIndex < layoutManager.numberOfGlyphs else { return nil }
+        let rect = layoutManager.boundingRect(
+            forGlyphRange: NSRange(location: glyphIndex, length: 1),
+            in: textContainer
+        )
+        return textView.textContainerOrigin.x + rect.minX
     }
 
     private func range(of substring: String, in text: String) -> NSRange {
@@ -413,5 +968,89 @@ final class MarkdownRenderingEditorTests: XCTestCase {
 
     private func paragraphStyle(at location: Int, in storage: NSTextStorage) -> NSParagraphStyle? {
         storage.attribute(.paragraphStyle, at: location, effectiveRange: nil) as? NSParagraphStyle
+    }
+
+    private func firstVisiblePixelX(in image: NSImage?) -> Int? {
+        guard let representation = image?.representations.first as? NSBitmapImageRep else { return nil }
+
+        var x = 0
+        while x < representation.pixelsWide {
+            var y = 0
+            while y < representation.pixelsHigh {
+                guard let color = representation.colorAt(x: x, y: y) else {
+                    y += 1
+                    continue
+                }
+                if color.alphaComponent > 0.04 {
+                    return x
+                }
+                y += 1
+            }
+            x += 1
+        }
+        return nil
+    }
+
+    private func firstVisiblePointX(in image: NSImage?) -> CGFloat? {
+        guard let image,
+              let representation = image.representations.first as? NSBitmapImageRep,
+              representation.pixelsWide > 0,
+              let pixelX = firstVisiblePixelX(in: image)
+        else { return nil }
+
+        return CGFloat(pixelX) * image.size.width / CGFloat(representation.pixelsWide)
+    }
+
+    private func renderedImage<V: View>(of view: V, size: CGSize) -> NSImage? {
+        let hostingView = NSHostingView(rootView: view)
+        hostingView.frame = NSRect(origin: .zero, size: size)
+        hostingView.layoutSubtreeIfNeeded()
+        hostingView.displayIfNeeded()
+
+        guard let representation = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
+            return nil
+        }
+        representation.size = size
+        hostingView.cacheDisplay(in: hostingView.bounds, to: representation)
+
+        let image = NSImage(size: size)
+        image.addRepresentation(representation)
+        return image
+    }
+
+    private func configuredScrollView(markdown: String, viewportHeight: CGFloat) -> MarkdownScrollView {
+        configuredScrollView(markdown: markdown, size: CGSize(width: 320, height: viewportHeight))
+    }
+
+    private func configuredScrollView(markdown: String, size: CGSize) -> MarkdownScrollView {
+        let scrollView = MarkdownScrollView(frame: NSRect(origin: .zero, size: size))
+        let textView = MarkdownTaskTextView(frame: NSRect(origin: .zero, size: size))
+        textView.drawsBackground = false
+        textView.textContainerInset = NSSize(width: 0, height: 10)
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+        textView.layoutManager?.delegate = textView
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.string = markdown
+        scrollView.setMarkdownTextView(textView)
+        scrollView.layoutSubtreeIfNeeded()
+        scrollView.refreshScrollIndicator()
+        return scrollView
+    }
+
+    private func visibleCharacterRange(in scrollView: MarkdownScrollView, textView: NSTextView) -> NSRange {
+        guard let documentView = scrollView.documentView,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer
+        else { return NSRange(location: 0, length: 0) }
+
+        layoutManager.ensureLayout(for: textContainer)
+        let visibleRect = textView.convert(documentView.visibleRect, from: documentView)
+        let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textContainer)
+        return layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
     }
 }

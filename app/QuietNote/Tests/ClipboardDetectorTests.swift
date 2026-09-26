@@ -69,4 +69,24 @@ final class ClipboardDetectorTests: XCTestCase {
 
         XCTAssertEqual(detections.filter { $0.kind == .phone && $0.value == "13800138000" }.count, 1)
     }
+
+    func testURLDetectionCleansSentencePunctuationButKeepsBalancedParentheses() {
+        let detections = ClipboardDetector.detect(
+            in: "文档 https://example.com/a_(b), 另一个 https://example.com/end)."
+        )
+
+        XCTAssertTrue(detections.contains { $0.kind == .url && $0.value == "https://example.com/a_(b)" })
+        XCTAssertTrue(detections.contains { $0.kind == .url && $0.value == "https://example.com/end" })
+    }
+
+    func testAddressOpenURLUsesHTTPSComponentsAndPreservesQueryText() {
+        let detection = ClipboardDetection(id: UUID(), kind: .address, value: "北京市海淀区中关村大街 27 号")
+
+        let components = URLComponents(url: detection.openURL!, resolvingAgainstBaseURL: false)
+
+        XCTAssertEqual(components?.scheme, "https")
+        XCTAssertEqual(components?.host, "maps.apple.com")
+        XCTAssertEqual(components?.queryItems?.first?.name, "q")
+        XCTAssertEqual(components?.queryItems?.first?.value, detection.value)
+    }
 }

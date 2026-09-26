@@ -280,6 +280,26 @@ struct OnboardingView: View {
                 .foregroundStyle(Color.black.opacity(0.58))
                 .fixedSize(horizontal: false, vertical: true)
 
+            VStack(alignment: .leading, spacing: 5) {
+                Text(copy.onboardingClipboardConsentTitle)
+                    .font(.system(size: 12.1, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color.black.opacity(0.80))
+
+                Text(copy.onboardingClipboardConsentBody)
+                    .font(.system(size: 11.3, weight: .medium))
+                    .foregroundStyle(Color.black.opacity(0.58))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                recommendationToggleRow(
+                    title: copy.monitorClipboard,
+                    isOn: Binding(
+                        get: { settings.monitorClipboard },
+                        set: { settings.monitorClipboard = $0 }
+                    ),
+                    help: copy.onboardingClipboardConsentTitle
+                )
+            }
+
             VStack(spacing: 7) {
                 recommendationToggleRow(
                     title: copy.automaticallyCheckForUpdates,

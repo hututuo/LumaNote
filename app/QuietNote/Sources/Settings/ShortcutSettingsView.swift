@@ -281,6 +281,15 @@ struct ShortcutSettingsPanel: View {
                 defaultShortcut: HotKeyCenter.clipboardDefaultShortcut,
                 shortcut: KeyboardShortcuts.getShortcut(for: .toggleClipboardLibrary),
                 isPrimary: false
+            ),
+            ShortcutRowState(
+                id: "emphasis",
+                title: copy.oneTapEmphasisShortcut,
+                icon: "textformat",
+                name: .oneTapEmphasis,
+                defaultShortcut: HotKeyCenter.emphasisDefaultShortcut,
+                shortcut: KeyboardShortcuts.getShortcut(for: .oneTapEmphasis),
+                isPrimary: false
             )
         ]
     }
