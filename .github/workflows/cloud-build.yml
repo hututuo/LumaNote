@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+
 concurrency:
   group: lumanote-cloud-${{ github.ref }}
   cancel-in-progress: true
@@ -16,7 +19,7 @@ concurrency:
 jobs:
   checks:
     name: Swift checks
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - name: Check out source
@@ -30,12 +33,14 @@ jobs:
 
       - name: Run tests
         working-directory: app/QuietNote
-        run: swift test --disable-sandbox
+        run: |
+          swift test --disable-sandbox --force-resolved-versions
+          git diff --exit-code -- Package.resolved
 
   candidate:
     name: Candidate app bundle
     needs: checks
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - name: Check out source
@@ -52,7 +57,9 @@ jobs:
         env:
           LUMANOTE_BUILD_CONFIGURATION: release
           LUMANOTE_BUILD_ARCH: arm64
-        run: ./scripts/build-app.sh
+        run: |
+          ./scripts/build-app.sh
+          git diff --exit-code -- Package.resolved
 
       - name: Validate app bundle
         working-directory: app/QuietNote
