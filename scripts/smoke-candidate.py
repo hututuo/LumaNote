@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import pathlib
+import plistlib
 import subprocess
 import tempfile
 import time
@@ -31,6 +32,10 @@ def validate_archive(manifest_path, source_sha):
     if hashlib.sha256(archive.read_bytes()).hexdigest() != manifest['sha256']:
         raise ValueError('Archive checksum mismatch')
     return manifest, archive
+
+
+def current_note_path(preference_data):
+    return pathlib.Path(plistlib.loads(preference_data)['currentFilePath'])
 
 
 def jxa(code):
@@ -100,7 +105,7 @@ def run(args, report):
                     except subprocess.TimeoutExpired:
                         process.kill()
                         process.wait()
-    current = pathlib.Path(subprocess.check_output(['/usr/bin/defaults', 'read', BUNDLE_ID, 'currentFilePath'], text=True).strip())
+    current = current_note_path(subprocess.check_output(['/usr/bin/defaults', 'export', BUNDLE_ID, '-']))
     if args.scenario == 'legacy':
         if current != legacy or legacy.read_bytes() != fixture:
             raise RuntimeError('Legacy note selection or byte preservation failed')

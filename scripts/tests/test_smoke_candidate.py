@@ -2,6 +2,7 @@ import hashlib
 import importlib.util
 import json
 import pathlib
+import plistlib
 import tempfile
 import unittest
 
@@ -12,6 +13,12 @@ spec.loader.exec_module(smoke)
 
 
 class SmokeSafetyTests(unittest.TestCase):
+    def test_non_ascii_note_path_uses_structured_preferences(self):
+        expected = pathlib.Path('/temporary') / '\u793a\u4f8b\u4fbf\u7b7e.md'
+        for fmt in (plistlib.FMT_XML, plistlib.FMT_BINARY):
+            data = plistlib.dumps({'currentFilePath': str(expected)}, fmt=fmt)
+            self.assertEqual(expected, smoke.current_note_path(data))
+
     def test_local_and_self_hosted_runners_are_rejected(self):
         for env in ({}, {'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'self-hosted', 'RUNNER_OS': 'macOS', 'GITHUB_REPOSITORY': 'hututuo/LumaNote'}):
             with self.assertRaises(RuntimeError):
