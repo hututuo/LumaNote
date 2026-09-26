@@ -1,0 +1,110 @@
+name: LumaNote cloud checks and candidate
+
+on:
+  push:
+    branches:
+      - 'chore/cloud-handoff-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lumanote-cloud-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Swift checks
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Run tests
+        working-directory: app/QuietNote
+        run: swift test --disable-sandbox
+
+  candidate:
+    name: Candidate app bundle
+    needs: checks
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Build release app
+        working-directory: app/QuietNote
+        env:
+          LUMANOTE_BUILD_CONFIGURATION: release
+          LUMANOTE_BUILD_ARCH: arm64
+        run: ./scripts/build-app.sh
+
+      - name: Validate app bundle
+        working-directory: app/QuietNote
+        run: |
+          codesign --verify --deep --strict --verbose=2 build/LumaNote.app
+          codesign -d -r- build/LumaNote.app 2>&1 | grep -F 'identifier "com.hututuo.lumanote"'
+          test -d build/LumaNote.app/Contents/Frameworks/Sparkle.framework
+
+      - name: Package candidate and manifest
+        working-directory: app/QuietNote
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          version="$(plutil -extract CFBundleShortVersionString raw -o - build/LumaNote.app/Contents/Info.plist)"
+          build="$(plutil -extract CFBundleVersion raw -o - build/LumaNote.app/Contents/Info.plist)"
+          archive="LumaNote-${version}-macos-arm64-candidate-${RUN_NUMBER}.zip"
+          ditto -c -k --sequesterRsrc --keepParent build/LumaNote.app "build/${archive}"
+          size="$(stat -f%z "build/${archive}")"
+          sha256="$(shasum -a 256 "build/${archive}" | awk '{print $1}')"
+          signature="$(codesign -dv --verbose=4 build/LumaNote.app 2>&1 | awk -F= '/^Signature=/{print $2; exit}')"
+          xcode="$(xcodebuild -version | tr '\n' ';')"
+          swift_version="$(swift --version | tr '\n' ';')"
+          cat > "build/candidate-manifest-${RUN_NUMBER}.json" <<EOF
+          {
+            "project": "hututuo--LumaNote",
+            "source_sha": "${SOURCE_SHA}",
+            "workflow_run_id": "${RUN_ID}",
+            "workflow_run_number": "${RUN_NUMBER}",
+            "platform": "macOS 14+",
+            "architecture": "arm64",
+            "version": "${version}",
+            "build": "${build}",
+            "filename": "${archive}",
+            "size_bytes": ${size},
+            "sha256": "${sha256}",
+            "signature_status": "${signature:-unknown-ad-hoc-or-toolchain-dependent}",
+            "tests": "swift test --disable-sandbox passed in required checks job",
+            "xcode": "${xcode}",
+            "swift": "${swift_version}",
+            "release_publish": "NOT_RUN"
+          }
+          EOF
+          cat "build/candidate-manifest-${RUN_NUMBER}.json"
+
+      - name: Upload candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumanote-candidate-${{ github.run_number }}
+          path: |
+            app/QuietNote/build/LumaNote-*-candidate-*.zip
+            app/QuietNote/build/candidate-manifest-*.json
+          if-no-files-found: error
+          retention-days: 14
