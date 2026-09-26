@@ -30,7 +30,7 @@ jobs:
 
       - name: Check newly introduced public history
         run: |
-          python3 -m unittest discover -s scripts/tests -p 'test_public_history.py'
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py'
           python3 scripts/check-public-history.py --base "$(git merge-base origin/main HEAD)"
 
       - name: Show toolchain
@@ -121,5 +121,41 @@ jobs:
           path: |
             app/QuietNote/build/LumaNote-*-candidate-*.zip
             app/QuietNote/build/candidate-manifest-*.json
+          if-no-files-found: error
+          retention-days: 14
+
+  startup:
+    name: Packaged startup (${{ matrix.scenario }})
+    needs: candidate
+    runs-on: macos-15
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [fresh, legacy]
+    steps:
+      - name: Check out test harness
+        uses: actions/checkout@v4
+
+      - name: Download packaged candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: lumanote-candidate-${{ github.run_number }}
+          path: ${{ runner.temp }}/candidate
+
+      - name: Launch candidate on disposable profile
+        run: |
+          python3 scripts/smoke-candidate.py \
+            --manifest "$RUNNER_TEMP/candidate/candidate-manifest-${{ github.run_number }}.json" \
+            --source-sha "$GITHUB_SHA" \
+            --scenario "${{ matrix.scenario }}" \
+            --report "$RUNNER_TEMP/smoke-${{ matrix.scenario }}.json"
+
+      - name: Upload bounded startup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumanote-startup-${{ matrix.scenario }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/smoke-${{ matrix.scenario }}.json
           if-no-files-found: error
           retention-days: 14

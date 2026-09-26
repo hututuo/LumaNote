@@ -22,6 +22,12 @@ Both jobs use the macOS 15 hosted image with Xcode 26.0.1 explicitly selected (S
 
 The workflow does not read a signing secret, overwrite the Sparkle feed, create a tag, create a release, or publish an update. A candidate is identified by its exact `GITHUB_SHA` and workflow run ID. The manifest records the app version/build, runner and toolchain, archive size, SHA256, signature state, and test command.
 
+## Packaged startup checks
+
+After packaging, independent disposable macOS runners download the actual archive and verify its source SHA, size and checksum. The startup matrix tests a fresh profile and a synthetic legacy note.md profile. The harness refuses local/self-hosted environments, existing LumaNote processes and existing profile data. It copies the app into a temporary Applications directory without rebuilding or installing developer dependencies.
+
+Each test waits for AppKit launch readiness, observes the process for 15 seconds, requests normal quit, then checks default-note creation or legacy-note byte preservation. Child PATH contains only system tools; update checks are disabled for this run. JSON evidence is uploaded separately. Hosted runners still contain developer tools: this does not prove a machine without them, Gatekeeper download acceptance, rendered layout, physical gestures or a real user's old-data upgrade. The local application is never launched by this harness.
+
 ## Release boundary
 
 Candidate artifacts are retained for 14 days. Download `lumanote-candidate-<run-number>` from the successful Actions run, or use `gh run download <run-id> --repo hututuo/LumaNote --name lumanote-candidate-<run-number>`. Compare the zip size and `shasum -a 256` with the included manifest before extracting. The zip contains the complete app and Sparkle framework; end users do not need Xcode or SwiftPM. It is an ad-hoc-signed, non-notarized test candidate, so Gatekeeper may require explicit approval. Clean-user installation, macOS 14 compatibility and interactive behavior remain separate acceptance checks. Do not overwrite an existing app without approval.
