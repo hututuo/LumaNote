@@ -1,0 +1,23 @@
+diff --git a/appcast-test/appcast.xml b/appcast-test/appcast.xml
+index 6eda2ee..5d235fb 100644
+--- a/appcast-test/appcast.xml
++++ b/appcast-test/appcast.xml
+@@ -4,7 +4,7 @@
+         <title>LumaNote</title>
+         <item>
+             <title>0.1.2</title>
+-            <pubDate>Sat, 13 Jun 2026 22:24:13 +0800</pubDate>
++            <pubDate>Sun, 14 Jun 2026 01:00:35 +0800</pubDate>
+             <sparkle:version>3</sparkle:version>
+             <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
+             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+@@ -62,7 +62,7 @@ codesign -d -r- build/LumaNote.app
+ hdiutil verify build/releases/v0.1.2/LumaNote-0.1.2-macos-arm64.dmg
+ ```
+ ]]></description>
+-            <enclosure url="https://github.com/hututuo/LumaNote/releases/download/v0.1.2/LumaNote-0.1.2-macos-arm64.zip" length="3479005" type="application/octet-stream" sparkle:edSignature="1ZoRp2PvgQmvkeyQzKP+caU40BulF5JTiU9m32+g+8AUwcgC00+3NIS3VDgnxkv4wmkxQBbgK/MZ6HnTY1CVAA=="/>
++            <enclosure url="https://github.com/hututuo/LumaNote/releases/download/v0.1.2/LumaNote-0.1.2-macos-arm64.zip" length="3479005" type="application/octet-stream" sparkle:edSignature="kc87wA2OgnwL/jLSXh5MH+H2WWQj9xaTiHJYrapZcYnHYYd4bIPBddT45FmtPdvURIVdxrgbeTauG3KPTiyFDQ=="/>
+         </item>
+     </channel>
+ </rss>
+\ No newline at end of file
