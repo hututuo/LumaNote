@@ -5,22 +5,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 VERSION="$(plutil -extract CFBundleShortVersionString raw -o - "$ROOT/support/Info.plist")"
-BUILD="$(plutil -extract CFBundleVersion raw -o - "$ROOT/support/Info.plist")"
-ARCHIVE_ARCH="${LUMANOTE_RELEASE_ARCH:-arm64}"
-case "$ARCHIVE_ARCH" in
-  arm64|x86_64) ;;
-  *)
-    echo "Unsupported LUMANOTE_RELEASE_ARCH: $ARCHIVE_ARCH" >&2
-    exit 1
-    ;;
-esac
 APP_DIR="$ROOT/build/LumaNote.app"
 DMG_DIR="$ROOT/build/dmg"
 STAGING_DIR="$DMG_DIR/LumaNote"
 BACKGROUND_PATH="$ROOT/support/dmg-background.png"
 VOLUME_NAME="LumaNote"
-DMG_PATH="$ROOT/build/LumaNote-$VERSION-macos-$ARCHIVE_ARCH.dmg"
-RW_DMG_PATH="$ROOT/build/LumaNote-$VERSION-macos-$ARCHIVE_ARCH-rw.dmg"
+DMG_PATH="$ROOT/build/LumaNote-$VERSION-macos-arm64.dmg"
+RW_DMG_PATH="$ROOT/build/LumaNote-$VERSION-macos-arm64-rw.dmg"
 DMG_WINDOW_LEFT=120
 DMG_WINDOW_TOP=120
 DMG_WINDOW_WIDTH=840
@@ -65,18 +56,6 @@ detach_existing_volumes() {
 
 if [ ! -d "$APP_DIR" ]; then
   echo "Missing $APP_DIR. Run ./scripts/build-app.sh first." >&2
-  exit 1
-fi
-
-APP_VERSION="$(plutil -extract CFBundleShortVersionString raw -o - "$APP_DIR/Contents/Info.plist")"
-APP_BUILD="$(plutil -extract CFBundleVersion raw -o - "$APP_DIR/Contents/Info.plist")"
-APP_ARCHS="$(lipo -archs "$APP_DIR/Contents/MacOS/QuietNote")"
-if [ "$APP_VERSION" != "$VERSION" ] || [ "$APP_BUILD" != "$BUILD" ]; then
-  echo "App bundle version $APP_VERSION ($APP_BUILD) does not match source $VERSION ($BUILD)." >&2
-  exit 1
-fi
-if [ "$APP_ARCHS" != "$ARCHIVE_ARCH" ]; then
-  echo "App architecture '$APP_ARCHS' does not match archive label '$ARCHIVE_ARCH'." >&2
   exit 1
 fi
 
