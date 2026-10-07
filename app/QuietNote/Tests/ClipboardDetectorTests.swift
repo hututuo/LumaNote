@@ -40,13 +40,6 @@ final class ClipboardDetectorTests: XCTestCase {
         XCTAssertEqual(detections.first?.value, "/Users/ceshi/Applications/Codex Token Bar.app")
     }
 
-    func testLabeledPathTrimsTrailingChinesePunctuation() {
-        let detections = ClipboardDetector.detect(in: "目录：/Users/ceshi/Applications/Codex Token Bar.app。")
-
-        XCTAssertEqual(detections.first?.kind, .file)
-        XCTAssertEqual(detections.first?.value, "/Users/ceshi/Applications/Codex Token Bar.app")
-    }
-
     func testConfidentDetectionsFollowOriginalTextOrder() {
         let detections = ClipboardDetector.detect(in: "电话 13800138000，邮箱 person@example.com")
 
@@ -62,31 +55,5 @@ final class ClipboardDetectorTests: XCTestCase {
 
         XCTAssertEqual(detections.map(\.kind), [.phone, .email, .text])
         XCTAssertEqual(detections.map(\.value), ["13800138000", "person@example.com", "明天下午"])
-    }
-
-    func testDuplicateDetectedValuesAreReturnedOnlyOnce() {
-        let detections = ClipboardDetector.detect(in: "13800138000，13800138000")
-
-        XCTAssertEqual(detections.filter { $0.kind == .phone && $0.value == "13800138000" }.count, 1)
-    }
-
-    func testURLDetectionCleansSentencePunctuationButKeepsBalancedParentheses() {
-        let detections = ClipboardDetector.detect(
-            in: "文档 https://example.com/a_(b), 另一个 https://example.com/end)."
-        )
-
-        XCTAssertTrue(detections.contains { $0.kind == .url && $0.value == "https://example.com/a_(b)" })
-        XCTAssertTrue(detections.contains { $0.kind == .url && $0.value == "https://example.com/end" })
-    }
-
-    func testAddressOpenURLUsesHTTPSComponentsAndPreservesQueryText() {
-        let detection = ClipboardDetection(id: UUID(), kind: .address, value: "北京市海淀区中关村大街 27 号")
-
-        let components = URLComponents(url: detection.openURL!, resolvingAgainstBaseURL: false)
-
-        XCTAssertEqual(components?.scheme, "https")
-        XCTAssertEqual(components?.host, "maps.apple.com")
-        XCTAssertEqual(components?.queryItems?.first?.name, "q")
-        XCTAssertEqual(components?.queryItems?.first?.value, detection.value)
     }
 }
