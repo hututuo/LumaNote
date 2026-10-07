@@ -1,5 +1,4 @@
 .DS_Store
-.codegraph/
 
 # Swift build outputs and generated app bundles
 .build/
@@ -23,4 +22,3 @@ DerivedData/
 # Logs and temporary files
 *.log
 *.tmp
-__pycache__/
