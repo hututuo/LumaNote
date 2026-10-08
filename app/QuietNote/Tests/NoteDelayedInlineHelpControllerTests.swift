@@ -7,7 +7,7 @@ final class NoteDelayedInlineHelpControllerTests: XCTestCase {
         let controller = NoteDelayedInlineHelpController()
 
         controller.setHovering(true, delay: 0.01)
-        try await Task.sleep(for: .milliseconds(40))
+        try await waitForHelpToBecomeVisible(controller)
 
         XCTAssertTrue(controller.isVisible)
     }
@@ -28,7 +28,7 @@ final class NoteDelayedInlineHelpControllerTests: XCTestCase {
         let controller = NoteDelayedInlineHelpController()
 
         controller.setHovering(true, delay: 0.01)
-        try await Task.sleep(for: .milliseconds(40))
+        try await waitForHelpToBecomeVisible(controller)
         XCTAssertTrue(controller.isVisible)
 
         controller.setHovering(true, delay: 0.03)
@@ -36,5 +36,15 @@ final class NoteDelayedInlineHelpControllerTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(70))
 
         XCTAssertFalse(controller.isVisible)
+    }
+
+    @MainActor
+    private func waitForHelpToBecomeVisible(_ controller: NoteDelayedInlineHelpController) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+        while !controller.isVisible && clock.now < deadline {
+            let nextPoll = min(clock.now.advanced(by: .milliseconds(5)), deadline)
+            try await clock.sleep(until: nextPoll)
+        }
     }
 }
